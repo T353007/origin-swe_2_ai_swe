@@ -33,3 +33,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Remove search-client.ts if it exists (deleted in commit f3b2209)
+
