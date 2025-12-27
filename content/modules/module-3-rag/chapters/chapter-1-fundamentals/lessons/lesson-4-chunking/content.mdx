@@ -7,30 +7,96 @@ order: 4
 chapterId: "chapter-1-rag-fundamentals"
 moduleId: "module-3-rag"
 prerequisites: ["lesson-3-embeddings-practice"]
-estimatedMinutes: 11
+estimatedMinutes: 16
 tags: ["chunking", "text-splitting", "document-processing"]
 difficulty: "intermediate"
 ---
 
 # Chunking Strategies
 
+> **💡** *Chunking is like cutting a pizza: cut it too big and it's hard to eat (doesn't fit in context windows), cut it too small and you lose the toppings (missing context). Cut it randomly and you get weird slices with toppings split down the middle (broken sentences). But cut it just right, respecting the natural boundaries (sentences, paragraphs, sections), and everyone gets a perfect slice. In RAG, chunking is arguably more important than the embedding model: the best embeddings in the world can't help if your chunks don't make semantic sense.*
+
 ## Overview
 
-Document chunking is critical for RAG quality. Poor chunking leads to incomplete context, irrelevant retrieval, or missing information. This lesson covers effective chunking strategies and common mistakes.
+Document chunking is critical for RAG quality. It's the process of breaking large documents into smaller, manageable pieces that can be embedded, stored in vector databases, and retrieved as relevant context. Poor chunking leads to incomplete context, irrelevant retrieval, missing information, or chunks that don't make semantic sense.
+
+In 2024-2025, chunking has evolved from simple fixed-size splits to sophisticated strategies that respect document structure, semantic boundaries, and use-case requirements. This lesson covers effective chunking strategies, best practices, common mistakes, and how to choose the right chunking approach for your specific documents and use cases.
 
 ## Main Content
 
 ### Why Chunking Matters
 
-Documents are too large to fit in LLM context windows or use as single embedding vectors. Chunking breaks documents into smaller pieces that:
-- Fit within context limits
-- Can be precisely retrieved
-- Contain complete semantic units
+**The Fundamental Problem:**
+
+1. **Context Window Limits**
+   - LLMs have context windows (e.g., 128K tokens for GPT-4o, 200K for Claude 4.5)
+   - Most documents exceed these limits (especially books, research papers, codebases)
+   - Need to break documents into smaller pieces
+
+2. **Embedding Quality**
+   - Very long texts create embeddings that average out meaning
+   - Shorter, focused chunks create more precise embeddings
+   - Better embeddings = better retrieval quality
+
+3. **Retrieval Precision**
+   - Smaller chunks allow more precise retrieval
+   - Large chunks may contain both relevant and irrelevant information
+   - Precise retrieval improves answer quality
+
+4. **Token Costs**
+   - Sending entire documents to LLMs is expensive
+   - Chunking allows selective retrieval of only relevant pieces
+   - Reduces token usage and costs
+
+**What Good Chunking Achieves:**
+
+- **Fits within context limits**: Chunks are small enough to include in prompts
+- **Precise retrieval**: Chunks contain focused, relevant information
+- **Complete semantic units**: Chunks respect sentence, paragraph, or section boundaries
+- **Preserves context**: Overlap ensures no information is lost at boundaries
+- **Maintains structure**: Metadata preserves document structure and relationships
 
 ### Chunking Strategies
 
-#### 1. Fixed-Size Chunking
-Simple approach: split by character count with overlap.
+#### 1. Fixed-Size Chunking (Character-Based)
+
+Simple approach: split by character or token count with overlap.
+
+```python
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,           # Characters per chunk
+    chunk_overlap=200,          # Overlap between chunks
+    length_function=len,        # How to measure length
+    separators=["\n\n", "\n", " ", ""]  # Try to split at these boundaries first
+)
+chunks = splitter.split_text(text)
+```
+
+**How it works:**
+- Tries to split at paragraph breaks first (`\n\n`)
+- Then at line breaks (`\n`)
+- Then at spaces (` `)
+- Finally at character level if needed
+
+**Pros:**
+- Simple to implement and understand
+- Predictable chunk sizes
+- Fast processing
+- Works for any text format
+
+**Cons:**
+- May split sentences or paragraphs mid-way
+- Loses document structure
+- Doesn't respect semantic boundaries
+- Can create chunks with incomplete thoughts
+
+**Best for:** Quick prototypes, uniform documents, when structure doesn't matter
+
+#### 2. Recursive Character Text Splitter (LangChain Default)
+
+More intelligent fixed-size chunking that tries to preserve structure.
 
 ```python
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -38,33 +104,70 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 splitter = RecursiveCharacterTextSplitter(
     chunk_size=1000,
     chunk_overlap=200,
-    length_function=len
+    separators=[
+        "\n\n\n",   # Major sections
+        "\n\n",     # Paragraphs
+        "\n",       # Lines
+        ". ",       # Sentences
+        " ",        # Words
+        ""          # Characters (last resort)
+    ]
 )
-chunks = splitter.split_text(text)
+chunks = splitter.split_documents(documents)
 ```
 
-**Pros**: Simple, predictable
-**Cons**: May split sentences/paragraphs, loses structure
+**How it works:**
+- Tries separators in order of preference
+- Prefers splitting at natural boundaries
+- Falls back to smaller separators if needed
 
-#### 2. Semantic Chunking
-Split at natural semantic boundaries (sentences, paragraphs).
+**Pros:**
+- Tries to respect structure
+- Better than naive fixed-size
+- Works well for most documents
+- Fast and efficient
+
+**Cons:**
+- Still may split at awkward points
+- Not truly semantic
+- Fixed size limits flexibility
+
+**Best for:** General-purpose RAG, most document types, good default choice
+
+#### 3. Sentence-Based Chunking
+
+Split at sentence boundaries for natural semantic units.
 
 ```python
 from langchain.text_splitter import SentenceTransformersTokenTextSplitter
 
 splitter = SentenceTransformersTokenTextSplitter(
     model_name="sentence-transformers/all-MiniLM-L6-v2",
-    chunk_size=500,
+    chunk_size=500,        # Tokens (not characters)
     chunk_overlap=50
 )
 chunks = splitter.split_text(text)
 ```
 
-**Pros**: Preserves semantic meaning
-**Cons**: More complex, may create uneven chunk sizes
+**Pros:**
+- Preserves sentence boundaries
+- More semantic than character-based
+- Better for embedding quality
+- Respects natural language structure
 
-#### 3. Document-Aware Chunking
-Respect document structure (headers, sections, code blocks).
+**Cons:**
+- More complex (requires sentence transformer model)
+- Uneven chunk sizes (sentences vary in length)
+- Slower processing
+- May create very small or large chunks
+
+**Best for:** Natural language documents, when sentence structure matters
+
+#### 4. Document-Structure-Aware Chunking
+
+Respect document structure (headers, sections, code blocks, lists).
+
+**Markdown Chunking:**
 
 ```python
 from langchain.text_splitter import MarkdownHeaderTextSplitter
@@ -79,124 +182,742 @@ splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
 chunks = splitter.split_text(markdown_text)
 ```
 
-**Pros**: Preserves document structure
-**Cons**: Only works for structured formats
-
-### Chunk Size Guidelines
-
-**Small chunks (200-500 tokens):**
-- Precise retrieval
-- Good for fact extraction
-- More chunks to manage
-- May lose context
-
-**Medium chunks (500-1000 tokens):**
-- Balance of precision and context
-- Good default choice
-- Works for most use cases
-
-**Large chunks (1000-2000 tokens):**
-- More context per chunk
-- Good for complex reasoning
-- Less precise retrieval
-- Higher token costs
-
-### Overlap Strategy
-
-Overlap prevents information loss at chunk boundaries:
+**HTML/XML Chunking:**
 
 ```python
-# Good overlap: 10-20% of chunk size
-chunk_size = 1000
-chunk_overlap = 150  # 15% overlap
+from langchain.text_splitter import HTMLHeaderTextSplitter
 
-# Too little overlap: information loss at boundaries
-# Too much overlap: duplicate content, wasted tokens
+headers_to_split_on = [
+    ("h1", "Header 1"),
+    ("h2", "Header 2"),
+    ("h3", "Header 3"),
+]
+
+splitter = HTMLHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+chunks = splitter.split_text(html_text)
 ```
 
-## Code Examples
+**Pros:**
+- Preserves document structure
+- Maintains hierarchical relationships
+- Includes section metadata
+- Better for structured documents
 
-Advanced chunking with metadata:
+**Cons:**
+- Only works for structured formats (Markdown, HTML, etc.)
+- More complex implementation
+- Requires format-specific parsers
+
+**Best for:** Documentation, structured content, markdown/HTML documents
+
+#### 5. Semantic Chunking (Advanced)
+
+Split based on semantic similarity using embeddings.
 
 ```python
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from typing import List, Dict
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_openai import OpenAIEmbeddings
 
-class MetadataTextSplitter:
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
-        self.splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap
-        )
-    
-    def split_with_metadata(
-        self, 
-        text: str, 
-        metadata: Dict,
-        doc_id: str
-    ) -> List[Dict]:
-        """Split text and preserve metadata for each chunk."""
-        chunks = self.splitter.split_text(text)
-        
-        chunk_docs = []
-        for i, chunk in enumerate(chunks):
-            chunk_docs.append({
-                "id": f"{doc_id}-chunk-{i}",
-                "text": chunk,
-                "chunk_index": i,
-                "total_chunks": len(chunks),
-                **metadata  # Preserve original metadata
-            })
-        
-        return chunk_docs
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
-# Usage
-splitter = MetadataTextSplitter()
-chunks = splitter.split_with_metadata(
-    text="Your document text...",
-    metadata={"source": "document.pdf", "page": 1},
-    doc_id="doc-123"
+splitter = SemanticChunker(
+    embeddings=embeddings,
+    breakpoint_threshold_type="percentile",  # or "standard_deviation"
+    breakpoint_threshold_amount=80  # Percentile threshold
 )
+chunks = splitter.create_documents([text])
 ```
 
-Handling code documents:
+**How it works:**
+- Embeds sentences/paragraphs
+- Calculates similarity between adjacent segments
+- Splits where similarity drops significantly (semantic boundary)
+- Groups similar content together
+
+**Pros:**
+- Most semantically meaningful chunks
+- Respects actual content boundaries
+- Better retrieval quality
+- Adaptive to document content
+
+**Cons:**
+- Most complex and slowest
+- Requires embedding model
+- More expensive (embedding calls)
+- Harder to predict chunk sizes
+
+**Best for:** High-quality RAG, when retrieval quality is critical, research/documentation
+
+#### 6. Code-Aware Chunking
+
+Specialized chunking for code documents.
 
 ```python
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-# Code-aware splitting
 code_splitter = RecursiveCharacterTextSplitter(
     chunk_size=800,
     chunk_overlap=100,
     separators=[
-        "\n\n\n",  # Major sections
-        "\n\n",    # Functions/classes
-        "\n",      # Lines
-        " ",       # Words
-        ""         # Characters
-    ]
+        "\n\n\n",      # Major sections
+        "\n\n",        # Functions/classes
+        "\n",          # Lines
+        " ",           # Words
+        ""             # Characters
+    ],
+    language="python"  # Language-specific splitting
 )
+```
+
+**Pros:**
+- Respects code structure
+- Preserves function/class boundaries
+- Better for code search and Q&A
+
+**Cons:**
+- Language-specific
+- May not work well for mixed content
+
+**Best for:** Code documentation, codebase Q&A, technical documentation with code
+
+### Chunk Size Guidelines
+
+Chunk size significantly affects retrieval quality, context completeness, and costs. There's no one-size-fits-all answer; the right size depends on your documents and use case.
+
+#### Small Chunks (200-500 tokens / 150-400 words)
+
+**Characteristics:**
+- Very precise retrieval
+- Can pinpoint specific information
+- More granular results
+
+**Pros:**
+- High precision: retrieves only relevant information
+- Good for fact extraction and Q&A
+- Better for embedding quality (focused, specific)
+- Lower token costs per chunk
+
+**Cons:**
+- May lose important context
+- More chunks to manage and search
+- May miss information that spans multiple chunks
+- Higher number of chunks increases vector DB size
+
+**Best for:**
+- Fact-based Q&A
+- Specific information retrieval
+- When precision is more important than context
+- Short-form content (tweets, snippets, FAQs)
+
+#### Medium Chunks (500-1000 tokens / 400-800 words)
+
+**Characteristics:**
+- Balance of precision and context
+- Most common default choice
+- Good compromise
+
+**Pros:**
+- Balanced precision and context
+- Works well for most use cases
+- Good default starting point
+- Reasonable token costs
+
+**Cons:**
+- May not be optimal for all use cases
+- Might be too small for complex reasoning
+- Might be too large for precise fact extraction
+
+**Best for:**
+- General-purpose RAG
+- Most document types
+- When unsure, start here
+- Mixed content (documents with various information types)
+
+#### Large Chunks (1000-2000 tokens / 800-1600 words)
+
+**Characteristics:**
+- More context per chunk
+- Better for complex information
+- Less precise but more complete
+
+**Pros:**
+- More context per retrieval
+- Good for complex reasoning tasks
+- Better for documents where context matters
+- Fewer chunks to manage
+
+**Cons:**
+- Less precise retrieval (may include irrelevant info)
+- Higher token costs per chunk
+- May exceed optimal embedding length
+- May retrieve chunks with only partial relevance
+
+**Best for:**
+- Complex reasoning tasks
+- Documents where context is critical
+- Long-form content (articles, essays, reports)
+- When completeness is more important than precision
+
+#### Choosing Chunk Size
+
+**Decision factors:**
+
+1. **Document Type**
+   - Technical docs: 500-800 tokens (medium)
+   - Articles/Blogs: 800-1200 tokens (medium-large)
+   - Code: 400-800 tokens (small-medium)
+   - Books: 1000-2000 tokens (large)
+
+2. **Use Case**
+   - Fact extraction: 200-500 tokens (small)
+   - General Q&A: 500-1000 tokens (medium)
+   - Complex reasoning: 1000-2000 tokens (large)
+
+3. **Context Window**
+   - With 128K context (GPT-4o): Can afford larger chunks
+   - With smaller contexts: Need smaller chunks
+
+4. **Embedding Model**
+   - Some models work better with specific chunk sizes
+   - Test with your embedding model
+
+**Recommendation:** Start with 500-1000 tokens, test retrieval quality, then adjust based on results.
+
+### Overlap Strategy
+
+Overlap is crucial for preventing information loss at chunk boundaries. When chunks are split, information at the boundaries can be lost. Overlap ensures continuity.
+
+**Why Overlap Matters:**
+
+1. **Prevents Information Loss**
+   - Sentences/paragraphs split at boundaries aren't lost
+   - Context is preserved across chunk boundaries
+   - Ensures complete information retrieval
+
+2. **Improves Retrieval Quality**
+   - Important information near boundaries is more likely to be retrieved
+   - Reduces edge cases where information is missed
+   - Better for queries that span chunk boundaries
+
+3. **Maintains Context**
+   - Overlapping content helps maintain context
+   - Better understanding of relationships between chunks
+
+**Overlap Guidelines:**
+
+```python
+# Good overlap: 10-20% of chunk size
+chunk_size = 1000
+chunk_overlap = 150  # 15% overlap - good default
+
+# Too little overlap (< 10%): Information loss at boundaries
+chunk_overlap = 50   # 5% - too small, information may be lost
+
+# Too much overlap (> 30%): Wasted tokens, duplicate content
+chunk_overlap = 400  # 40% - too much, inefficient
+
+# Optimal range: 10-20%
+chunk_overlap = chunk_size * 0.15  # 15% - recommended
+```
+
+**Overlap Best Practices:**
+
+1. **Default: 10-20% of chunk size**
+   - 15% is a good starting point
+   - Balances information preservation and efficiency
+
+2. **Adjust based on content**
+   - Dense content (technical docs): May need more overlap (20%)
+   - Flowing content (articles): Less overlap may suffice (10%)
+   - Structured content (code): Overlap may matter less
+
+3. **Consider token costs**
+   - More overlap = more tokens stored
+   - More overlap = more tokens in retrieved context
+   - Balance preservation with efficiency
+
+4. **Test and measure**
+   - Try different overlap percentages
+   - Measure retrieval quality
+   - Choose optimal overlap for your use case
+
+**Example:**
+
+```python
+# Calculate optimal overlap
+def calculate_overlap(chunk_size: int, overlap_percentage: float = 0.15) -> int:
+    """Calculate overlap based on chunk size and percentage."""
+    return int(chunk_size * overlap_percentage)
+
+chunk_size = 1000
+overlap = calculate_overlap(chunk_size, 0.15)  # 150 tokens
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=chunk_size,
+    chunk_overlap=overlap
+)
+```
+
+## Code Examples
+
+### Production-Ready Chunking with Metadata
+
+Complete chunking system with metadata preservation:
+
+```python
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.schema import Document
+from typing import List, Dict, Any
+import hashlib
+
+class ProductionChunker:
+    """Production-ready chunker with metadata management."""
+    
+    def __init__(
+        self,
+        chunk_size: int = 1000,
+        chunk_overlap: int = 200,
+        length_function=None
+    ):
+        self.splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            length_function=length_function or len,
+            separators=["\n\n", "\n", ". ", " ", ""]
+        )
+    
+    def chunk_document(
+        self,
+        text: str,
+        metadata: Dict[str, Any],
+        doc_id: str = None
+    ) -> List[Document]:
+        """
+        Chunk document and preserve metadata.
+        
+        Args:
+            text: Document text
+            metadata: Document metadata (source, author, date, etc.)
+            doc_id: Optional document ID (generated if not provided)
+        
+        Returns:
+            List of Document objects with metadata
+        """
+        if doc_id is None:
+            doc_id = hashlib.md5(text.encode()).hexdigest()[:8]
+        
+        # Split text into chunks
+        chunks = self.splitter.split_text(text)
+        
+        # Create Document objects with metadata
+        documents = []
+        for i, chunk in enumerate(chunks):
+            chunk_metadata = {
+                **metadata,  # Preserve original metadata
+                "chunk_id": f"{doc_id}-chunk-{i}",
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                "doc_id": doc_id
+            }
+            documents.append(Document(page_content=chunk, metadata=chunk_metadata))
+        
+        return documents
+    
+    def chunk_documents(
+        self,
+        texts: List[str],
+        metadatas: List[Dict[str, Any]] = None
+    ) -> List[Document]:
+        """Chunk multiple documents."""
+        if metadatas is None:
+            metadatas = [{}] * len(texts)
+        
+        all_documents = []
+        for text, metadata in zip(texts, metadatas):
+            documents = self.chunk_document(text, metadata)
+            all_documents.extend(documents)
+        
+        return all_documents
+
+# Usage
+chunker = ProductionChunker(chunk_size=1000, chunk_overlap=200)
+
+documents = chunker.chunk_document(
+    text="Your document text here...",
+    metadata={
+        "source": "document.pdf",
+        "page": 1,
+        "author": "John Doe",
+        "date": "2024-01-15",
+        "category": "technical"
+    },
+    doc_id="doc-123"
+)
+
+print(f"Created {len(documents)} chunks")
+for doc in documents:
+    print(f"Chunk {doc.metadata['chunk_index']}: {doc.metadata['chunk_id']}")
+```
+
+### Code-Aware Chunking
+
+Specialized chunking for code and technical documentation:
+
+```python
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.schema import Document
+
+class CodeChunker:
+    """Chunker optimized for code documents."""
+    
+    def __init__(self, language: str = "python"):
+        # Language-specific separators
+        separators_map = {
+            "python": ["\n\n\n", "\n\n", "\nclass ", "\ndef ", "\n", " ", ""],
+            "javascript": ["\n\n\n", "\n\n", "\nclass ", "\nfunction ", "\n", " ", ""],
+            "markdown": ["\n\n\n", "\n\n", "\n# ", "\n## ", "\n", " ", ""],
+        }
+        
+        separators = separators_map.get(language, ["\n\n", "\n", " ", ""])
+        
+        self.splitter = RecursiveCharacterTextSplitter(
+            chunk_size=800,      # Smaller for code
+            chunk_overlap=100,   # Less overlap for code
+            separators=separators
+        )
+    
+    def chunk_code(self, code: str, metadata: Dict[str, Any] = None) -> List[Document]:
+        """Chunk code while preserving structure."""
+        chunks = self.splitter.split_text(code)
+        
+        documents = []
+        for i, chunk in enumerate(chunks):
+            chunk_metadata = {
+                **(metadata or {}),
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                "type": "code"
+            }
+            documents.append(Document(page_content=chunk, metadata=chunk_metadata))
+        
+        return documents
+
+# Usage
+code_chunker = CodeChunker(language="python")
+
+python_code = """
+class MyClass:
+    def method1(self):
+        pass
+    
+    def method2(self):
+        pass
+"""
+
+chunks = code_chunker.chunk_code(python_code, {"file": "example.py"})
+```
+
+### Markdown-Aware Chunking
+
+Chunking that respects Markdown structure:
+
+```python
+from langchain.text_splitter import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+from langchain.schema import Document
+
+class MarkdownChunker:
+    """Chunker for Markdown documents."""
+    
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+        self.header_splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=[
+                ("#", "Header 1"),
+                ("##", "Header 2"),
+                ("###", "Header 3"),
+            ]
+        )
+        self.recursive_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap
+        )
+    
+    def chunk_markdown(self, markdown: str, metadata: Dict[str, Any] = None) -> List[Document]:
+        """
+        Chunk markdown while preserving header structure.
+        
+        Returns chunks with header metadata.
+        """
+        # First split by headers
+        header_chunks = self.header_splitter.split_text(markdown)
+        
+        # Then recursively split large sections
+        all_chunks = []
+        for header_chunk in header_chunks:
+            if len(header_chunk.page_content) > 1000:
+                # Split large sections further
+                sub_chunks = self.recursive_splitter.split_text(header_chunk.page_content)
+                for sub_chunk in sub_chunks:
+                    all_chunks.append(Document(
+                        page_content=sub_chunk,
+                        metadata={**(metadata or {}), **header_chunk.metadata}
+                    ))
+            else:
+                all_chunks.append(Document(
+                    page_content=header_chunk.page_content,
+                    metadata={**(metadata or {}), **header_chunk.metadata}
+                ))
+        
+        return all_chunks
+
+# Usage
+markdown_chunker = MarkdownChunker()
+
+markdown_text = """
+# Main Title
+
+## Section 1
+Content here...
+
+## Section 2
+More content...
+"""
+
+chunks = markdown_chunker.chunk_markdown(markdown_text, {"source": "docs.md"})
+```
+
+### Adaptive Chunking
+
+Choose chunking strategy based on document type:
+
+```python
+from typing import List, Dict, Any
+from langchain.schema import Document
+
+class AdaptiveChunker:
+    """Adaptive chunker that chooses strategy based on document type."""
+    
+    def __init__(self):
+        self.code_chunker = CodeChunker()
+        self.markdown_chunker = MarkdownChunker()
+        self.general_chunker = ProductionChunker()
+    
+    def chunk(
+        self,
+        text: str,
+        doc_type: str = "general",
+        metadata: Dict[str, Any] = None
+    ) -> List[Document]:
+        """
+        Chunk text using appropriate strategy.
+        
+        Args:
+            text: Document text
+            doc_type: "code", "markdown", "general"
+            metadata: Document metadata
+        """
+        if doc_type == "code":
+            return self.code_chunker.chunk_code(text, metadata)
+        elif doc_type == "markdown":
+            return self.markdown_chunker.chunk_markdown(text, metadata)
+        else:
+            return self.general_chunker.chunk_document(text, metadata or {}, None)
+
+# Usage
+adaptive = AdaptiveChunker()
+
+# Chunk code
+code_chunks = adaptive.chunk(code_text, doc_type="code", metadata={"file": "script.py"})
+
+# Chunk markdown
+md_chunks = adaptive.chunk(md_text, doc_type="markdown", metadata={"source": "docs.md"})
+
+# Chunk general text
+general_chunks = adaptive.chunk(general_text, doc_type="general", metadata={"source": "article.txt"})
 ```
 
 ## Common Mistakes
 
-1. **Chunks too large**: Exceeds context window, imprecise retrieval
-2. **Chunks too small**: Loses context, fragments information
-3. **No overlap**: Information lost at boundaries
-4. **Too much overlap**: Wasted tokens, duplicate content
-5. **Ignoring structure**: Splitting in middle of sentences/paragraphs
-6. **Not preserving metadata**: Makes it hard to trace sources
-7. **Same chunk size for all docs**: Different documents need different strategies
-8. **Overlapping chunks incorrectly**: Creates duplicates in vector DB
+#### 1. Chunks too large
+Chunks that are too large exceed context windows, reduce retrieval precision, and waste tokens. Large chunks may contain both relevant and irrelevant information, making it harder to find specific answers. They also create embeddings that average out meaning, reducing embedding quality. Always consider your context window size and use case when choosing chunk size. For most use cases, 500-1000 tokens is optimal.
+
+#### 2. Chunks too small
+Chunks that are too small lose important context and fragment information. Very small chunks may miss relationships between concepts, lack necessary context for understanding, and require more chunks to be retrieved to answer questions. This increases token costs and reduces answer quality. Don't optimize for maximum precision at the expense of context. Balance is key.
+
+#### 3. No overlap
+Splitting chunks without overlap causes information loss at boundaries. Sentences or paragraphs split at chunk boundaries may be incomplete, losing critical context. Overlap ensures continuity and prevents edge cases where important information is missed. Always use 10-20% overlap as a default, adjusting based on your content and testing results.
+
+#### 4. Too much overlap
+Excessive overlap (more than 30%) wastes tokens, creates duplicate content, and increases storage costs. Large overlaps mean the same information is stored multiple times, increasing vector database size and retrieval redundancy. More overlap also means more tokens in retrieved context, increasing costs. Find the sweet spot: 10-20% overlap is usually optimal.
+
+#### 5. Ignoring document structure
+Splitting documents without respecting structure (headers, paragraphs, sections) creates chunks that don't make semantic sense. Chunks may start or end mid-thought, breaking natural boundaries. This reduces embedding quality and makes retrieval less effective. Use structure-aware chunking for structured documents (Markdown, HTML, code). Respect natural boundaries when possible.
+
+#### 6. Not preserving metadata
+Chunking without preserving metadata makes it impossible to trace sources, filter by document properties, or provide citations. Metadata (source, author, date, section, etc.) is crucial for production RAG systems. Always include metadata with chunks. This enables source attribution, filtering, and debugging. Implement metadata preservation from the start.
+
+#### 7. Same chunk size for all documents
+Using the same chunk size for all document types ignores their unique characteristics. Code needs different chunking than prose, technical docs need different sizes than articles, and structured content needs different strategies than unstructured. Adapt chunking strategy to document type. Test different approaches and choose the best for each document type.
+
+#### 8. Overlapping chunks incorrectly
+Incorrect overlap implementation can create duplicates in vector databases, waste storage, and confuse retrieval. Overlap should be implemented correctly at the chunking stage, not by duplicating entire chunks. Use proper overlap in your text splitter, not by manually duplicating chunks. This ensures clean, efficient chunking with proper boundaries.
+
+#### 9. Not testing chunk quality
+Deploying chunking without testing quality is like deploying code without tests. You don't know if chunks make sense, if retrieval works well, or if chunk size is optimal. Always test chunking: inspect sample chunks, measure retrieval quality, compare different strategies, and iterate based on results. Testing is essential for finding the optimal chunking strategy.
+
+#### 10. Optimizing for the wrong metric
+Optimizing chunking for the wrong metric (e.g., number of chunks, average chunk size) instead of retrieval quality leads to poor results. The goal isn't to minimize chunks or maximize chunk size; it's to maximize retrieval and answer quality. Always optimize for end-to-end metrics: retrieval precision, answer quality, user satisfaction. Don't optimize for intermediate metrics that don't matter.
 
 ## Exercise
 
-1. Test different chunk sizes (200, 500, 1000, 2000 tokens)
-2. Measure retrieval quality with each size
-3. Experiment with overlap percentages (0%, 10%, 20%)
-4. Implement structure-aware chunking for your document types
-5. Compare fixed vs semantic chunking quality
-6. Measure token costs for different chunking strategies
+Complete these exercises to master chunking strategies. These skills are essential for building production RAG systems with high-quality retrieval.
+
+#### 1. Test different chunk sizes
+
+Experiment with various chunk sizes:
+
+```python
+def test_chunk_sizes_exercise(text: str):
+    """TODO: Test different chunk sizes"""
+    # TODO: Try chunk sizes: 200, 500, 1000, 2000 tokens/characters
+    # TODO: Generate chunks for each size
+    # TODO: Inspect sample chunks (are they complete? make sense?)
+    # TODO: Count number of chunks for each size
+    # TODO: Analyze chunk quality visually
+    pass
+```
+
+#### 2. Measure retrieval quality
+
+Evaluate how chunk size affects retrieval:
+
+```python
+def measure_retrieval_quality_exercise(text: str, queries: List[str]):
+    """TODO: Measure retrieval quality for different chunk sizes"""
+    # TODO: Create chunks with different sizes
+    # TODO: Generate embeddings for chunks
+    # TODO: Test retrieval for each query with each chunk size
+    # TODO: Measure precision, recall, or relevance scores
+    # TODO: Identify optimal chunk size for your use case
+    pass
+```
+
+#### 3. Experiment with overlap
+
+Test different overlap percentages:
+
+```python
+def test_overlap_exercise(text: str, chunk_size: int):
+    """TODO: Test different overlap percentages"""
+    # TODO: Try overlap percentages: 0%, 5%, 10%, 15%, 20%, 30%
+    # TODO: Generate chunks for each overlap percentage
+    # TODO: Inspect boundary chunks (is information preserved?)
+    # TODO: Measure duplicate content percentage
+    # TODO: Test retrieval quality for each overlap
+    # TODO: Find optimal overlap percentage
+    pass
+```
+
+#### 4. Implement structure-aware chunking
+
+Build chunkers for structured documents:
+
+```python
+def structure_aware_chunking_exercise(markdown_text: str, code_text: str):
+    """TODO: Implement structure-aware chunking"""
+    # TODO: Implement Markdown chunker (respect headers)
+    # TODO: Implement code chunker (respect functions/classes)
+    # TODO: Compare with fixed-size chunking
+    # TODO: Measure quality improvements
+    # TODO: Test with your actual document types
+    pass
+```
+
+#### 5. Compare chunking strategies
+
+Evaluate different chunking approaches:
+
+```python
+def compare_strategies_exercise(text: str):
+    """TODO: Compare different chunking strategies"""
+    # TODO: Implement fixed-size chunking
+    # TODO: Implement sentence-based chunking
+    # TODO: Implement semantic chunking (if possible)
+    # TODO: Test retrieval quality for each strategy
+    # TODO: Compare token costs
+    # TODO: Identify best strategy for your use case
+    pass
+```
+
+#### 6. Build production chunker
+
+Create a production-ready chunking system:
+
+```python
+class ProductionChunkerExercise:
+    """TODO: Build production chunker"""
+    
+    def __init__(self):
+        """TODO: Initialize with configurable chunk size and overlap"""
+        pass
+    
+    def chunk(self, text: str, metadata: Dict) -> List[Document]:
+        """TODO: Chunk with metadata preservation"""
+        # TODO: Split text into chunks
+        # TODO: Preserve all metadata
+        # TODO: Add chunk-specific metadata (index, ID, etc.)
+        # TODO: Return Document objects
+        pass
+    
+    def chunk_batch(self, texts: List[str], metadatas: List[Dict]) -> List[Document]:
+        """TODO: Chunk multiple documents efficiently"""
+        pass
+```
+
+#### 7. Measure token costs
+
+Calculate costs for different strategies:
+
+```python
+def measure_costs_exercise(text: str):
+    """TODO: Measure token costs for different chunking strategies"""
+    # TODO: Calculate tokens for different chunk sizes
+    # TODO: Account for overlap (duplicate tokens)
+    # TODO: Calculate storage costs (vector DB)
+    # TODO: Calculate retrieval costs (tokens in context)
+    # TODO: Compare total costs
+    # TODO: Find cost-effective strategy
+    pass
+```
+
+#### 8. Test with your documents
+
+Apply chunking to your actual documents:
+
+```python
+def test_with_your_docs_exercise(documents: List[str]):
+    """TODO: Test chunking with your actual documents"""
+    # TODO: Load your documents (PDFs, markdown, text files)
+    # TODO: Try different chunking strategies
+    # TODO: Inspect chunks (do they make sense?)
+    # TODO: Test retrieval with real queries
+    # TODO: Measure end-to-end quality
+    # TODO: Choose optimal strategy
+    pass
+```
+
+#### 9. Reflection questions
+
+After completing the exercises, answer these questions:
+- How do you choose the right chunk size for your use case?
+- What's the trade-off between chunk size and retrieval precision?
+- Why is overlap important, and how much should you use?
+- When should you use structure-aware chunking vs fixed-size?
+- How do you preserve metadata when chunking documents?
+- What metrics should you use to evaluate chunking quality?
+- How do chunk size and overlap affect token costs?
+- How do you adapt chunking strategy to different document types?
+- What's the difference between character-based and token-based chunking?
+- How do you test and optimize chunking for production use?
 
 ## Tools & Resources
 

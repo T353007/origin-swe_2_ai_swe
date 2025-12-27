@@ -7,114 +7,776 @@ order: 2
 chapterId: "chapter-2-core-concepts"
 moduleId: "module-1-fundamentals"
 prerequisites: ["lesson-1-introduction"]
-estimatedMinutes: 10
+estimatedMinutes: 15
 tags: ["prompt-engineering", "prompts", "best-practices"]
 difficulty: "intermediate"
 ---
 
 # Prompt Engineering Fundamentals
 
+> **💡** *Prompt engineering is like giving directions to someone who's incredibly smart but takes everything literally—be clear, be specific, and for the love of all that's good, include examples. A bad prompt is like asking "fix my code" when you meant "review this Python function for security vulnerabilities and return a JSON list of issues." The model will try its best, but you'll get what you asked for, not what you wanted.*
+
 ## Overview
 
-Prompt engineering is the practice of designing inputs (prompts) to get desired outputs from LLMs. Good prompts are clear, specific, and include examples when needed.
+Prompt engineering is the practice of designing inputs (prompts) to get desired outputs from LLMs. It's both an art and a science—good prompts are clear, specific, structured, and include examples when needed. The difference between a good prompt and a bad prompt can be the difference between getting exactly what you need and getting something completely unusable.
+
+In 2024-2025, prompt engineering has become a critical skill for AI engineers. Modern models like GPT-4o are incredibly capable, but they require well-crafted prompts to perform consistently. A poorly written prompt can waste API calls, produce low-quality outputs, and lead to production issues. This lesson covers the fundamentals you need to write production-ready prompts.
 
 ## Main Content
 
 ### Prompt Structure
 
-A good prompt typically includes:
+A well-structured prompt follows a consistent pattern that guides the model to produce the desired output. While not every prompt needs all components, understanding the structure helps you build effective prompts.
 
-1. **Role/Context**: Set the AI's role
-2. **Task**: Clear description of what to do
-3. **Format**: Specify output format
-4. **Examples**: Few-shot examples (optional)
-5. **Constraints**: Rules and limitations
+#### 1. Role/Context (System Message)
+
+Set the AI's role and context to guide its behavior:
+
+```
+You are an expert Python developer specializing in security code reviews.
+```
+
+**Why it matters:**
+- Sets expectations for tone and expertise level
+- Helps the model focus on relevant knowledge
+- Useful for maintaining consistency across multiple interactions
+
+**Best practices:**
+- Be specific about expertise level ("expert", "senior", "beginner-friendly")
+- Include domain specialization when relevant
+- Keep it concise (1-2 sentences)
+
+#### 2. Task Description
+
+Clearly describe what you want the model to do:
+
+```
+Review this Python function for security vulnerabilities, focusing on:
+- SQL injection risks
+- Input validation issues
+- Authentication/authorization flaws
+```
+
+**Why it matters:**
+- Vague tasks lead to vague outputs
+- Specific tasks get specific, actionable results
+- Helps the model prioritize what to focus on
+
+**Best practices:**
+- Use action verbs ("review", "extract", "classify", "generate")
+- Break complex tasks into sub-tasks
+- Specify what aspects to focus on
+
+#### 3. Input Data/Context
+
+Provide the data the model should process:
+
+```
+Function to review:
+```python
+def login(username, password):
+    query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
+    return db.execute(query)
+```
+```
+
+**Why it matters:**
+- The model needs the actual data to process
+- Format the input clearly for easy parsing
+- Use code blocks for code, structured formats for data
+
+**Best practices:**
+- Use markdown code blocks for code
+- Clearly separate different inputs
+- Include relevant metadata when helpful
+
+#### 4. Output Format
+
+Specify exactly how you want the output structured:
+
+````
+Return your findings as a JSON array with this structure:
+
+```json
+{
+  "vulnerabilities": [
+    {
+      "type": "SQL injection",
+      "severity": "critical",
+      "line": 2,
+      "description": "...",
+      "fix": "..."
+    }
+  ]
+}
+```
+````
+
+**Why it matters:**
+- Consistent formats are easier to parse programmatically
+- Reduces need for post-processing
+- Prevents format inconsistencies
+
+**Best practices:**
+- Use structured formats (JSON, XML, YAML) for programmatic use
+- Show the exact structure you expect
+- Include examples of valid outputs
+
+#### 5. Examples (Few-Shot Learning)
+
+Provide examples of good inputs and outputs:
+
+````
+Example:
+Input: "def get_user(id): return db.execute(f'SELECT * FROM users WHERE id=' + id)"
+Output: 
+
+```json
+{"vulnerabilities": [{"type": "SQL injection", "severity": "critical", ...}]}
+```
+
+Now review the function above.
+````
+
+**Why it matters:**
+- Examples teach the model the desired format and style
+- Especially helpful for nuanced tasks
+- Reduces ambiguity
+
+**Best practices:**
+- Use 2-4 examples for few-shot learning
+- Make examples representative of the task
+- Include edge cases when relevant
+
+#### 6. Constraints and Rules
+
+Specify limitations, rules, or requirements:
+
+```
+Constraints:
+- Only report critical and high severity issues
+- Provide specific line numbers
+- Suggest concrete fixes
+- Maximum 10 issues per review
+```
+
+**Why it matters:**
+- Prevents unwanted outputs (too long, wrong focus, etc.)
+- Sets boundaries for the model
+- Ensures outputs meet your requirements
+
+**Best practices:**
+- List constraints explicitly
+- Use bullet points for clarity
+- Include limits (max length, max items, etc.)
 
 ### Basic Prompt Patterns
 
-**Simple Instruction:**
+#### Simple Instruction
+
+For straightforward tasks, a direct instruction works:
+
 ```
 Translate the following text to French: "Hello, how are you?"
 ```
 
-**With Context:**
+**Use when:**
+- Task is simple and unambiguous
+- No special formatting needed
+- Single, clear output expected
+
+#### Instruction with Role/Context
+
+Add context to guide behavior:
+
 ```
-You are a helpful coding assistant. Explain what this Python code does:
-[code here]
+You are a helpful coding assistant. Explain what this Python code does in simple terms:
+
+```python
+def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+```
 ```
 
-**Few-Shot Learning:**
+**Use when:**
+- Need specific tone or expertise level
+- Context helps the model understand expectations
+- Task benefits from specialized knowledge
+
+#### Few-Shot Learning
+
+Provide examples to teach the desired pattern:
+
 ```
-Classify the sentiment of these reviews:
-Review: "Great product!" → Sentiment: Positive
-Review: "Not worth the money" → Sentiment: Negative
-Review: "It's okay" → Sentiment: Neutral
-Review: "Amazing service!" → Sentiment: ?
+Classify the sentiment of these product reviews:
+
+Review: "Great product, highly recommended!" → Sentiment: Positive
+Review: "Not worth the money, very disappointed" → Sentiment: Negative
+Review: "It's okay, nothing special" → Sentiment: Neutral
+Review: "Amazing service and fast shipping!" → Sentiment: Positive
+Review: "Terrible quality, broke after one week" → Sentiment: ?
 ```
+
+**Use when:**
+- Task has nuanced categories or formatting
+- Examples clarify edge cases
+- Consistent format is critical
+
+#### Structured Output Pattern
+
+Specify exact output format for programmatic use:
+
+````
+Extract the following information from this text and return as JSON:
+
+Text: "John Smith, age 35, lives in San Francisco and works as a software engineer."
+
+Format:
+
+```json
+{
+  "name": "string",
+  "age": number,
+  "location": "string",
+  "occupation": "string"
+}
+```
+````
+
+**Use when:**
+- Output needs to be parsed programmatically
+- Consistent structure is required
+- Integration with code is needed
 
 ### Advanced Techniques
 
-**Chain-of-Thought:**
+#### Chain-of-Thought (CoT) Prompting
+
+Encourage the model to show its reasoning process:
+
 ```
-Solve this math problem step by step:
+Solve this math problem step by step, showing your reasoning:
+
 Problem: If a train travels 60 mph for 2 hours, how far does it go?
-Solution: Let me think through this step by step...
+
+Think through this step by step:
+1. First, identify what you know
+2. Then, determine what you need to find
+3. Finally, apply the appropriate formula
 ```
 
-**Output Formatting:**
+**Why it works:**
+- Models perform better on complex reasoning when they "think aloud"
+- Helps catch errors in the reasoning process
+- Makes outputs more interpretable
+
+**Use when:**
+- Complex problem-solving tasks
+- Math or logic problems
+- Multi-step reasoning required
+
+#### Zero-Shot vs Few-Shot
+
+**Zero-Shot**: No examples, just instructions
 ```
-Extract information from this text and return as JSON:
-Text: [text]
-Format: {"name": "...", "age": ..., "location": "..."}
+Classify this email as spam or not spam: "[email content]"
 ```
+
+**Few-Shot**: Include examples
+```
+Classify emails as spam or not spam:
+Email: "You've won $1,000,000!" → Spam
+Email: "Meeting tomorrow at 3pm" → Not Spam
+Email: "Free money, click here!" → ?
+```
+
+**When to use each:**
+- **Zero-shot**: Simple, well-defined tasks
+- **Few-shot**: Nuanced tasks, specific formatting needed, edge cases matter
+
+#### Role-Playing
+
+Set a specific role to get specialized behavior:
+
+```
+You are a senior software architect reviewing a system design. Evaluate this architecture:
+
+[architecture description]
+
+Focus on:
+- Scalability concerns
+- Potential bottlenecks
+- Missing components
+- Alternative approaches
+```
+
+**Use when:**
+- Need expert-level analysis
+- Want specific perspective or expertise
+- Need consistent tone/style
+
+#### Iterative Refinement
+
+Break complex tasks into steps:
+
+```
+Step 1: Read this code and identify the main function
+Step 2: List all external dependencies
+Step 3: Identify potential security issues
+Step 4: Suggest improvements
+
+Code:
+[code here]
+```
+
+**Use when:**
+- Task is multi-faceted
+- Need structured output with multiple components
+- Want to ensure all aspects are covered
+
+#### Constraint-Based Prompting
+
+Set explicit constraints to control output:
+
+```
+Write a product description (max 100 words) that:
+- Highlights the key features
+- Uses professional but friendly tone
+- Includes a call-to-action
+- Avoids marketing jargon
+
+Product: [product details]
+```
+
+**Use when:**
+- Need to enforce specific requirements
+- Output must meet certain criteria
+- Want to prevent common issues (too long, wrong tone, etc.)
 
 ## Code Examples
 
-Systematic prompt building:
+### Systematic Prompt Building
+
+Production-ready prompt builder with proper structure:
 
 ```python
-def build_prompt(role: str, task: str, context: str = "", examples: list = None, format: str = ""):
-    prompt = f"You are {role}.\n\n"
+from typing import List, Optional, Dict, Any
+
+def build_prompt(
+    role: str,
+    task: str,
+    input_data: str = "",
+    context: str = "",
+    examples: Optional[List[str]] = None,
+    output_format: str = "",
+    constraints: Optional[List[str]] = None
+) -> str:
+    """
+    Build a structured prompt with all components.
     
+    Args:
+        role: The AI's role/identity
+        task: Description of what to do
+        input_data: The data to process
+        context: Additional context
+        examples: Few-shot examples
+        output_format: Desired output format
+        constraints: List of constraints/rules
+        
+    Returns:
+        Complete prompt string
+    """
+    prompt_parts = []
+    
+    # 1. Role/Context
+    prompt_parts.append(f"You are {role}.\n")
+    
+    # 2. Context (if provided)
     if context:
-        prompt += f"Context: {context}\n\n"
+        prompt_parts.append(f"Context: {context}\n")
     
-    prompt += f"Task: {task}\n"
+    prompt_parts.append("")  # Blank line
     
+    # 3. Task description
+    prompt_parts.append(f"Task: {task}\n")
+    
+    # 4. Input data
+    if input_data:
+        prompt_parts.append(f"\nInput:\n{input_data}\n")
+    
+    # 5. Examples (few-shot)
     if examples:
-        prompt += "\nExamples:\n"
-        for ex in examples:
-            prompt += f"{ex}\n"
+        prompt_parts.append("\nExamples:")
+        for i, ex in enumerate(examples, 1):
+            prompt_parts.append(f"\nExample {i}:\n{ex}")
+        prompt_parts.append("")
     
-    if format:
-        prompt += f"\nOutput format: {format}"
+    # 6. Output format
+    if output_format:
+        prompt_parts.append(f"\nOutput format: {output_format}\n")
     
-    return prompt
+    # 7. Constraints
+    if constraints:
+        prompt_parts.append("\nConstraints:")
+        for constraint in constraints:
+            prompt_parts.append(f"- {constraint}")
+        prompt_parts.append("")
+    
+    return "\n".join(prompt_parts)
+
+# Usage example
+prompt = build_prompt(
+    role="an expert Python security reviewer",
+    task="Review this Python function for security vulnerabilities",
+    input_data='''```python
+def login(username, password):
+    query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
+    return db.execute(query)
+```''',
+    context="Focus on SQL injection, input validation, and authentication issues",
+    output_format='''JSON array with structure:
+{"vulnerabilities": [{"type": "string", "severity": "critical|high|medium|low", "line": number, "description": "string", "fix": "string"}]}''',
+    constraints=[
+        "Only report critical and high severity issues",
+        "Provide specific line numbers",
+        "Maximum 10 issues per review"
+    ]
+)
+
+print(prompt)
+```
+
+### Prompt Template System
+
+Create reusable prompt templates for common patterns:
+
+```python
+class PromptTemplate:
+    """Reusable prompt template system."""
+    
+    def __init__(self, template: str):
+        self.template = template
+    
+    def format(self, **kwargs) -> str:
+        """Format template with provided variables."""
+        return self.template.format(**kwargs)
+
+# Define templates
+CODE_REVIEW_TEMPLATE = PromptTemplate("""You are an expert {language} developer.
+
+Review this code for {focus_areas}:
+
+```{language}
+{code}
+```
+
+Return findings as JSON:
+{output_format}
+
+Constraints:
+{constraints}
+""")
 
 # Usage
-prompt = build_prompt(
-    role="an expert Python developer",
-    task="Review this code for bugs",
-    context="Focus on security vulnerabilities",
-    format="Return a JSON array of issues"
+prompt = CODE_REVIEW_TEMPLATE.format(
+    language="Python",
+    focus_areas="security vulnerabilities",
+    code="def login(u, p): return db.execute(f'SELECT * FROM users WHERE u={u}')",
+    output_format='{"issues": [{"type": "...", "severity": "..."}]}',
+    constraints="- Only critical/high severity\n- Max 10 issues"
 )
+```
+
+### Using LangChain Prompt Templates
+
+For production systems, consider using LangChain's prompt templates:
+
+```python
+from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+
+# Create structured prompt template
+system_template = SystemMessagePromptTemplate.from_template(
+    "You are an expert {role}. {context}"
+)
+
+human_template = HumanMessagePromptTemplate.from_template(
+    """Task: {task}
+
+Input:
+{input_data}
+
+{examples}
+
+Output format: {output_format}
+
+Constraints: {constraints}"""
+)
+
+prompt = ChatPromptTemplate.from_messages([
+    system_template,
+    human_template
+])
+
+# Format and use
+messages = prompt.format_messages(
+    role="Python security reviewer",
+    context="Specializing in web application security",
+    task="Review code for vulnerabilities",
+    input_data="def login(u, p): ...",
+    examples="Example: ...",
+    output_format="JSON",
+    constraints="Only critical/high severity"
+)
+
+# Use with LLM
+from langchain_openai import ChatOpenAI
+llm = ChatOpenAI(model="gpt-4o")
+response = llm.invoke(messages)
+```
+
+### Prompt Versioning
+
+Version your prompts for tracking and iteration:
+
+```python
+class PromptVersion:
+    """Track prompt versions and variations."""
+    
+    def __init__(self, version: str, prompt: str, description: str = ""):
+        self.version = version
+        self.prompt = prompt
+        self.description = description
+    
+    def __str__(self):
+        return f"v{self.version}: {self.description}"
+
+# Store different versions
+PROMPT_VERSIONS = {
+    "code_review_v1": PromptVersion(
+        version="1.0",
+        prompt=build_prompt(...),
+        description="Initial version with basic structure"
+    ),
+    "code_review_v2": PromptVersion(
+        version="2.0",
+        prompt=build_prompt(...),  # Improved version
+        description="Added few-shot examples, improved format"
+    ),
+}
+
+# Use specific version
+current_prompt = PROMPT_VERSIONS["code_review_v2"].prompt
 ```
 
 ## Common Mistakes
 
-1. **Vague instructions**: "Fix this code" vs "Review this code and identify syntax errors"
-2. **Too much context**: Including irrelevant information confuses the model
-3. **Inconsistent formatting**: Varying formats make parsing difficult
-4. **No examples for complex tasks**: Models need examples for nuanced tasks
-5. **Ignoring token limits**: Very long prompts cost more and may exceed limits
+#### 1. Vague or ambiguous instructions
+"Fix this code" leaves too much open to interpretation. The model doesn't know what to fix, how to fix it, or what format you want. Be specific: "Review this Python function for security vulnerabilities, identify the issues, and suggest fixes in JSON format."
+
+#### 2. Too much or irrelevant context
+Including unnecessary information dilutes the prompt's effectiveness. The model has limited attention—if you include 10 pages of context for a simple task, the important instructions get lost. Include only relevant context.
+
+#### 3. Inconsistent output formatting
+Varying formats make parsing outputs difficult. If sometimes you get JSON, sometimes plain text, sometimes markdown, your code has to handle all cases (or breaks). Always specify exact output format and stick to it.
+
+#### 4. No examples for complex or nuanced tasks
+Complex tasks with subtle distinctions need examples. If you're classifying sentiment, providing examples teaches the model your specific definitions of "positive" vs "neutral". Without examples, you get the model's default understanding, which may not match yours.
+
+#### 5. Ignoring token limits and costs
+Very long prompts cost more and may exceed model limits (8K, 128K, etc.). A 10,000-token prompt costs $0.025 per request (GPT-4o input pricing). At scale, this adds up. Be concise—include what's needed, remove what's not.
+
+#### 6. Mixing instructions and data
+Confusing structure makes prompts hard to parse (for both humans and models). Use clear sections, markdown formatting, and separators. Separate the "what to do" from the "data to process".
+
+#### 7. Not testing prompt variations
+A prompt that works for one input might fail for edge cases. Test with diverse inputs, edge cases, and different scenarios. Iterate on prompts based on real outputs, not assumptions.
+
+#### 8. Forgetting to specify constraints
+Without constraints, outputs can be too long, include unwanted content, or violate requirements. Always specify: max length, what to exclude, required elements, format requirements.
+
+#### 9. Using the same prompt for different models
+Different models (GPT-4o vs Claude vs GPT-3.5) may respond differently to the same prompt. What works for one model might not work for another. Test and adapt prompts for your specific model.
+
+#### 10. Not versioning prompts
+Prompts evolve over time. Without versioning, you can't track what changed, roll back to working versions, or A/B test improvements. Treat prompts like code—version them, test changes, and track performance.
 
 ## Exercise
 
-1. Write prompts for: code review, summarization, data extraction
-2. Compare outputs with and without few-shot examples
-3. Experiment with different prompt structures for the same task
-4. Measure token usage for different prompt lengths
-5. Create a prompt template system for reusable patterns
+Complete these exercises to practice prompt engineering. These skills are essential for building production AI systems.
+
+#### 1. Write prompts for different tasks
+
+Create well-structured prompts for these tasks:
+
+**Task A: Code Review**
+Write a prompt for reviewing Python code for security vulnerabilities:
+- Include role, task, input format, output format, and constraints
+- Focus on SQL injection, XSS, and authentication issues
+- Specify JSON output format
+
+**Task B: Summarization**
+Write a prompt for summarizing technical documentation:
+- Include context about the target audience
+- Specify length constraints
+- Include format requirements
+
+**Task C: Data Extraction**
+Write a prompt for extracting structured information from unstructured text:
+- Include few-shot examples
+- Specify exact JSON schema
+- Handle edge cases
+
+#### 2. Compare zero-shot vs few-shot prompts
+
+Test the same task with and without examples:
+
+```python
+# Zero-shot version
+zero_shot_prompt = "Classify this email as urgent or not urgent: {email}"
+
+# Few-shot version
+few_shot_prompt = """Classify emails as urgent or not urgent:
+
+Email: "Meeting canceled, no action needed" → Not Urgent
+Email: "Server down, immediate action required" → Urgent
+Email: "Project deadline extended by 1 week" → Not Urgent
+Email: "{email}" → ?"""
+
+# Test with various emails and compare results
+test_emails = [
+    "Weekly status report attached",
+    "Production system crash, investigate now",
+    "New feature request for next sprint",
+]
+```
+
+#### 3. Experiment with prompt structures
+
+Take the same task and write it in 3 different ways:
+
+**Version 1: Minimal**
+```
+Summarize this article: [article]
+```
+
+**Version 2: With role and context**
+```
+You are a technical writer. Summarize this article for a general audience: [article]
+```
+
+**Version 3: Fully structured**
+```
+Role: You are a technical writer specializing in AI topics.
+Task: Summarize this article for a general, non-technical audience.
+Input: [article]
+Output format: Markdown with title, 3-5 bullet points, and conclusion.
+Constraints: Maximum 200 words, avoid jargon, use simple language.
+```
+
+Compare outputs and analyze which version works best.
+
+#### 4. Build a prompt template system
+
+Create a reusable prompt template system:
+
+```python
+class PromptBuilder:
+    def __init__(self):
+        # TODO: Initialize template storage
+        pass
+    
+    def add_role(self, role: str):
+        """TODO: Add role component"""
+        pass
+    
+    def add_task(self, task: str):
+        """TODO: Add task component"""
+        pass
+    
+    def add_examples(self, examples: List[str]):
+        """TODO: Add few-shot examples"""
+        pass
+    
+    def build(self) -> str:
+        """TODO: Build complete prompt"""
+        pass
+
+# Test your builder
+builder = PromptBuilder()
+builder.add_role("expert Python developer")
+builder.add_task("Review code for bugs")
+builder.add_examples(["Example 1", "Example 2"])
+prompt = builder.build()
+print(prompt)
+```
+
+#### 5. Measure prompt efficiency
+
+Compare token usage for different prompt styles:
+
+```python
+import tiktoken
+
+def count_tokens(prompt: str) -> int:
+    encoding = tiktoken.encoding_for_model("gpt-4o")
+    return len(encoding.encode(prompt))
+
+# Compare different versions
+minimal_prompt = "Fix this code: [code]"
+detailed_prompt = build_prompt(...)  # Your detailed prompt
+
+print(f"Minimal: {count_tokens(minimal_prompt)} tokens")
+print(f"Detailed: {count_tokens(detailed_prompt)} tokens")
+print(f"Cost difference per 1000 requests (GPT-4o): ${(count_tokens(detailed_prompt) - count_tokens(minimal_prompt)) / 1000000 * 2.50 * 1000:.4f}")
+```
+
+#### 6. Create domain-specific prompt templates
+
+Build templates for common use cases in your domain:
+
+```python
+# Create templates for different domains
+templates = {
+    "code_review": PromptTemplate(...),
+    "documentation": PromptTemplate(...),
+    "data_extraction": PromptTemplate(...),
+    "summarization": PromptTemplate(...),
+}
+
+# Use templates
+prompt = templates["code_review"].format(code="...", language="Python")
+```
+
+#### 7. Test prompt robustness
+
+Test your prompts with edge cases:
+
+```python
+edge_cases = [
+    "",  # Empty input
+    "A" * 10000,  # Very long input
+    "Special chars: !@#$%^&*()",  # Special characters
+    "Multi\nline\ninput",  # Multi-line
+    "Unicode: 你好世界 🌍",  # Unicode
+]
+
+for case in edge_cases:
+    prompt = build_prompt(task="Process this", input_data=case)
+    # Test that prompt still works
+```
+
+#### 8. Reflection questions
+
+After completing the exercises, answer these questions:
+- What makes a prompt "good" vs "bad"? Give examples.
+- When should you use few-shot examples vs zero-shot?
+- How do you balance prompt detail (more tokens) vs output quality?
+- How do you test if a prompt is working well?
+- What's your process for iterating and improving prompts?
+- How do you handle prompts that need to work with variable inputs?
+- What's the difference between a prompt template and a hardcoded prompt?
 
 ## Tools & Resources
 

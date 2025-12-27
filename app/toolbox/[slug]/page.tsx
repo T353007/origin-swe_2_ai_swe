@@ -34,7 +34,11 @@ const mdxComponents = {
   h3: (props: any) => <h3 className="text-2xl font-semibold mt-4 mb-2" {...props} />,
   p: (props: any) => <p className="mb-4 leading-7" {...props} />,
   ul: (props: any) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
-  ol: (props: any) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
+  ol: (props: any) => <ol className="mb-4" {...props} />,
+  li: (props: any) => <li className="mb-2 leading-7" {...props} />,
+  blockquote: (props: any) => (
+    <blockquote className="bg-blue-50 dark:bg-blue-950/30 border-l-4 border-blue-500 dark:border-blue-400 pl-4 pr-4 py-3 my-6 italic text-gray-800 dark:text-gray-200 rounded-r" {...props} />
+  ),
   code: (props: any) => (
     <code className="bg-gray-100 dark:bg-muted text-gray-900 dark:text-foreground px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
   ),

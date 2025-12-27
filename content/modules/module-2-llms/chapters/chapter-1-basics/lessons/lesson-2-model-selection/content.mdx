@@ -1,83 +1,764 @@
 ---
 id: "lesson-2-model-selection"
 slug: "model-selection"
-title: "Choosing the Right Model"
-description: "Select appropriate models based on task requirements, cost, latency, and quality needs."
+title: "Choosing Models and Providers"
+description: "Select appropriate models and providers based on task requirements, cost, latency, quality needs, and vendor considerations. Learn to avoid vendor lock-in with abstraction layers."
 order: 2
 chapterId: "chapter-1-llm-basics"
 moduleId: "module-2-llms"
 prerequisites: ["lesson-1-how-llms-work"]
-estimatedMinutes: 8
-tags: ["model-selection", "comparison", "decision-making"]
+estimatedMinutes: 20
+tags: ["model-selection", "providers", "comparison", "decision-making"]
 difficulty: "beginner"
 ---
 
-# Choosing the Right Model
+# Choosing Models and Providers
+
+> **💡** *Choosing the right LLM model and provider is like choosing both a vehicle AND a manufacturer: you need to pick the right car (GPT-4o vs GPT-4o-mini) AND the right brand (OpenAI vs Anthropic vs Google). GPT-5.2 might be the most powerful, but GPT-4o-mini will handle most tasks perfectly fine at 17x less cost. And while OpenAI is like AWS (widely used and reliable), Anthropic is like a specialized boutique (excellent quality, focused strengths). The trick is knowing when to use which model from which provider—and how to avoid getting locked into one vendor.*
 
 ## Overview
 
-Model selection is a critical engineering decision. Balance cost, quality, latency, and capabilities for your use case.
+Model and provider selection are critical engineering decisions when building AI applications. The right choice balances cost, quality, latency, capabilities, and vendor considerations for your specific use case. Choosing poorly can lead to wasted costs, poor user experience, vendor lock-in, or insufficient quality.
+
+In 2024-2025, the landscape has exploded with options across multiple providers. OpenAI offers GPT-5.2, GPT-4o, and GPT-4o-mini. Anthropic has Claude 4.5 Sonnet and Opus with extended context windows. Google offers Gemini 3 Pro with massive context windows. Each provider and model has different strengths, weaknesses, pricing, and use cases. This lesson helps you navigate this landscape effectively and implement proper abstractions to maintain flexibility.
 
 ## Main Content
 
 ### Model Comparison Factors
 
-**Capability**: Task complexity the model can handle
-- GPT-4: Highest capability, best for complex reasoning
-- GPT-3.5: Good for most tasks, 10x cheaper
-- GPT-3.5-turbo: Fast, efficient for simple tasks
+When selecting a model, consider these four key factors:
 
-**Cost**: Token pricing varies significantly
-- GPT-4: ~$0.03/$0.06 per 1K tokens (in/out)
-- GPT-3.5-turbo: ~$0.0015/$0.002 per 1K tokens
+#### 1. Capability (Quality)
 
-**Latency**: Response time
-- Turbo models: Faster
-- Base models: Slower but more capable
+Different models excel at different task complexities:
 
-**Context Window**: Maximum input size
-- GPT-4-turbo: 128K tokens
-- GPT-3.5-turbo: 16K tokens
+**Premium Models (Highest Quality):**
+- **GPT-5.2** (OpenAI, December 2025): Latest and most capable, best for complex reasoning, creative tasks, and quality-critical applications
+- **Claude 4.5 Opus** (Anthropic): Exceptional for complex analysis, code generation, and nuanced reasoning
+- **Gemini 3 Pro** (Google): Strong multimodal capabilities, excellent for complex tasks
 
-### Selection Guidelines
+**High-Quality Models (Best Balance):**
+- **GPT-4o** (OpenAI): Excellent quality-to-cost ratio, best for most production use cases
+- **Claude 4.5 Sonnet** (Anthropic): Great for coding, analysis, and general tasks
+- **Gemini 2.5 Pro** (Google): Strong performance across many tasks
 
-- **Simple tasks**: GPT-3.5-turbo (cost-effective)
-- **Complex reasoning**: GPT-4 (quality matters)
-- **High volume**: GPT-3.5-turbo (cost)
-- **Long context**: GPT-4-turbo or Claude
-- **Fast responses**: Turbo models
+**Cost-Effective Models (Good for Simple Tasks):**
+- **GPT-4o-mini** (OpenAI): 17x cheaper than GPT-4o, sufficient for many tasks
+- **Claude 3.5 Haiku** (Anthropic): Fast and cost-effective for simpler tasks
+
+#### 2. Cost
+
+Token pricing varies dramatically. Here's current pricing (per 1M tokens, 2025):
+
+**OpenAI Models:**
+- **GPT-5.2**: ~$20 input, ~$90 output (premium pricing)
+- **GPT-4o**: $2.50 input, $10.00 output
+- **GPT-4o-mini**: $0.15 input, $0.60 output (17x cheaper than GPT-4o)
+
+**Anthropic Models:**
+- **Claude 4.5 Opus**: ~$15 input, ~$75 output
+- **Claude 4.5 Sonnet**: ~$3 input, ~$15 output
+
+**Cost Example:**
+- 1M input + 500K output tokens:
+  - GPT-5.2: ~$65
+  - GPT-4o: ~$5.00
+  - GPT-4o-mini: ~$0.45 (14x cheaper than GPT-4o)
+
+#### 3. Latency (Speed)
+
+Response time matters for user experience:
+
+**Fast Models:**
+- GPT-4o-mini: Very fast, excellent for real-time applications
+- GPT-4o: Fast, good for most interactive applications
+- Claude 3.5 Haiku: Fast and responsive
+
+**Moderate Latency:**
+- GPT-4o: Balanced speed and quality
+- Claude 4.5 Sonnet: Good balance
+
+**Slower (But Higher Quality):**
+- GPT-5.2: Premium quality, slightly slower
+- Claude 4.5 Opus: Highest quality, slower response
+
+**Rule of thumb:** Mini/turbo models are faster. Larger models are slower but higher quality.
+
+#### 4. Context Window
+
+Maximum input size varies significantly:
+
+**Large Context Windows:**
+- **Gemini 2.5 Pro**: 1-2 million tokens
+- **Gemini 3 Pro**: 1 million tokens
+- **Claude 4.5 Sonnet**: 200K standard, up to 1M extended
+- **Llama 4 Scout**: 10 million tokens (open source)
+
+**Standard Context Windows:**
+- **GPT-5.2**: 400,000 tokens
+- **GPT-4o**: 128,000 tokens
+- **GPT-4o-mini**: 128,000 tokens
+- **Claude 4.5 Opus**: 200,000 tokens
+
+**Considerations:**
+- Long context = process entire codebases, long documents
+- Short context = simpler prompts, lower costs
+- Context size affects both capability and cost
+
+### Model Selection Decision Framework
+
+Use this framework to choose the right model:
+
+#### Step 1: Assess Task Complexity
+
+**Simple Tasks** (classification, extraction, simple Q&A):
+- Use: GPT-4o-mini or Claude 3.5 Haiku
+- Why: 10-17x cheaper, sufficient quality, faster
+- Examples: Sentiment analysis, keyword extraction, basic Q&A
+
+**Medium Tasks** (summarization, translation, moderate analysis):
+- Use: GPT-4o or Claude 4.5 Sonnet
+- Why: Best quality-to-cost ratio
+- Examples: Document summarization, code review, data analysis
+
+**Complex Tasks** (complex reasoning, creative writing, quality-critical):
+- Use: GPT-5.2, GPT-4o, or Claude 4.5 Opus
+- Why: Highest quality when it matters
+- Examples: Complex problem-solving, legal analysis, medical advice
+
+#### Step 2: Consider Volume and Cost Constraints
+
+**High Volume Applications** (1000s of requests/day):
+- Start with: GPT-4o-mini
+- Upgrade only if quality is insufficient
+- Monitor costs and quality metrics
+
+**Cost-Sensitive Applications**:
+- Default to: GPT-4o-mini
+- Test if GPT-4o is necessary for quality
+- Use caching and optimization techniques
+
+**Quality-Critical Applications** (fewer requests, quality matters):
+- Use: GPT-4o or GPT-5.2
+- Accept higher costs for better quality
+
+#### Step 3: Evaluate Latency Requirements
+
+**Real-Time/Interactive** (chatbots, live assistants):
+- Prefer: GPT-4o-mini or GPT-4o
+- Avoid: Largest models (GPT-5.2, Claude 4.5 Opus) unless necessary
+
+**Batch Processing** (can wait):
+- Can use: Any model
+- Consider: Larger models for better quality if latency isn't critical
+
+#### Step 4: Check Context Requirements
+
+**Short Context** (< 10K tokens):
+- Use: Any model
+- Consider: GPT-4o-mini for cost savings
+
+**Medium Context** (10K-128K tokens):
+- Use: GPT-4o, GPT-5.2, or Claude models
+- All handle this range well
+
+**Long Context** (> 128K tokens):
+- Use: Claude 4.5 Sonnet (up to 1M), Gemini 3 Pro (1M), or Llama 4 Scout (10M)
+- Avoid: GPT-4o (limited to 128K)
+
+### Selection Guidelines by Use Case
+
+**General Production Applications:**
+- Default: GPT-4o (best balance)
+- Fallback: GPT-4o-mini if cost is critical
+- Upgrade: GPT-5.2 if quality is insufficient
+
+**Code Generation:**
+- Best: GPT-4o or Claude 4.5 Sonnet/Opus
+- Good: GPT-4o-mini for simpler code
+- Claude models excel at code tasks
+
+**Long Document Processing:**
+- Best: Claude 4.5 Sonnet (extended context), Gemini 3 Pro
+- Alternative: GPT-4o with chunking
+- Avoid: GPT-4o-mini for very long documents (context limits)
+
+**High-Volume APIs:**
+- Best: GPT-4o-mini
+- Why: Lowest cost, sufficient quality for most tasks
+- Monitor: Quality metrics, upgrade if needed
+
+**Creative Writing:**
+- Best: GPT-5.2, GPT-4o, or Claude 4.5 Opus
+- Why: Higher quality for creative tasks
+- Consider: Temperature settings for creativity
+
+**Multimodal Tasks (Images + Text):**
+- Best: GPT-4o, GPT-5.2, or Gemini 3 Pro
+- Why: Built-in vision capabilities
+- GPT-4o-mini: Limited multimodal support
+
+**Cost-Optimized Applications:**
+- Best: GPT-4o-mini
+- Strategy: Start cheap, upgrade only if quality is insufficient
+- Monitor: Quality vs cost trade-offs
 
 ## Code Examples
 
-Model selection helper:
+### Model Selection Helper
+
+Intelligent model selection based on requirements:
 
 ```python
-def select_model(task_complexity: str, cost_sensitive: bool, needs_long_context: bool):
-    """Select model based on requirements."""
-    if needs_long_context:
-        return "gpt-4-turbo-preview"
+from typing import Literal
+from enum import Enum
+
+class TaskComplexity(Enum):
+    SIMPLE = "simple"
+    MEDIUM = "medium"
+    COMPLEX = "complex"
+
+class ModelSelectionHelper:
+    """Helper for selecting the right model based on requirements."""
     
-    if task_complexity == "high":
-        return "gpt-4"
-    elif task_complexity == "medium":
-        return "gpt-3.5-turbo"
-    else:
-        return "gpt-3.5-turbo"  # Default for simple tasks
+    @staticmethod
+    def select_model(
+        task_complexity: TaskComplexity,
+        cost_sensitive: bool = False,
+        needs_long_context: bool = False,
+        quality_critical: bool = False,
+        latency_sensitive: bool = False
+    ) -> str:
+        """
+        Select model based on requirements.
+        
+        Args:
+            task_complexity: SIMPLE, MEDIUM, or COMPLEX
+            cost_sensitive: Prioritize cost over quality
+            needs_long_context: Requires > 128K tokens
+            quality_critical: Quality is more important than cost
+            latency_sensitive: Need fast responses
+        
+        Returns:
+            Recommended model name
+        """
+        # Long context requirements override other factors
+        if needs_long_context:
+            if quality_critical:
+                return "claude-4.5-sonnet"  # Up to 1M tokens extended
+            return "claude-4.5-sonnet"  # Best long context option
+        
+        # Cost-sensitive applications
+        if cost_sensitive:
+            if task_complexity == TaskComplexity.SIMPLE:
+                return "gpt-4o-mini"  # Cheapest option
+            elif task_complexity == TaskComplexity.MEDIUM:
+                # Try mini first, upgrade if needed
+                return "gpt-4o-mini"
+            else:
+                # Complex tasks need better models even if cost-sensitive
+                return "gpt-4o"
+        
+        # Quality-critical applications
+        if quality_critical:
+            if task_complexity == TaskComplexity.COMPLEX:
+                return "gpt-5.2"  # Latest, highest quality
+            elif task_complexity == TaskComplexity.MEDIUM:
+                return "gpt-4o"  # Best balance
+            else:
+                return "gpt-4o"  # Still use good model for consistency
+        
+        # Latency-sensitive (interactive applications)
+        if latency_sensitive:
+            if task_complexity == TaskComplexity.SIMPLE:
+                return "gpt-4o-mini"  # Fastest
+            elif task_complexity == TaskComplexity.MEDIUM:
+                return "gpt-4o"  # Good balance
+            else:
+                return "gpt-4o"  # Acceptable latency, good quality
+        
+        # Default selection by complexity
+        if task_complexity == TaskComplexity.SIMPLE:
+            return "gpt-4o-mini"
+        elif task_complexity == TaskComplexity.MEDIUM:
+            return "gpt-4o"  # Best default
+        else:  # COMPLEX
+            return "gpt-4o"  # Can upgrade to GPT-5.2 if needed
+    
+    @staticmethod
+    def get_model_info(model: str) -> dict:
+        """Get information about a specific model."""
+        models = {
+            "gpt-5.2": {
+                "provider": "OpenAI",
+                "context_window": 400000,
+                "cost_per_1m_input": 20.0,
+                "cost_per_1m_output": 90.0,
+                "best_for": ["Complex reasoning", "Quality-critical tasks", "Latest capabilities"],
+                "speed": "moderate"
+            },
+            "gpt-4o": {
+                "provider": "OpenAI",
+                "context_window": 128000,
+                "cost_per_1m_input": 2.50,
+                "cost_per_1m_output": 10.00,
+                "best_for": ["General production", "Best quality-to-cost ratio", "Most tasks"],
+                "speed": "fast"
+            },
+            "gpt-4o-mini": {
+                "provider": "OpenAI",
+                "context_window": 128000,
+                "cost_per_1m_input": 0.15,
+                "cost_per_1m_output": 0.60,
+                "best_for": ["Cost-sensitive", "High volume", "Simple tasks"],
+                "speed": "very_fast"
+            },
+            "claude-4.5-opus": {
+                "provider": "Anthropic",
+                "context_window": 200000,
+                "cost_per_1m_input": 15.0,
+                "cost_per_1m_output": 75.0,
+                "best_for": ["Complex analysis", "Code generation", "Quality-critical"],
+                "speed": "moderate"
+            },
+            "claude-4.5-sonnet": {
+                "provider": "Anthropic",
+                "context_window": 200000,  # Up to 1M extended
+                "cost_per_1m_input": 3.0,
+                "cost_per_1m_output": 15.0,
+                "best_for": ["Long context", "Code tasks", "General use"],
+                "speed": "fast"
+            },
+            "gemini-3-pro": {
+                "provider": "Google",
+                "context_window": 1000000,
+                "cost_per_1m_input": 1.25,  # Approximate
+                "cost_per_1m_output": 5.0,  # Approximate
+                "best_for": ["Multimodal", "Long context", "Large documents"],
+                "speed": "moderate"
+            }
+        }
+        
+        return models.get(model, {"error": "Model not found"})
+
+# Usage examples
+helper = ModelSelectionHelper()
+
+# Simple task, cost-sensitive
+model1 = helper.select_model(
+    TaskComplexity.SIMPLE,
+    cost_sensitive=True
+)
+print(f"Simple, cost-sensitive: {model1}")  # gpt-4o-mini
+
+# Complex task, quality-critical
+model2 = helper.select_model(
+    TaskComplexity.COMPLEX,
+    quality_critical=True
+)
+print(f"Complex, quality-critical: {model2}")  # gpt-5.2
+
+# Medium task, long context needed
+model3 = helper.select_model(
+    TaskComplexity.MEDIUM,
+    needs_long_context=True
+)
+print(f"Medium, long context: {model3}")  # claude-4.5-sonnet
+
+# Get model information
+info = helper.get_model_info("gpt-4o")
+print(f"GPT-4o context: {info['context_window']} tokens")
+print(f"GPT-4o cost: ${info['cost_per_1m_input']}/1M input, ${info['cost_per_1m_output']}/1M output")
+```
+
+### Cost Comparison Calculator
+
+Compare costs across models for your use case:
+
+```python
+def calculate_cost_comparison(
+    input_tokens: int,
+    output_tokens: int,
+    num_requests: int = 1000
+) -> dict:
+    """Calculate and compare costs across models."""
+    
+    models = {
+        "gpt-5.2": {"input_per_1m": 20.0, "output_per_1m": 90.0},
+        "gpt-4o": {"input_per_1m": 2.50, "output_per_1m": 10.00},
+        "gpt-4o-mini": {"input_per_1m": 0.15, "output_per_1m": 0.60},
+        "claude-4.5-opus": {"input_per_1m": 15.0, "output_per_1m": 75.0},
+        "claude-4.5-sonnet": {"input_per_1m": 3.0, "output_per_1m": 15.0},
+    }
+    
+    results = {}
+    for model, pricing in models.items():
+        input_cost = (input_tokens / 1_000_000) * pricing["input_per_1m"]
+        output_cost = (output_tokens / 1_000_000) * pricing["output_per_1m"]
+        total_cost_per_request = input_cost + output_cost
+        total_cost = total_cost_per_request * num_requests
+        
+        results[model] = {
+            "cost_per_request": round(total_cost_per_request, 6),
+            "total_cost": round(total_cost, 2),
+            "monthly_estimate": round(total_cost * 30, 2)  # Assuming daily
+        }
+    
+    # Sort by total cost
+    sorted_results = sorted(results.items(), key=lambda x: x[1]["total_cost"])
+    
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "num_requests": num_requests,
+        "comparison": dict(sorted_results)
+    }
+
+# Example: Compare costs for 1000 requests with 1000 input + 500 output tokens
+comparison = calculate_cost_comparison(
+    input_tokens=1000,
+    output_tokens=500,
+    num_requests=1000
+)
+
+print("Cost Comparison (1000 requests, 1K input + 500 output tokens):")
+for model, costs in comparison["comparison"].items():
+    print(f"{model}: ${costs['total_cost']:.2f} total, ${costs['cost_per_request']:.6f} per request")
+```
+
+### Adaptive Model Selection
+
+Start with cheaper model, upgrade if quality is insufficient:
+
+```python
+from openai import OpenAI
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def call_with_adaptive_model(
+    prompt: str,
+    start_with_mini: bool = True,
+    quality_threshold: float = 0.8
+) -> tuple[str, str]:
+    """
+    Try cheaper model first, upgrade if quality is insufficient.
+    
+    Returns: (response, model_used)
+    """
+    models = ["gpt-4o-mini", "gpt-4o"] if start_with_mini else ["gpt-4o", "gpt-5.2"]
+    
+    for model in models:
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500
+            )
+            result = response.choices[0].message.content
+            
+            # Here you could add quality checks
+            # For now, we'll use the first successful response
+            # In production, you might check response length, confidence, etc.
+            
+            return result, model
+        except Exception as e:
+            if model == models[-1]:
+                raise  # Last model failed
+            continue  # Try next model
+    
+    raise Exception("All models failed")
+
+# Usage
+response, model_used = call_with_adaptive_model("Explain machine learning")
+print(f"Response from {model_used}: {response[:100]}...")
+```
+
+### Provider Abstraction and Vendor Lock-In
+
+Avoid vendor lock-in by implementing abstraction layers that allow you to switch providers easily:
+
+```python
+from abc import ABC, abstractmethod
+from typing import Optional, List
+import os
+
+class LLMProvider(ABC):
+    """Abstract base class for LLM providers."""
+    
+    @abstractmethod
+    def complete(self, prompt: str, model: Optional[str] = None, **kwargs) -> str:
+        """Generate completion from prompt."""
+        pass
+    
+    @abstractmethod
+    def get_default_model(self) -> str:
+        """Get default model for this provider."""
+        pass
+
+class OpenAIProvider(LLMProvider):
+    """OpenAI provider implementation."""
+    
+    def __init__(self, api_key: Optional[str] = None):
+        from openai import OpenAI
+        self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
+        self.default_model = "gpt-4o"
+    
+    def get_default_model(self) -> str:
+        return self.default_model
+    
+    def complete(self, prompt: str, model: Optional[str] = None, **kwargs) -> str:
+        response = self.client.chat.completions.create(
+            model=model or self.default_model,
+            messages=[{"role": "user", "content": prompt}],
+            **kwargs
+        )
+        return response.choices[0].message.content
+
+class AnthropicProvider(LLMProvider):
+    """Anthropic provider implementation."""
+    
+    def __init__(self, api_key: Optional[str] = None):
+        import anthropic
+        self.client = anthropic.Anthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
+        self.default_model = "claude-4-5-sonnet-20241022"
+    
+    def get_default_model(self) -> str:
+        return self.default_model
+    
+    def complete(self, prompt: str, model: Optional[str] = None, **kwargs) -> str:
+        response = self.client.messages.create(
+            model=model or self.default_model,
+            max_tokens=kwargs.get("max_tokens", 1024),
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.content[0].text
+
+# Usage: Switch providers easily without changing application code
+provider = OpenAIProvider()  # Or AnthropicProvider()
+result = provider.complete("Hello!")
+```
+
+### Multi-Provider Fallback
+
+Implement fallback logic to handle provider failures:
+
+```python
+class MultiProviderClient:
+    """Client with multiple provider fallbacks."""
+    
+    def __init__(self, providers: List[LLMProvider]):
+        self.providers = providers
+    
+    def complete(self, prompt: str, model: Optional[str] = None) -> tuple[str, str]:
+        """Try providers in order, return result and provider name."""
+        for provider in self.providers:
+            try:
+                result = provider.complete(prompt, model)
+                return result, provider.__class__.__name__
+            except Exception as e:
+                continue  # Try next provider
+        raise Exception("All providers failed")
+
+# Usage: Automatic fallback
+client = MultiProviderClient([
+    OpenAIProvider(),      # Primary
+    AnthropicProvider(),   # Fallback
+])
+
+response, provider = client.complete("Hello!")
 ```
 
 ## Common Mistakes
 
-1. **Always using GPT-4**: Overkill for simple tasks
-2. **Ignoring costs**: GPT-4 is 10x more expensive
-3. **Not testing alternatives**: Other models may work better
-4. **Forgetting latency**: Turbo models are faster
+#### 1. Always using the most expensive model
+Using GPT-5.2 or Claude 4.5 Opus for every task wastes money. GPT-4o-mini handles most simple tasks perfectly well at 17x less cost. Start with cost-effective models and upgrade only when quality is insufficient.
+
+#### 2. Ignoring cost differences
+Model costs vary dramatically. GPT-4o-mini is 17x cheaper than GPT-4o for the same token usage. At scale, this difference is substantial. Always calculate costs for your expected volume before committing to a model.
+
+#### 3. Not testing multiple models
+Different models excel at different tasks. Claude models are excellent for code generation. GPT-4o is great for general tasks. Gemini 3 Pro has the longest context window. Test multiple models for your specific use case before deciding.
+
+#### 4. Forgetting latency requirements
+Large models (GPT-5.2, Claude 4.5 Opus) are slower than smaller models (GPT-4o-mini). For interactive applications, latency matters. Don't sacrifice user experience for marginal quality gains if speed is critical.
+
+#### 5. Choosing based on name/reputation alone
+Just because a model is "newest" or "most capable" doesn't mean it's right for your use case. GPT-5.2 is impressive, but GPT-4o-mini might be perfect for your needs at a fraction of the cost. Evaluate based on your requirements, not model names.
+
+#### 6. Not considering context window requirements
+If you need to process long documents (> 128K tokens), GPT-4o won't work regardless of quality. You need Claude 4.5 Sonnet (extended context), Gemini 3 Pro, or chunking strategies. Always check context window requirements.
+
+#### 7. Sticking with one model forever
+The model landscape evolves rapidly. New models launch, prices change, capabilities improve. Regularly re-evaluate your model choice. What was best 6 months ago might not be best today.
+
+#### 8. Not using cost-effective models for high-volume tasks
+For high-volume applications (thousands of requests per day), small cost differences add up quickly. Using GPT-4o-mini instead of GPT-4o can save thousands of dollars per month with minimal quality impact for many tasks.
+
+#### 9. Ignoring provider-specific strengths
+Different providers excel at different things. Anthropic's Claude models are excellent for code and analysis. Google's Gemini has great multimodal and long-context capabilities. OpenAI's GPT models are well-rounded. Don't limit yourself to one provider.
+
+#### 10. Not implementing fallback strategies
+Models can fail, hit rate limits, or become unavailable. Implement fallback strategies: try GPT-4o-mini first, fall back to GPT-4o if needed, or even switch providers (Claude, Gemini) if necessary. This improves reliability and can reduce costs.
 
 ## Exercise
 
-1. Compare GPT-3.5 and GPT-4 on the same tasks
-2. Measure latency differences
-3. Calculate cost differences for 1000 requests
-4. Test different models for your specific use cases
+Complete these exercises to master model selection. These skills are essential for building cost-effective, high-quality AI applications.
+
+#### 1. Compare models on the same task
+
+Test different models with the same prompt:
+
+```python
+def compare_models_on_task(prompt: str, models: list[str]):
+    """TODO: Test multiple models with the same prompt"""
+    # TODO: Call each model with the same prompt
+    # TODO: Collect responses
+    # TODO: Compare quality, length, style
+    # TODO: Measure latency for each
+    # TODO: Calculate costs for each
+    # TODO: Evaluate which model is best for this task
+    pass
+```
+
+#### 2. Calculate cost differences
+
+Build a cost comparison tool:
+
+```python
+def build_cost_calculator():
+    """TODO: Build a cost calculator for model comparison"""
+    # TODO: Define pricing for current models (GPT-5.2, GPT-4o, GPT-4o-mini, Claude, Gemini)
+    # TODO: Create function to calculate cost for input/output tokens
+    # TODO: Calculate costs for different scenarios (simple, medium, complex tasks)
+    # TODO: Compare costs across models
+    # TODO: Calculate monthly/yearly costs for different volumes
+    pass
+```
+
+#### 3. Measure latency differences
+
+Compare response times:
+
+```python
+import time
+
+def measure_model_latency(model: str, prompt: str):
+    """TODO: Measure latency for different models"""
+    # TODO: Time API calls for different models
+    # TODO: Make multiple requests to get average latency
+    # TODO: Compare GPT-4o-mini vs GPT-4o vs GPT-5.2
+    # TODO: Consider both time-to-first-token and total time
+    pass
+```
+
+#### 4. Test models for specific use cases
+
+Evaluate models for your use cases:
+
+```python
+def evaluate_models_for_use_case(use_case: str):
+    """TODO: Test models for a specific use case"""
+    # TODO: Define test cases for your use case (e.g., code generation, summarization)
+    # TODO: Test GPT-4o-mini, GPT-4o, Claude 4.5 Sonnet
+    # TODO: Evaluate quality, cost, latency
+    # TODO: Determine which model is best for this use case
+    pass
+
+# Examples
+evaluate_models_for_use_case("code_generation")
+evaluate_models_for_use_case("document_summarization")
+evaluate_models_for_use_case("classification")
+```
+
+#### 5. Build a model selection helper
+
+Create a reusable model selection system:
+
+```python
+class ModelSelector:
+    def __init__(self):
+        """TODO: Initialize model selector with requirements"""
+        pass
+    
+    def select_model(self, requirements: dict):
+        """TODO: Select model based on requirements"""
+        # TODO: Implement decision logic
+        # TODO: Consider: complexity, cost, latency, context
+        # TODO: Return recommended model
+        pass
+    
+    def get_recommendation_with_reasoning(self, requirements: dict):
+        """TODO: Get model recommendation with explanation"""
+        # TODO: Select model
+        # TODO: Provide reasoning for the selection
+        # TODO: Suggest alternatives
+        pass
+```
+
+#### 6. Implement adaptive model selection
+
+Build a system that starts cheap and upgrades if needed:
+
+```python
+def implement_adaptive_selection():
+    """TODO: Implement adaptive model selection"""
+    # TODO: Start with GPT-4o-mini for simple tasks
+    # TODO: Add quality checks (response length, confidence, etc.)
+    # TODO: Upgrade to GPT-4o if quality is insufficient
+    # TODO: Track which tasks need upgrades
+    # TODO: Optimize based on historical data
+    pass
+```
+
+#### 7. Compare providers (OpenAI, Anthropic, Google)
+
+Test models from different providers:
+
+```python
+def compare_providers():
+    """TODO: Compare models from different providers"""
+    # TODO: Test OpenAI (GPT-4o, GPT-4o-mini)
+    # TODO: Test Anthropic (Claude 4.5 Sonnet)
+    # TODO: Test Google (Gemini 3 Pro) if available
+    # TODO: Compare quality, cost, latency, features
+    # TODO: Identify provider-specific strengths
+    pass
+```
+
+#### 8. Build a cost optimization system
+
+Create a system that optimizes model selection for cost:
+
+```python
+class CostOptimizedModelSelector:
+    def __init__(self, monthly_budget: float):
+        """TODO: Initialize with budget constraints"""
+        pass
+    
+    def select_model_within_budget(self, task_complexity: str, expected_volume: int):
+        """TODO: Select best model within budget"""
+        # TODO: Calculate costs for different models
+        # TODO: Select model that fits budget
+        # TODO: Recommend optimizations if budget is tight
+        pass
+    
+    def get_cost_projection(self, model: str, volume: int):
+        """TODO: Project costs for a model at given volume"""
+        pass
+```
+
+#### 9. Reflection questions
+
+After completing the exercises, answer these questions:
+- When should you use GPT-4o-mini vs GPT-4o vs GPT-5.2?
+- How do you decide between cost and quality?
+- What factors determine model selection for your use case?
+- How do you test if a cheaper model is sufficient?
+- When should you use models from different providers (OpenAI, Anthropic, Google)?
+- How do you handle model failures or rate limits?
+- What's your strategy for keeping up with new model releases?
+- How do you balance latency, cost, and quality?
 
 ## Tools & Resources
 

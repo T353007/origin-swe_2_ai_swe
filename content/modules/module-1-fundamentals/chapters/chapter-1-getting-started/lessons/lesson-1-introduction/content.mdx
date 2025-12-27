@@ -14,9 +14,13 @@ difficulty: "beginner"
 
 # Introduction to AI Engineering
 
+> **💡** *If traditional software engineering is like playing chess, AI engineering is like playing poker—same table, completely different rules, and your unit tests just became probability distributions.*
+
 ## Overview
 
 AI engineering is the discipline of building, deploying, and maintaining production-ready AI systems. Unlike traditional software engineering, AI engineering requires understanding probabilistic systems, managing model APIs, handling token costs, and building robust evaluation frameworks.
+
+This field has exploded in recent years—what was cutting-edge research in 2022 is now production code in 2024. Companies that built AI features are seeing massive adoption, while those who ignored it are scrambling to catch up. The good news? You don't need a PhD to build production AI systems. You need solid engineering fundamentals, curiosity, and this course.
 
 ## Main Content
 
@@ -55,9 +59,13 @@ assert add(2, 3) == 5  # Always true
 
 **AI Engineering:**
 ```python
+from openai import OpenAI
+
+client = OpenAI()  # API key from OPENAI_API_KEY env var
+
 def summarize_text(text: str) -> str:
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o",  # Latest model (as of 2024)
         messages=[{"role": "user", "content": f"Summarize: {text}"}]
     )
     return response.choices[0].message.content
@@ -90,7 +98,7 @@ Deploy AI systems to production with proper monitoring, observability (tracing, 
 
 Understanding the tools and technologies helps you make informed decisions:
 
-**LLM Providers**: OpenAI (GPT-4, most widely used), Anthropic (Claude, long context), Google (Gemini), Open Source (Llama, Mistral)
+**LLM Providers**: OpenAI (GPT-4o, GPT-4-turbo, most widely used), Anthropic (Claude Sonnet, Opus), Google (Gemini), Open Source (Llama, Mistral)
 
 **Vector Databases**: Pinecone (managed), Weaviate (open-source, GraphQL), Qdrant (self-hosted), Chroma (lightweight, Python-first)
 
@@ -106,45 +114,90 @@ Here's a simple example of calling an LLM API:
 
 ```python
 from openai import OpenAI
+import os
 
-client = OpenAI()
+# Initialize client - API key from OPENAI_API_KEY environment variable
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def get_completion(prompt: str) -> str:
+def get_completion(prompt: str, temperature: float = 0.7) -> str:
+    """
+    Simple LLM API call - but see Common Mistakes for what's missing!
+    (Hint: error handling, rate limits, token counting, cost tracking)
+    """
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o",  # Latest model (faster and cheaper than gpt-4)
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
+        temperature=temperature,
     )
     return response.choices[0].message.content
 
 # Usage
 result = get_completion("Explain what AI engineering is in one sentence.")
 print(result)
+# Always track usage from the response object
+# response.usage.total_tokens, response.usage.prompt_tokens, response.usage.completion_tokens
 ```
+
+**Note**: This is intentionally simplified. In production, you'd add retry logic, error handling, rate limit management, and cost tracking—topics we'll cover in later lessons.
 
 ### Career Path: From Software Engineer to AI Engineer
 
-If you're coming from traditional software engineering:
+If you're coming from traditional software engineering, you're in a great position. Your existing skills transfer more than you might think.
 
-**What Transfers**: System design, API integration, testing, DevOps, security
+**What Transfers**: System design, API integration, testing mindset, DevOps practices, security principles, code review, debugging intuition
 
-**What's New**: Probabilistic systems, prompt engineering, evaluation frameworks, token management, LLM debugging
+**What's New**: Probabilistic systems thinking, prompt engineering patterns, evaluation frameworks, token economics, LLM-specific debugging (tracing, evals), prompt versioning
 
-**What Changes**: Testing (evaluations vs assertions), debugging (traces vs logs), optimization (tokens vs CPU), monitoring (quality + cost)
+**What Changes**: 
+- **Testing**: Assertions → evaluations (quality scores, relevance metrics)
+- **Debugging**: Logs → traces (LLM call chains, token usage, cost attribution)
+- **Optimization**: CPU/memory → tokens and latency (different bottlenecks!)
+- **Monitoring**: Uptime → quality + cost + latency (more dimensions to track)
+
+**Common Questions:**
+- *"Do I need a PhD?"* No. Strong software engineering skills + this course will get you far.
+- *"Is it too late to start?"* Absolutely not. The field is moving fast, but fundamentals are stable.
+- *"Should I learn everything?"* Start with fundamentals (this course), then specialize based on what you build.
 
 ### What You'll Learn in This Course
 
-This course covers: Fundamentals (tokens, embeddings, prompts) → LLMs (models, function calling) → RAG (vector DBs, chunking) → Agents (tool integration) → Evaluation → Production (deployment, monitoring, security)
+This course takes you from zero to building production AI systems:
+
+**Module 1: Fundamentals** - Tokens, embeddings, prompts, cost management, error handling
+**Module 2: LLMs** - Model selection, function calling, streaming, structured outputs  
+**Module 3: RAG** - Vector databases, chunking strategies, retrieval patterns
+**Module 4: Agents** - Tool integration, agent architectures, workflows
+**Module 5: Evaluation** - Quality metrics, evaluation frameworks, LLM-as-judge
+**Module 6: Deployment** - Infrastructure, scaling, CI/CD for AI systems
+**Module 7: Monitoring** - Observability, tracing, debugging production issues
+**Module 8: Production** - Security, compliance, cost optimization, reliability
+
+By the end, you'll have built real projects and understand not just how to use AI tools, but how to build reliable, cost-effective, production-ready AI systems.
 
 ## Common Mistakes
 
-1. **Ignoring token costs**: Not tracking usage leads to unexpected bills (can cost hundreds)
-2. **No error handling**: LLM APIs fail/rate limit - always handle gracefully with retries
-3. **Hardcoding prompts**: Prompts should be versioned and testable like code
-4. **No evaluation**: Deploying without evals means you ship bugs without knowing it
-5. **Assuming deterministic behavior**: Design systems to handle variation
-6. **Ignoring rate limits**: Plan for throttling, implement backoff strategies
-7. **Not monitoring in production**: Need continuous monitoring for quality, not just uptime
+These mistakes are expensive—either in dollars or engineering time. Learn them here, not in production:
+
+#### 1. Ignoring token costs
+Not tracking usage leads to unexpected bills. A single unoptimized loop can cost hundreds of dollars. One team accidentally spent $5000 in a weekend because they forgot to add a prompt length limit.
+
+#### 2. No error handling
+LLM APIs fail, rate limit, timeout. Always implement retries with exponential backoff, fallbacks, and graceful degradation.
+
+#### 3. Hardcoding prompts
+Prompts are code—they should be versioned, tested, and reviewed. A typo in a production prompt can silently break your app.
+
+#### 4. No evaluation
+Deploying without evals means you ship bugs without knowing it. Your users will notice quality degradation before you do.
+
+#### 5. Assuming deterministic behavior
+Even with `temperature=0`, there's variation. Design systems to handle it—don't assume `assert output == expected`.
+
+#### 6. Ignoring rate limits
+Hitting rate limits in production breaks user experience. Implement queuing, batching, and proper error messages.
+
+#### 7. Not monitoring in production
+You need to monitor quality metrics (relevance, accuracy), not just uptime. A service can be "up" but producing garbage.
 
 ## Exercise
 
@@ -175,26 +228,29 @@ def get_completion(prompt: str, temperature: float = 0.7) -> str:
     """
     # TODO: Make the API call here
     response = client.chat.completions.create(
-        model="___",  # Fill in: which model to use? (e.g., "gpt-4" or "gpt-3.5-turbo")
+        model="___",  # Fill in: which model? (e.g., "gpt-4o" or "gpt-4-turbo" for latest)
         messages=[
             {"role": "___", "content": "___"}  # Fill in: role and content
         ],
-        temperature=___  # Fill in: temperature value
+        temperature=___  # Fill in: temperature value (0.0-2.0)
     )
     
     # TODO: Extract and return the response text
     return ___  # Fill in: how to get the message content?
 
-def count_tokens(text: str, model: str = "gpt-4") -> int:
+def count_tokens(text: str, model: str = "gpt-4o") -> int:
     """
     Count tokens in a text string.
     
     Args:
         text: The text to count tokens for
-        model: The model to use for token counting
+        model: The model to use for token counting (must match the model you're using)
     
     Returns:
         Number of tokens
+    
+    Note: Different models use different tokenizers. Always use the encoding
+    that matches your target model.
     """
     # TODO: Use tiktoken to count tokens
     encoding = tiktoken.encoding_for_model(___)
@@ -202,19 +258,22 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
     return len(___)
 
 def calculate_cost(input_tokens: int, output_tokens: int, 
-                   input_price_per_1k: float = 0.03, 
-                   output_price_per_1k: float = 0.06) -> float:
+                   input_price_per_1k: float = 0.0025, 
+                   output_price_per_1k: float = 0.01) -> float:
     """
     Calculate the cost of an API call.
     
     Args:
         input_tokens: Number of input tokens
         output_tokens: Number of output tokens
-        input_price_per_1k: Price per 1K input tokens (default for GPT-4)
-        output_price_per_1k: Price per 1K output tokens (default for GPT-4)
+        input_price_per_1k: Price per 1K input tokens (default for GPT-4o, check current pricing)
+        output_price_per_1k: Price per 1K output tokens (default for GPT-4o, check current pricing)
     
     Returns:
         Total cost in dollars
+    
+    Note: Pricing changes frequently. Always check latest pricing at:
+    https://openai.com/pricing
     """
     # TODO: Calculate the cost
     input_cost = (___ / 1000) * ___
@@ -257,25 +316,31 @@ if __name__ == "__main__":
 
 ### Steps to Complete
 
-1. **Set up API access**: Sign up for [OpenAI](https://platform.openai.com/) or [Anthropic](https://console.anthropic.com/), get your API key, and save it as an environment variable or in a `.env` file (don't commit it to git!)
+#### 1. Set up API access
+Sign up for [OpenAI](https://platform.openai.com/) or [Anthropic](https://console.anthropic.com/), get your API key, and save it as an environment variable or in a `.env` file (don't commit it to git!)
 
-2. **Install dependencies**: 
-   ```bash
-   pip install openai tiktoken python-dotenv
-   ```
+#### 2. Install dependencies
 
-3. **Fill in the blanks**: Complete all the `TODO` comments and `___` placeholders in the code template above
+```bash
+pip install openai>=1.0.0 tiktoken>=0.5.0 python-dotenv>=1.0.0
+```
 
-4. **Run and experiment**: 
-   - Test different temperature values (0.0, 0.7, 1.0) with the same prompt
-   - Observe how outputs change
-   - Count tokens in your prompts
-   - Calculate actual costs from API responses
+> **Note**: Ensure you're using OpenAI Python SDK v1.0+ (major version change from v0.x with breaking API changes)
 
-5. **Reflection**: Answer these questions:
-   - What surprised you about the API response?
-   - How did temperature affect the outputs?
-   - What would 1 million requests cost at current pricing?
+#### 3. Fill in the blanks
+Complete all the `TODO` comments and `___` placeholders in the code template above
+
+#### 4. Run and experiment
+- Test different temperature values (0.0, 0.7, 1.0) with the same prompt
+- Observe how outputs change
+- Count tokens in your prompts
+- Calculate actual costs from API responses
+
+#### 5. Reflection
+Answer these questions:
+- What surprised you about the API response?
+- How did temperature affect the outputs?
+- What would 1 million requests cost at current pricing?
 
 ## Tools & Resources
 

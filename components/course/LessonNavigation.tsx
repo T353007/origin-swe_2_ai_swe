@@ -10,7 +10,9 @@ interface LessonNavigationProps {
   nextLesson: LessonMetadata | null;
   module: ModuleMetadata;
   currentChapter: ChapterMetadata;
+  prevModule: ModuleMetadata;
   prevChapter: ChapterMetadata;
+  nextModule: ModuleMetadata;
   nextChapter: ChapterMetadata;
 }
 
@@ -20,7 +22,9 @@ export function LessonNavigation({
   nextLesson,
   module: mod,
   currentChapter,
+  prevModule,
   prevChapter,
+  nextModule,
   nextChapter,
 }: LessonNavigationProps) {
 
@@ -28,7 +32,7 @@ export function LessonNavigation({
     <nav className="flex items-center justify-between border-t pt-6 mt-8">
       <div>
         {prevLesson ? (
-          <Link href={getLessonPath(mod, prevChapter, prevLesson)}>
+          <Link href={getLessonPath(prevModule, prevChapter, prevLesson)}>
             <Button variant="outline" size="sm">
               <ChevronLeft className="mr-2 h-4 w-4" />
               Previous
@@ -41,7 +45,7 @@ export function LessonNavigation({
 
       <div>
         {nextLesson ? (
-          <Link href={getLessonPath(mod, nextChapter, nextLesson)}>
+          <Link href={getLessonPath(nextModule, nextChapter, nextLesson)}>
             <Button variant="default" size="sm">
               Next
               <ChevronRight className="ml-2 h-4 w-4" />

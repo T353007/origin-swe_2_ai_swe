@@ -7,121 +7,701 @@ order: 4
 chapterId: "chapter-1-getting-started"
 moduleId: "module-1-fundamentals"
 prerequisites: ["lesson-1-introduction"]
-estimatedMinutes: 9
+estimatedMinutes: 13
 tags: ["tokens", "costs", "pricing"]
 difficulty: "beginner"
 ---
 
 # Understanding Tokens and API Costs
 
+> **💡** *Tokens are like the calories of AI—you need them to function, but if you're not careful, you'll wake up one morning with a $5,000 bill and wonder what happened. The difference? You can actually track tokens before they become a problem.*
+
 ## Overview
 
-Tokens are the currency of LLM APIs. Understanding token counting and costs is essential for building cost-effective AI applications and avoiding unexpected bills.
+Tokens are the currency of LLM APIs. Every API call costs tokens, and tokens cost money. Understanding token counting and costs is essential for building cost-effective AI applications and avoiding unexpected bills. A single unoptimized loop can cost hundreds of dollars. One team accidentally spent $5,000 in a weekend because they forgot to add a prompt length limit.
+
+In 2024-2025, pricing has become more competitive with new models like GPT-4o offering better performance at lower costs than previous generations. However, costs can still add up quickly at scale—understanding token economics is critical for production systems.
 
 ## Main Content
 
 ### What Are Tokens?
 
-Tokens are pieces of text that models process. Roughly:
-- 1 token ≈ 4 characters (English)
-- 1 token ≈ 0.75 words
-- 1000 tokens ≈ 750 words
+Tokens are the fundamental units of text that AI models process. Think of them as chunks of text—sometimes a word, sometimes part of a word, sometimes punctuation. The model processes your input token by token and generates output token by token.
 
-Tokens include:
-- **Input tokens**: Your prompt
-- **Output tokens**: Model's response
+**Rough Estimates (English text):**
+- 1 token ≈ 4 characters
+- 1 token ≈ 0.75 words
+- 1,000 tokens ≈ 750 words
+- 1,000 words ≈ 1,333 tokens
+
+**Important Notes:**
+- Tokenization varies by language (code and non-English text may tokenize differently)
+- Punctuation and whitespace also consume tokens
+- The same text tokenizes differently for different models (GPT-4o uses `cl100k_base`, older models use different encodings)
+
+**Two Types of Tokens:**
+
+1. **Input tokens**: The text you send to the model (your prompt, system messages, conversation history)
+2. **Output tokens**: The text the model generates in response
+
+**Real-World Example:**
+A 1,000-word document ≈ 1,333 tokens. If you send this as context for every API call, you're paying for 1,333 input tokens each time. At $2.50 per 1M input tokens for GPT-4o, that's $0.003 per request—seems cheap until you realize 1,000 requests cost $3, and with loops or high traffic, costs explode quickly.
 
 ### Token Counting
 
-Different models use different tokenizers:
+Different models use different tokenizers, so the same text can have different token counts. Always use the correct tokenizer for the model you're using.
+
+#### Using tiktoken (OpenAI Models)
+
+`tiktoken` is OpenAI's official token counting library:
 
 ```python
 import tiktoken
 
-# GPT-3.5 and GPT-4 use cl100k_base
-encoding = tiktoken.encoding_for_model("gpt-4")
+# Automatically selects the correct encoding for the model
+encoding = tiktoken.encoding_for_model("gpt-4o")
 
-text = "Hello, how are you?"
+text = "Hello, how are you? This is a test."
 tokens = encoding.encode(text)
 token_count = len(tokens)
+
+print(f"Text: {text}")
 print(f"Token count: {token_count}")
+print(f"Tokens: {tokens}")  # List of token IDs
 ```
 
-### API Pricing Models
+**Supported Models:**
+- `gpt-4o`, `gpt-4o-mini` → `cl100k_base` encoding
+- `gpt-4-turbo`, `gpt-4` → `cl100k_base` encoding
+- `gpt-3.5-turbo` → `cl100k_base` encoding
+- Older models may use different encodings
 
-Most providers charge per token:
-- **Input tokens**: Usually cheaper (e.g., $0.03/1K for GPT-4)
-- **Output tokens**: Usually more expensive (e.g., $0.06/1K for GPT-4)
+#### Getting Actual Token Counts from API Responses
 
-### Cost Calculation
-
-```python
-def calculate_cost(input_tokens: int, output_tokens: int) -> float:
-    input_cost_per_1k = 0.03  # $0.03 per 1K input tokens
-    output_cost_per_1k = 0.06  # $0.06 per 1K output tokens
-    
-    input_cost = (input_tokens / 1000) * input_cost_per_1k
-    output_cost = (output_tokens / 1000) * output_cost_per_1k
-    
-    return input_cost + output_cost
-```
-
-### Cost Optimization Strategies
-
-1. **Use cheaper models** for simple tasks (GPT-3.5 vs GPT-4)
-2. **Shorter prompts**: Remove unnecessary context
-3. **Set max_tokens**: Limit output length
-4. **Cache responses**: Don't regenerate identical prompts
-5. **Batch requests**: Process multiple items efficiently
-
-## Code Examples
-
-Complete token counting and cost tracking:
+The API response includes token usage, which is more accurate than pre-counting:
 
 ```python
-import tiktoken
 from openai import OpenAI
 
 client = OpenAI()
 
-def count_tokens(text: str, model: str = "gpt-4") -> int:
-    encoding = tiktoken.encoding_for_model(model)
-    return len(encoding.encode(text))
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
 
-def get_completion_with_tracking(prompt: str, model: str = "gpt-4"):
-    input_tokens = count_tokens(prompt, model)
+# Token usage from the API (most accurate)
+usage = response.usage
+print(f"Prompt tokens: {usage.prompt_tokens}")
+print(f"Completion tokens: {usage.completion_tokens}")
+print(f"Total tokens: {usage.total_tokens}")
+```
+
+**Why Use API Token Counts?**
+- Includes system messages and formatting tokens
+- Accounts for conversation structure (message boundaries)
+- Most accurate representation of what you're charged for
+
+### API Pricing Models
+
+Most providers charge separately for input and output tokens, with output tokens typically being more expensive (generating text is computationally more expensive than reading it).
+
+#### Current OpenAI Pricing (as of 2024-2025)
+
+**GPT-4o** (Latest, Recommended for Most Use Cases)
+- Input: $2.50 per 1M tokens ($0.0025 per 1K tokens)
+- Output: $10.00 per 1M tokens ($0.01 per 1K tokens)
+- Best for: Most production use cases, excellent quality-to-cost ratio
+
+**GPT-4o-mini** (Cost-Effective)
+- Input: $0.15 per 1M tokens ($0.00015 per 1K tokens)
+- Output: $0.60 per 1M tokens ($0.0006 per 1K tokens)
+- Best for: Simple tasks, high-volume applications, cost-sensitive use cases
+- **Note**: GPT-4o-mini is roughly 15x cheaper than GPT-4o for input, 16x cheaper for output
+
+**GPT-4 Turbo** (Previous Generation)
+- Input: $10.00 per 1M tokens ($0.01 per 1K tokens)
+- Output: $30.00 per 1M tokens ($0.03 per 1K tokens)
+- Note: GPT-4o is faster, cheaper, and better than GPT-4 Turbo
+
+**GPT-3.5-turbo** (Legacy, Still Available)
+- Input: $0.50 per 1M tokens ($0.0005 per 1K tokens)
+- Output: $1.50 per 1M tokens ($0.0015 per 1K tokens)
+- Note: GPT-4o-mini is comparable in cost but generally performs better
+
+#### Cost Calculation Function
+
+```python
+# Pricing as of 2024-2025 (check OpenAI pricing page for latest)
+PRICING = {
+    "gpt-4o": {
+        "input_per_1m": 2.50,
+        "output_per_1m": 10.00,
+    },
+    "gpt-4o-mini": {
+        "input_per_1m": 0.15,
+        "output_per_1m": 0.60,
+    },
+    "gpt-4-turbo": {
+        "input_per_1m": 10.00,
+        "output_per_1m": 30.00,
+    },
+}
+
+def calculate_cost(
+    input_tokens: int, 
+    output_tokens: int, 
+    model: str = "gpt-4o"
+) -> dict:
+    """
+    Calculate the cost of an API call.
     
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
+    Returns dict with input_cost, output_cost, and total_cost.
+    """
+    if model not in PRICING:
+        raise ValueError(f"Unknown model: {model}")
+    
+    pricing = PRICING[model]
+    
+    input_cost = (input_tokens / 1_000_000) * pricing["input_per_1m"]
+    output_cost = (output_tokens / 1_000_000) * pricing["output_per_1m"]
+    total_cost = input_cost + output_cost
+    
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "input_cost": round(input_cost, 6),
+        "output_cost": round(output_cost, 6),
+        "total_cost": round(total_cost, 6),
+        "model": model,
+    }
+
+# Example usage
+cost = calculate_cost(
+    input_tokens=1000,
+    output_tokens=500,
+    model="gpt-4o"
+)
+print(f"Cost: ${cost['total_cost']:.6f}")
+# Output: Cost: $0.005000 (half a cent)
+```
+
+#### Real-World Cost Examples
+
+**Example 1: Simple Q&A (100 requests/day)**
+- Input: 100 tokens per request
+- Output: 200 tokens per request
+- Model: GPT-4o-mini
+- Daily cost: (100 * 100 * $0.15/1M) + (100 * 200 * $0.60/1M) = $0.0015 + $0.012 = $0.0135/day ≈ $0.40/month
+
+**Example 2: Document Summarization (1,000 requests/day)**
+- Input: 5,000 tokens per request (long documents)
+- Output: 500 tokens per request
+- Model: GPT-4o
+- Daily cost: (1000 * 5000 * $2.50/1M) + (1000 * 500 * $10.00/1M) = $12.50 + $5.00 = $17.50/day ≈ $525/month
+
+**Example 3: Cost Comparison (Same Task)**
+Task: Summarize a 2,000-token document, generate 500-token summary
+
+- GPT-4o: (2000 * $2.50/1M) + (500 * $10.00/1M) = $0.005 + $0.005 = **$0.01 per request**
+- GPT-4o-mini: (2000 * $0.15/1M) + (500 * $0.60/1M) = $0.0003 + $0.0003 = **$0.0006 per request** (16x cheaper!)
+
+At 10,000 requests/month:
+- GPT-4o: $100/month
+- GPT-4o-mini: $6/month
+
+**Key Insight**: For many tasks, GPT-4o-mini provides excellent quality at a fraction of the cost. Only use GPT-4o when you need the highest quality or complex reasoning.
+
+### Cost Optimization Strategies
+
+Token costs can add up quickly. Here are proven strategies to optimize costs without sacrificing quality:
+
+#### 1. Choose the Right Model
+
+Use the cheapest model that meets your quality requirements:
+- **GPT-4o-mini**: For simple tasks, classifications, basic Q&A (16x cheaper than GPT-4o)
+- **GPT-4o**: For complex reasoning, high-quality content generation
+- **GPT-4 Turbo**: Generally avoid—GPT-4o is better and cheaper
+
+**Decision Framework:**
+1. Start with GPT-4o-mini
+2. Test if quality meets requirements
+3. Only upgrade to GPT-4o if quality is insufficient
+4. Monitor costs vs. quality trade-offs
+
+#### 2. Optimize Prompt Length
+
+Shorter prompts = lower costs:
+- Remove unnecessary context
+- Be concise and specific
+- Don't include entire documents if you only need summaries
+- Use RAG (Retrieval-Augmented Generation) instead of sending full context
+
+**Example:**
+- ❌ Bad: Send entire 10,000-token document for every request
+- ✅ Good: Use RAG to retrieve only relevant 500-token chunks
+
+#### 3. Set max_tokens
+
+Always set `max_tokens` to limit output length:
+- Prevents runaway costs from overly long responses
+- Ensures predictable costs
+- Improves response time
+
+```python
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": prompt}],
+    max_tokens=500,  # Limit output to 500 tokens
+)
+```
+
+#### 4. Implement Caching
+
+Cache responses for identical prompts:
+- Many applications have repeated queries
+- Cache hits cost $0 (no API call needed)
+- Use Redis, in-memory cache, or database
+
+```python
+import hashlib
+import json
+from functools import lru_cache
+
+def get_cached_response(prompt: str, model: str, cache: dict):
+    """Check cache before making API call."""
+    cache_key = hashlib.md5(f"{model}:{prompt}".encode()).hexdigest()
+    
+    if cache_key in cache:
+        return cache[cache_key]  # Cache hit - free!
+    
+    # Cache miss - make API call
+    response = client.chat.completions.create(...)
+    cache[cache_key] = response
+    return response
+```
+
+#### 5. Batch Similar Requests
+
+If processing multiple similar items, batch them intelligently:
+- Combine related requests into single API call
+- Use structured outputs for multiple results
+- Reduces API overhead
+
+#### 6. Monitor and Set Budgets
+
+Track token usage and set alerts:
+- Log token usage for every request
+- Set daily/weekly/monthly budgets
+- Alert when approaching limits
+- Review high-cost requests regularly
+
+#### 7. Use Streaming for Better UX
+
+Streaming doesn't reduce costs, but improves user experience:
+- Users see responses faster
+- Can cancel long-running requests
+- Better perceived performance
+
+#### 8. Optimize Conversation History
+
+For chat applications, manage conversation history:
+- Summarize old messages instead of keeping full history
+- Limit history to recent N messages
+- Use token-efficient message formats
+
+## Code Examples
+
+### Complete Token Counting and Cost Tracking
+
+Here's a production-ready example that tracks tokens and calculates costs:
+
+```python
+import tiktoken
+from openai import OpenAI
+from typing import Dict, Optional
+
+client = OpenAI()
+
+# Pricing (update these from OpenAI pricing page)
+PRICING = {
+    "gpt-4o": {"input_per_1m": 2.50, "output_per_1m": 10.00},
+    "gpt-4o-mini": {"input_per_1m": 0.15, "output_per_1m": 0.60},
+    "gpt-4-turbo": {"input_per_1m": 10.00, "output_per_1m": 30.00},
+}
+
+def count_tokens(text: str, model: str = "gpt-4o") -> int:
+    """Count tokens in text using the model's tokenizer."""
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+        return len(encoding.encode(text))
+    except KeyError:
+        # Fallback to cl100k_base for unknown models
+        encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(text))
+
+def calculate_cost_from_usage(
+    usage, 
+    model: str = "gpt-4o"
+) -> Dict[str, float]:
+    """Calculate cost from API usage object."""
+    if model not in PRICING:
+        raise ValueError(f"Unknown model pricing: {model}")
+    
+    pricing = PRICING[model]
+    
+    input_cost = (usage.prompt_tokens / 1_000_000) * pricing["input_per_1m"]
+    output_cost = (usage.completion_tokens / 1_000_000) * pricing["output_per_1m"]
+    total_cost = input_cost + output_cost
+    
+    return {
+        "input_tokens": usage.prompt_tokens,
+        "output_tokens": usage.completion_tokens,
+        "total_tokens": usage.total_tokens,
+        "input_cost": round(input_cost, 6),
+        "output_cost": round(output_cost, 6),
+        "total_cost": round(total_cost, 6),
+        "model": model,
+    }
+
+def get_completion_with_tracking(
+    prompt: str, 
+    model: str = "gpt-4o",
+    max_tokens: Optional[int] = None
+) -> Dict:
+    """
+    Get completion with full token and cost tracking.
+    
+    Returns dict with response, token usage, and cost breakdown.
+    """
+    # Estimate input tokens (before API call)
+    estimated_input_tokens = count_tokens(prompt, model)
+    
+    # Make API call
+    kwargs = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if max_tokens:
+        kwargs["max_tokens"] = max_tokens
+    
+    response = client.chat.completions.create(**kwargs)
+    
+    # Get actual token usage from API (most accurate)
+    usage = response.usage
+    cost = calculate_cost_from_usage(usage, model)
+    
+    # Print summary
+    print(f"📊 Token Usage:")
+    print(f"  Input: {cost['input_tokens']} tokens")
+    print(f"  Output: {cost['output_tokens']} tokens")
+    print(f"  Total: {cost['total_tokens']} tokens")
+    print(f"\n💰 Cost Breakdown:")
+    print(f"  Input: ${cost['input_cost']:.6f}")
+    print(f"  Output: ${cost['output_cost']:.6f}")
+    print(f"  Total: ${cost['total_cost']:.6f}")
+    
+    return {
+        "response": response.choices[0].message.content,
+        "usage": usage,
+        "cost": cost,
+        "estimated_input_tokens": estimated_input_tokens,
+    }
+
+# Example usage
+if __name__ == "__main__":
+    result = get_completion_with_tracking(
+        prompt="Summarize the key points of AI engineering in 3 sentences.",
+        model="gpt-4o-mini",  # Using cheaper model
+        max_tokens=150,  # Limit output length
     )
     
-    output_text = response.choices[0].message.content
-    output_tokens = count_tokens(output_text, model)
+    print(f"\n📝 Response:")
+    print(result["response"])
+```
+
+### Cost Tracker Class (Production-Ready)
+
+For production systems, use a cost tracker that accumulates usage:
+
+```python
+class CostTracker:
+    """Track token usage and costs across multiple API calls."""
     
-    total_tokens = input_tokens + output_tokens
-    print(f"Input tokens: {input_tokens}")
-    print(f"Output tokens: {output_tokens}")
-    print(f"Total tokens: {total_tokens}")
+    def __init__(self):
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
+        self.total_cost = 0.0
+        self.request_count = 0
+        self.model_costs = {}  # Track costs per model
     
-    return output_text
+    def add_usage(self, usage, model: str = "gpt-4o"):
+        """Add token usage from an API response."""
+        cost_info = calculate_cost_from_usage(usage, model)
+        
+        self.total_input_tokens += cost_info["input_tokens"]
+        self.total_output_tokens += cost_info["output_tokens"]
+        self.total_cost += cost_info["total_cost"]
+        self.request_count += 1
+        
+        # Track per-model costs
+        if model not in self.model_costs:
+            self.model_costs[model] = {
+                "requests": 0,
+                "cost": 0.0,
+                "tokens": 0,
+            }
+        self.model_costs[model]["requests"] += 1
+        self.model_costs[model]["cost"] += cost_info["total_cost"]
+        self.model_costs[model]["tokens"] += cost_info["total_tokens"]
+    
+    def get_summary(self) -> Dict:
+        """Get summary of tracked usage."""
+        return {
+            "total_requests": self.request_count,
+            "total_input_tokens": self.total_input_tokens,
+            "total_output_tokens": self.total_output_tokens,
+            "total_tokens": self.total_input_tokens + self.total_output_tokens,
+            "total_cost": round(self.total_cost, 4),
+            "average_cost_per_request": round(self.total_cost / self.request_count, 6) if self.request_count > 0 else 0,
+            "model_breakdown": self.model_costs,
+        }
+    
+    def print_summary(self):
+        """Print formatted summary."""
+        summary = self.get_summary()
+        print(f"\n{'='*50}")
+        print(f"📊 Cost Tracking Summary")
+        print(f"{'='*50}")
+        print(f"Total Requests: {summary['total_requests']}")
+        print(f"Total Tokens: {summary['total_tokens']:,}")
+        print(f"  Input: {summary['total_input_tokens']:,}")
+        print(f"  Output: {summary['total_output_tokens']:,}")
+        print(f"\n💰 Total Cost: ${summary['total_cost']:.4f}")
+        print(f"Average per Request: ${summary['average_cost_per_request']:.6f}")
+        
+        if summary['model_breakdown']:
+            print(f"\n📈 Cost by Model:")
+            for model, stats in summary['model_breakdown'].items():
+                print(f"  {model}:")
+                print(f"    Requests: {stats['requests']}")
+                print(f"    Cost: ${stats['cost']:.4f}")
+                print(f"    Tokens: {stats['tokens']:,}")
+
+# Usage example
+tracker = CostTracker()
+
+# Make some API calls
+for i in range(5):
+    result = get_completion_with_tracking(
+        prompt=f"Explain concept {i} in one sentence.",
+        model="gpt-4o-mini",
+        max_tokens=50,
+    )
+    tracker.add_usage(result["usage"], model="gpt-4o-mini")
+
+tracker.print_summary()
 ```
 
 ## Common Mistakes
 
-1. **Not tracking token usage**: Leads to surprise bills
-2. **Overestimating context needs**: Shorter prompts save money
-3. **Not setting max_tokens**: Unbounded outputs can be expensive
-4. **Ignoring model differences**: GPT-3.5 is 10x cheaper than GPT-4
-5. **Token blowups**: Large context windows in loops multiply costs
+#### 1. Not tracking token usage
+This is the #1 mistake. Without tracking, you have no idea what's costing money until the bill arrives. Implement token tracking from day one—log every request, track costs, set up alerts. Many teams have been surprised by $1,000+ bills from a single buggy loop or unoptimized prompt.
+
+#### 2. Always using the most expensive model
+Using GPT-4o for every task is like using a Ferrari to get groceries. GPT-4o-mini is 16x cheaper and works great for many tasks. Test with cheaper models first, only upgrade when quality is insufficient. The cost difference compounds quickly: 1,000 requests with GPT-4o-mini costs $0.75, with GPT-4o costs $12.50.
+
+#### 3. Overestimating context needs
+Sending entire documents when you only need summaries wastes tokens and money. A 10,000-token document sent with every request adds $0.025 per request (GPT-4o pricing). At 1,000 requests, that's $25 just for unnecessary context. Use RAG to retrieve only relevant chunks, or summarize long documents first.
+
+#### 4. Not setting max_tokens
+Unbounded outputs can generate thousands of tokens when you only need a sentence. Always set `max_tokens` to limit output length. A bug that causes 10,000-token outputs instead of 500-token outputs costs 20x more. Set reasonable limits based on your actual needs.
+
+#### 5. Token blowups in loops
+Sending large context windows inside loops multiplies costs. If you process 100 items and send 5,000 tokens of context with each, that's 500,000 tokens—$1.25 for input alone (GPT-4o). Optimize by batching, using smaller context windows, or caching intermediate results.
+
+#### 6. Ignoring conversation history token costs
+Chat applications that keep full conversation history can accumulate massive token counts. A 10-message conversation with 500 tokens each = 5,000 tokens per request. At 1,000 requests/day, that's 5M tokens/day = $12.50/day in input costs alone (GPT-4o). Implement conversation summarization or limit history length.
+
+#### 7. Not using caching for repeated queries
+Many applications have repeated or similar queries. Without caching, you pay for the same API call multiple times. A simple in-memory or Redis cache can reduce costs by 50-90% for applications with repeated queries. Cache based on prompt hash or semantic similarity.
+
+#### 8. Counting tokens incorrectly
+Pre-counting tokens with tiktoken gives estimates, but actual API usage includes system messages, message formatting, and conversation structure. Always use `response.usage` from the API for accurate billing. Pre-counting can be off by 10-20% for complex conversations.
 
 ## Exercise
 
-1. Write a function to count tokens in a text string
-2. Make an API call and track input/output tokens
-3. Calculate the cost of 100 API calls with your prompt
-4. Implement a simple caching mechanism to avoid duplicate API calls
-5. Compare costs between GPT-3.5 and GPT-4 for the same task
+Complete these exercises to get hands-on experience with token counting and cost management. These skills are essential for building cost-effective AI applications.
+
+#### 1. Write a token counting function
+
+Create a function that counts tokens for different models:
+
+```python
+import tiktoken
+
+def count_tokens(text: str, model: str = "gpt-4o") -> int:
+    """Count tokens in text for the given model."""
+    # TODO: Implement this function
+    # Hint: Use tiktoken.encoding_for_model()
+    pass
+
+# Test your function
+text = "Hello, this is a test message. How many tokens is this?"
+print(f"Token count: {count_tokens(text, 'gpt-4o')}")
+```
+
+#### 2. Make an API call and track token usage
+
+Write a function that makes an API call and tracks actual token usage from the response:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+def track_api_call(prompt: str, model: str = "gpt-4o-mini"):
+    """Make API call and return token usage."""
+    # TODO: Implement this function
+    # Hint: Use response.usage.prompt_tokens and response.usage.completion_tokens
+    pass
+
+# Test your function
+result = track_api_call("Explain AI in one sentence.", model="gpt-4o-mini")
+print(f"Input tokens: {result['input_tokens']}")
+print(f"Output tokens: {result['output_tokens']}")
+print(f"Total tokens: {result['total_tokens']}")
+```
+
+#### 3. Calculate costs for multiple API calls
+
+Create a cost calculator that:
+- Takes token counts and model name
+- Calculates cost based on current pricing
+- Handles multiple models (GPT-4o, GPT-4o-mini)
+
+```python
+def calculate_cost(input_tokens: int, output_tokens: int, model: str) -> float:
+    """Calculate cost for a single API call."""
+    # TODO: Implement this function
+    # Use pricing from the lesson content
+    pass
+
+def estimate_monthly_cost(
+    daily_requests: int,
+    avg_input_tokens: int,
+    avg_output_tokens: int,
+    model: str
+) -> dict:
+    """Estimate monthly cost for given usage pattern."""
+    # TODO: Calculate daily, weekly, and monthly costs
+    pass
+
+# Test: 1,000 requests/day, 500 input tokens, 200 output tokens, GPT-4o-mini
+estimate = estimate_monthly_cost(1000, 500, 200, "gpt-4o-mini")
+print(f"Estimated monthly cost: ${estimate['monthly']:.2f}")
+```
+
+#### 4. Compare costs between models
+
+Write a function that compares costs for the same task across different models:
+
+```python
+def compare_model_costs(prompt: str, models: list = ["gpt-4o-mini", "gpt-4o"]):
+    """Compare costs of the same prompt across different models."""
+    # TODO: Make API calls with each model
+    # Track token usage and calculate costs
+    # Return comparison showing cost difference
+    pass
+
+# Test: Compare GPT-4o-mini vs GPT-4o for the same prompt
+comparison = compare_model_costs(
+    "Summarize the key principles of software engineering.",
+    models=["gpt-4o-mini", "gpt-4o"]
+)
+print(comparison)
+```
+
+#### 5. Implement a simple cache
+
+Create a basic caching mechanism to avoid duplicate API calls:
+
+```python
+import hashlib
+from functools import lru_cache
+
+class APICache:
+    def __init__(self):
+        self.cache = {}
+    
+    def get_cache_key(self, prompt: str, model: str) -> str:
+        """Generate cache key from prompt and model."""
+        # TODO: Create a hash-based cache key
+        pass
+    
+    def get(self, prompt: str, model: str):
+        """Get cached response if available."""
+        # TODO: Check cache and return if found
+        pass
+    
+    def set(self, prompt: str, model: str, response):
+        """Store response in cache."""
+        # TODO: Store response with cache key
+        pass
+    
+    def get_cached_completion(self, prompt: str, model: str = "gpt-4o-mini"):
+        """Get completion, using cache if available."""
+        # TODO: Check cache first, make API call if not cached
+        pass
+
+# Test caching
+cache = APICache()
+response1 = cache.get_cached_completion("What is AI?")  # API call
+response2 = cache.get_cached_completion("What is AI?")  # Cache hit (should be instant)
+```
+
+#### 6. Build a cost tracker
+
+Create a `CostTracker` class that accumulates token usage and costs:
+
+```python
+class CostTracker:
+    def __init__(self):
+        # TODO: Initialize tracking variables
+        pass
+    
+    def add_request(self, input_tokens: int, output_tokens: int, model: str):
+        """Record a request's token usage."""
+        # TODO: Add to totals
+        pass
+    
+    def get_summary(self) -> dict:
+        """Return summary statistics."""
+        # TODO: Calculate totals, averages, costs
+        pass
+    
+    def print_summary(self):
+        """Print formatted summary."""
+        # TODO: Print nice summary
+        pass
+
+# Test the tracker
+tracker = CostTracker()
+# Simulate some requests
+tracker.add_request(100, 50, "gpt-4o-mini")
+tracker.add_request(200, 100, "gpt-4o-mini")
+tracker.add_request(500, 200, "gpt-4o")
+tracker.print_summary()
+```
+
+#### 7. Reflection questions
+
+After completing the exercises, answer these questions:
+- How much would it cost to process 10,000 documents (5,000 tokens each) with GPT-4o vs GPT-4o-mini?
+- What's the cost difference between a 1,000-token prompt and a 10,000-token prompt for 100 requests?
+- How could caching reduce costs for your use case?
+- What's a reasonable `max_tokens` limit for your application? How did you decide?
+- If your monthly API budget is $100, how many requests can you make with GPT-4o vs GPT-4o-mini?
 
 ## Tools & Resources
 

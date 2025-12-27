@@ -7,31 +7,87 @@ order: 5
 chapterId: "chapter-1-getting-started"
 moduleId: "module-1-fundamentals"
 prerequisites: ["lesson-3-dev-environment"]
-estimatedMinutes: 9
+estimatedMinutes: 12
 tags: ["security", "api-keys", "best-practices"]
 difficulty: "beginner"
 ---
 
 # API Keys and Security Best Practices
 
+> **💡** *API keys are like the password to your bank account, except your bank account can rack up thousands of dollars in charges if someone gets your password. And unlike your bank account, once you commit a key to git, it's in history forever. Git never forgets—which is great for code, terrible for secrets.*
+
 ## Overview
 
-API keys are sensitive credentials that grant access to paid AI services. Proper key management is critical to prevent unauthorized access and unexpected charges.
+API keys are sensitive credentials that grant access to paid AI services. A leaked API key can result in unauthorized access, unexpected charges (thousands of dollars in hours), and compromised data. Proper key management is critical to prevent these security incidents.
+
+In 2024-2025, API key security is more important than ever. As AI services become more powerful and expensive, the impact of leaked keys has increased. This lesson covers everything you need to know to secure your API keys from development to production.
 
 ## Main Content
 
 ### API Key Security Principles
 
-1. **Never commit keys to version control**
-2. **Use environment variables**
-3. **Rotate keys regularly**
-4. **Use least-privilege access**
-5. **Monitor key usage**
+These principles form the foundation of secure API key management:
+
+#### 1. Never Commit Keys to Version Control
+
+**Why This Matters:**
+- Git history is permanent (even if you delete the file later)
+- Public repos expose keys to anyone
+- Private repos can be accessed by team members or compromised
+- Keys in git history can be extracted with simple commands
+
+**Common Scenarios Where Keys Get Committed:**
+- Adding `.env` files before adding to `.gitignore`
+- Copy-pasting code with hardcoded keys
+- Committing config files with example keys that look real
+- Screenshots of code in documentation
+
+**Prevention:**
+- Use `.gitignore` to exclude `.env` files
+- Use pre-commit hooks to scan for secrets
+- Use tools like GitGuardian or TruffleHog to scan repos
+- Never use real keys in examples or documentation
+
+#### 2. Use Environment Variables
+
+Environment variables keep secrets out of code:
+- Secrets are stored outside the codebase
+- Different values for different environments (dev/staging/prod)
+- Easy to update without code changes
+- Standard practice across the industry
+
+#### 3. Rotate Keys Regularly
+
+Regular rotation limits damage from compromised keys:
+- Rotate immediately if a key is exposed
+- Schedule regular rotations (e.g., every 90 days)
+- Rotate when team members leave
+- Rotate if you suspect a compromise
+
+#### 4. Use Least-Privilege Access
+
+Create keys with minimum required permissions:
+- Some providers allow scoped keys (read-only, specific features)
+- Use separate keys for different environments
+- Don't use production keys for development
+- Limit key permissions to what's actually needed
+
+#### 5. Monitor Key Usage
+
+Monitor for unusual activity:
+- Track API usage patterns
+- Set up alerts for unexpected spikes
+- Review usage logs regularly
+- Detect compromised keys early
 
 ### Environment Variables
 
+Environment variables are the standard way to manage secrets in modern applications. They keep secrets out of your code and make it easy to use different values for different environments.
+
+#### Basic Usage
+
 ```python
-# ❌ BAD - Hardcoded
+# ❌ BAD - Hardcoded (never do this!)
 api_key = "sk-proj-abc123..."
 
 # ✅ GOOD - Environment variable
@@ -39,48 +95,281 @@ import os
 api_key = os.getenv("OPENAI_API_KEY")
 ```
 
+#### Using python-dotenv for Local Development
+
+For local development, use `.env` files with `python-dotenv`:
+
+```python
+from dotenv import load_dotenv
+import os
+
+# Load variables from .env file
+load_dotenv()
+
+# Access the key
+api_key = os.getenv("OPENAI_API_KEY")
+
+# Verify it's loaded
+if not api_key:
+    raise ValueError("OPENAI_API_KEY not found in environment variables")
+```
+
+**`.env` file (never commit this!):**
+```bash
+OPENAI_API_KEY=sk-proj-your-actual-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+**`.gitignore` (always add this!):**
+```gitignore
+.env
+.env.local
+.env.*.local
+*.env
+```
+
+#### Production Environment Variables
+
+In production, set environment variables through your platform:
+
+**Vercel:**
+- Set in dashboard: Project Settings → Environment Variables
+- Available in build and runtime
+
+**Heroku:**
+```bash
+heroku config:set OPENAI_API_KEY=sk-proj-...
+```
+
+**AWS Lambda / ECS:**
+- Use AWS Systems Manager Parameter Store or Secrets Manager
+- Set via CloudFormation, Terraform, or console
+
+**Docker:**
+```bash
+docker run -e OPENAI_API_KEY=sk-proj-... my-app
+# Or use docker-compose with .env file
+```
+
+**Kubernetes:**
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-keys
+data:
+  openai-api-key: <base64-encoded-key>
+```
+
 ### Secrets Management
 
-For production, use proper secrets management:
+For production applications, use proper secrets management services. These provide encryption at rest, access control, audit logs, and automatic rotation.
 
-**Local Development:**
-- `.env` files with `.gitignore`
+#### Local Development
 
-**Cloud/Production:**
-- AWS Secrets Manager
-- Google Secret Manager
-- Azure Key Vault
-- HashiCorp Vault
-- Vercel Environment Variables
+**`.env` files** (Simplest approach)
+- Use `python-dotenv` to load from `.env` files
+- Add `.env` to `.gitignore`
+- Create `.env.example` template (commit this, not `.env`)
+- Never commit actual `.env` files
+
+#### Cloud/Production Solutions
+
+**AWS Secrets Manager**
+- Encrypted storage
+- Automatic rotation support
+- Fine-grained access control (IAM)
+- Audit logging via CloudTrail
+- Cost: ~$0.40 per secret per month
+
+**AWS Systems Manager Parameter Store**
+- Free tier available (Standard parameters)
+- Secure String parameters for secrets
+- Integration with IAM
+- Works with Lambda, ECS, EC2
+
+**Google Secret Manager**
+- Encrypted at rest
+- Access control via IAM
+- Versioning and audit logs
+- Cost: $0.06 per secret per month
+
+**Azure Key Vault**
+- Centralized secrets management
+- Access control via Azure RBAC
+- Integration with Azure services
+- Audit logs available
+
+**HashiCorp Vault**
+- Self-hosted or cloud (HCP Vault)
+- Dynamic secrets generation
+- Advanced access policies
+- Good for complex multi-cloud setups
+
+**Platform-Specific Solutions:**
+- **Vercel**: Environment Variables in dashboard (encrypted)
+- **Railway**: Environment Variables in dashboard
+- **Render**: Environment Variables in dashboard
+- **Fly.io**: Secrets via CLI (`fly secrets set`)
+
+**When to Use What:**
+- **Small projects / startups**: Platform environment variables (Vercel, Railway)
+- **AWS-heavy**: AWS Secrets Manager or Parameter Store
+- **GCP-heavy**: Google Secret Manager
+- **Multi-cloud / complex**: HashiCorp Vault
+- **Azure-heavy**: Azure Key Vault
 
 ### Key Rotation
 
-Regularly rotate API keys:
+Regular key rotation is a security best practice. It limits the damage if a key is compromised and ensures old, unused keys don't accumulate.
 
-1. Generate new key in provider dashboard
-2. Update environment variables
-3. Deploy with new key
-4. Revoke old key after verification
+#### When to Rotate Keys
 
-### Rate Limiting and Quotas
+**Immediately:**
+- Key is exposed or suspected compromise
+- Key appears in git history (even if deleted)
+- Key shared accidentally (email, screenshot, etc.)
+- Team member with key access leaves
 
-Set spending limits:
+**Regularly:**
+- Every 90 days for production keys
+- Every 180 days for development keys
+- After security incidents
+- When updating key permissions
+
+#### Rotation Process
+
+**Step 1: Generate New Key**
+- Go to provider dashboard (OpenAI, Anthropic, etc.)
+- Generate new API key
+- Save the key securely (you'll only see it once)
+
+**Step 2: Update Environment Variables**
+- Update in your secrets management system
+- For production: Update via dashboard/CLI
+- For development: Update `.env` file locally
+
+**Step 3: Deploy with New Key**
+- Deploy application with new key
+- Verify application works with new key
+- Monitor for errors
+
+**Step 4: Revoke Old Key**
+- Wait 24-48 hours after deployment
+- Verify no errors or usage from old key
+- Revoke old key in provider dashboard
+- **Important**: Don't revoke too early—have a grace period
+
+#### Zero-Downtime Rotation
+
+For production systems, rotate with zero downtime:
+
+1. Generate new key (keep old key active)
+2. Deploy with both keys (try new key first, fallback to old)
+3. Once new key is verified, remove old key from code
+4. Revoke old key after grace period
 
 ```python
-# OpenAI allows setting soft/hard limits in dashboard
-# Monitor usage programmatically:
+# Example: Zero-downtime key rotation
+import os
 
-from openai import OpenAI
-client = OpenAI()
-
-# Check usage
-usage = client.usage.retrieve()
-print(f"Current usage: ${usage.total_cost}")
+# Try new key first, fallback to old during rotation
+api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY_OLD")
 ```
+
+### Spending Limits and Monitoring
+
+Prevent runaway costs by setting spending limits and monitoring usage.
+
+#### Setting Spending Limits
+
+**OpenAI:**
+1. Go to [Usage Limits](https://platform.openai.com/account/limits)
+2. Set soft limit (warning email)
+3. Set hard limit (hard stop, API calls fail)
+4. Recommended: Set hard limit to prevent surprise bills
+
+**Anthropic:**
+1. Go to [Settings → Billing](https://console.anthropic.com/settings/billing)
+2. Set spending limits
+3. Enable email notifications
+
+**Best Practices:**
+- Set hard limits on all accounts (especially development)
+- Start with conservative limits, adjust as needed
+- Set alerts at 50%, 75%, 90% of budget
+- Review limits monthly
+
+#### Monitoring Usage
+
+**Dashboard Monitoring:**
+- Check provider dashboard regularly (daily for production)
+- Review usage patterns for anomalies
+- Track cost per feature/endpoint
+
+**Programmatic Monitoring:**
+
+```python
+from openai import OpenAI
+from datetime import datetime, timedelta
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def check_usage():
+    """Check current usage and costs."""
+    # Note: OpenAI API doesn't have a direct usage endpoint
+    # Use billing API if available, or check dashboard
+    # For most providers, check dashboard or use their billing API
+    
+    print("Check usage via provider dashboard:")
+    print("- OpenAI: https://platform.openai.com/usage")
+    print("- Anthropic: https://console.anthropic.com/settings/billing")
+```
+
+**Custom Usage Tracking:**
+
+Since providers may not expose usage via API, track programmatically:
+
+```python
+class UsageTracker:
+    """Track API usage and costs locally."""
+    
+    def __init__(self):
+        self.total_requests = 0
+        self.total_tokens = 0
+        self.total_cost = 0.0
+    
+    def track_request(self, input_tokens: int, output_tokens: int, model: str):
+        """Track a single API request."""
+        # Calculate cost based on model pricing
+        # (See tokens-costs lesson for pricing details)
+        self.total_requests += 1
+        self.total_tokens += input_tokens + output_tokens
+        # Add cost calculation here
+    
+    def get_summary(self):
+        """Get usage summary."""
+        return {
+            "requests": self.total_requests,
+            "tokens": self.total_tokens,
+            "estimated_cost": self.total_cost,
+        }
+```
+
+#### Alerting
+
+Set up alerts for:
+- High usage spikes (unusual patterns)
+- Approaching budget limits
+- Failed API calls (might indicate compromised key)
+- Unusual geographic access patterns (if available)
 
 ## Code Examples
 
-Secure key loading with validation:
+### Secure Key Loading with Validation
+
+Production-ready function for loading and validating API keys:
 
 ```python
 import os
@@ -90,15 +379,39 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_api_key(key_name: str, required: bool = True) -> Optional[str]:
-    """Safely retrieve API key from environment."""
+    """
+    Safely retrieve API key from environment variables.
+    
+    Args:
+        key_name: Name of environment variable
+        required: If True, raise error if key not found
+        
+    Returns:
+        API key string or None if not required and not found
+        
+    Raises:
+        ValueError: If required key is not found
+    """
     key = os.getenv(key_name)
     
     if required and not key:
-        raise ValueError(f"{key_name} is required but not set")
+        raise ValueError(
+            f"{key_name} is required but not set. "
+            f"Please set it in your .env file or environment variables."
+        )
     
-    if key and key.startswith("sk-"):
-        # Basic validation - OpenAI keys start with sk-
-        return key
+    if key:
+        # Basic validation - check it's not empty or placeholder
+        key = key.strip()
+        if key in ["", "your-api-key-here", "sk-..."]:
+            raise ValueError(f"{key_name} appears to be a placeholder, not a real key")
+        
+        # Optionally validate format (provider-specific)
+        if key_name == "OPENAI_API_KEY" and not key.startswith(("sk-", "sk-proj-")):
+            raise ValueError(
+                f"{key_name} doesn't match expected OpenAI key format "
+                f"(should start with 'sk-' or 'sk-proj-')"
+            )
     
     return key
 
@@ -107,26 +420,342 @@ try:
     openai_key = get_api_key("OPENAI_API_KEY")
     anthropic_key = get_api_key("ANTHROPIC_API_KEY", required=False)
 except ValueError as e:
-    print(f"Configuration error: {e}")
+    print(f"❌ Configuration error: {e}")
+    exit(1)
+```
+
+### Environment Validation on Startup
+
+Validate all required environment variables when the application starts:
+
+```python
+import os
+import sys
+from dotenv import load_dotenv
+
+# Required environment variables
+REQUIRED_ENV_VARS = [
+    "OPENAI_API_KEY",
+    # Add other required variables here
+]
+
+OPTIONAL_ENV_VARS = [
+    "ANTHROPIC_API_KEY",
+    "LANGCHAIN_API_KEY",
+]
+
+def validate_environment():
+    """Validate that all required environment variables are set."""
+    load_dotenv()
+    
+    missing = []
+    invalid = []
+    
+    # Check required variables
+    for var in REQUIRED_ENV_VARS:
+        value = os.getenv(var)
+        if not value or value.strip() == "":
+            missing.append(var)
+        elif value.strip() in ["your-api-key-here", "sk-..."]:
+            invalid.append(var)
+    
+    # Print errors if any
+    if missing:
+        print("❌ Missing required environment variables:")
+        for var in missing:
+            print(f"  - {var}")
+        print("\nPlease set these in your .env file or environment variables.")
+        sys.exit(1)
+    
+    if invalid:
+        print("⚠️  Environment variables appear to be placeholders:")
+        for var in invalid:
+            print(f"  - {var}")
+        print("\nPlease set actual values, not placeholders.")
+        sys.exit(1)
+    
+    # Check optional variables (just warn)
+    for var in OPTIONAL_ENV_VARS:
+        value = os.getenv(var)
+        if not value:
+            print(f"ℹ️  Optional environment variable {var} not set")
+
+# Call on startup
+if __name__ == "__main__":
+    validate_environment()
+    print("✅ Environment validation passed")
+```
+
+### Secure Key Masking for Logging
+
+Never log full API keys. Mask them in logs:
+
+```python
+def mask_api_key(key: Optional[str], show_chars: int = 4) -> str:
+    """
+    Mask an API key for safe logging.
+    
+    Args:
+        key: API key to mask
+        show_chars: Number of characters to show at start
+        
+    Returns:
+        Masked key string (e.g., "sk-proj-...xxxx")
+    """
+    if not key:
+        return "None"
+    
+    if len(key) <= show_chars:
+        return "****"
+    
+    return f"{key[:show_chars]}...{key[-4:]}"
+
+# Usage in logging
+import logging
+api_key = os.getenv("OPENAI_API_KEY")
+logging.info(f"Using API key: {mask_api_key(api_key)}")
+# Output: "Using API key: sk-p...xxxx"
+```
+
+### Key Validation Class
+
+Production-ready class for managing API keys:
+
+```python
+class APIKeyManager:
+    """Manages API keys with validation and security checks."""
+    
+    def __init__(self):
+        self._keys = {}
+        self._load_keys()
+    
+    def _load_keys(self):
+        """Load all API keys from environment."""
+        load_dotenv()
+        
+        key_configs = {
+            "openai": {
+                "env_var": "OPENAI_API_KEY",
+                "required": True,
+                "prefix": "sk-",
+            },
+            "anthropic": {
+                "env_var": "ANTHROPIC_API_KEY",
+                "required": False,
+                "prefix": "sk-ant-",
+            },
+        }
+        
+        for name, config in key_configs.items():
+            key = os.getenv(config["env_var"])
+            
+            if config["required"] and not key:
+                raise ValueError(
+                    f"{config['env_var']} is required but not set"
+                )
+            
+            if key:
+                # Validate format
+                if config["prefix"] and not key.startswith(config["prefix"]):
+                    raise ValueError(
+                        f"{config['env_var']} doesn't match expected format "
+                        f"(should start with '{config['prefix']}')"
+                    )
+                
+                self._keys[name] = key
+    
+    def get(self, provider: str) -> Optional[str]:
+        """Get API key for a provider."""
+        return self._keys.get(provider)
+    
+    def validate_all(self) -> bool:
+        """Validate all required keys are present."""
+        # Add custom validation logic here
+        return True
+
+# Usage
+try:
+    key_manager = APIKeyManager()
+    openai_key = key_manager.get("openai")
+    anthropic_key = key_manager.get("anthropic")
+except ValueError as e:
+    print(f"❌ Error: {e}")
     exit(1)
 ```
 
 ## Common Mistakes
 
-1. **Committing keys to git**: Use `.gitignore` and pre-commit hooks
-2. **Sharing keys in screenshots**: Be careful with demos
-3. **Using same key everywhere**: Separate keys for dev/staging/prod
-4. **No spending limits**: Set limits in provider dashboard
-5. **Logging keys**: Don't log full API keys
-6. **Client-side exposure**: Never use API keys in frontend code
+#### 1. Committing keys to git
+This is the most common and dangerous mistake. Once committed, keys are in git history forever. Even if you delete the file and commit again, the key is still accessible via `git log`. Use `.gitignore` for `.env` files, use pre-commit hooks to scan for secrets, and if you've already committed a key, rotate it immediately—don't try to remove it from history.
+
+#### 2. Sharing keys in screenshots or demos
+Screenshots of code, terminal output, or dashboards can expose keys. Keys in screenshots get indexed by search engines, shared on social media, or saved by viewers. Always blur or mask keys in screenshots, or use example/placeholder keys for demos.
+
+#### 3. Using the same key everywhere
+Using one key for development, staging, and production is dangerous. If a development key is compromised, production is also at risk. Create separate keys for each environment, use different accounts if possible, and restrict production keys to production infrastructure only.
+
+#### 4. No spending limits set
+Without spending limits, a compromised key or buggy code can rack up thousands of dollars in hours. Always set hard limits in provider dashboards, especially for development/testing accounts. Set alerts at 50%, 75%, and 90% of budget to catch issues early.
+
+#### 5. Logging full API keys
+Logging API keys (even in development) exposes them in log files, log aggregation services, and error tracking tools. Logs can be accessed by team members, stored indefinitely, or leaked. Always mask keys in logs (show only first/last few characters) or avoid logging them entirely.
+
+#### 6. Using API keys in frontend/client-side code
+API keys in frontend code (JavaScript, mobile apps) are exposed to anyone who can view the code. Attackers can extract keys from browser dev tools, mobile app decompilation, or source code inspection. Never use API keys in client-side code—use a backend API proxy instead.
+
+#### 7. Not rotating keys after exposure
+If a key is exposed (committed to git, in screenshot, etc.), you must rotate it immediately. Don't assume it hasn't been used—attackers scan public repos automatically. Generate a new key, update everywhere it's used, then revoke the old key. Waiting even a few hours can be costly.
+
+#### 8. Storing keys in code comments or documentation
+Keys in comments, README files, or documentation can be committed and shared. Example keys that look real can be accidentally used. Always use clear placeholders like `your-api-key-here` or `sk-...` in documentation, never real keys even for examples.
+
+#### 9. Not validating keys on startup
+Failing to validate that required keys are set leads to runtime errors in production. Validate all required environment variables when the application starts, provide clear error messages, and fail fast if keys are missing or invalid.
+
+#### 10. Sharing keys via insecure channels
+Sharing keys via email, Slack, or other messaging platforms exposes them to interception and accidental sharing. Use secure channels (encrypted messaging, secrets management systems) or better yet, give team members their own keys with appropriate permissions.
 
 ## Exercise
 
-1. Set up `.env` file with API keys
-2. Verify `.env` is in `.gitignore`
-3. Write a function that safely loads API keys
-4. Set up spending alerts in your API provider dashboard
-5. Create a script that validates all required environment variables on startup
+Complete these exercises to practice secure API key management. These are essential skills for production applications.
+
+#### 1. Set up secure environment variable management
+
+Create a `.env` file and verify it's properly ignored:
+
+```bash
+# Create .env file
+echo "OPENAI_API_KEY=sk-proj-your-actual-key-here" > .env
+echo "ANTHROPIC_API_KEY=sk-ant-your-key-here" >> .env
+
+# Verify .gitignore includes .env
+cat .gitignore | grep "\.env"
+
+# Verify .env is not tracked by git
+git status
+# .env should NOT appear in the list
+```
+
+#### 2. Create a secure key loading function
+
+Write a function that safely loads and validates API keys:
+
+```python
+# secure_keys.py
+import os
+from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def get_api_key(key_name: str, required: bool = True) -> Optional[str]:
+    """TODO: Implement secure key loading with validation"""
+    pass
+
+# Test your function
+try:
+    key = get_api_key("OPENAI_API_KEY")
+    print(f"✅ Key loaded: {key[:8]}...")
+except ValueError as e:
+    print(f"❌ Error: {e}")
+```
+
+#### 3. Create an environment validation script
+
+Write a script that validates all required environment variables on startup:
+
+```python
+# validate_env.py
+import os
+import sys
+from dotenv import load_dotenv
+
+REQUIRED_VARS = ["OPENAI_API_KEY"]
+
+def validate_environment():
+    """TODO: Implement validation logic"""
+    pass
+
+if __name__ == "__main__":
+    validate_environment()
+```
+
+#### 4. Implement key masking for logging
+
+Create a function that masks API keys for safe logging:
+
+```python
+def mask_api_key(key: Optional[str], show_chars: int = 4) -> str:
+    """TODO: Implement key masking"""
+    pass
+
+# Test
+key = "sk-proj-abcdefghijklmnopqrstuvwxyz123456"
+print(f"Masked: {mask_api_key(key)}")
+# Expected: "sk-p...3456"
+```
+
+#### 5. Set up spending limits and alerts
+
+1. Go to your API provider dashboard:
+   - OpenAI: https://platform.openai.com/account/limits
+   - Anthropic: https://console.anthropic.com/settings/billing
+
+2. Set a hard spending limit ($10, $50, or whatever you're comfortable with)
+
+3. Set up email alerts at 50%, 75%, and 90% of your budget
+
+4. Document where you set these limits for future reference
+
+#### 6. Create a key rotation checklist
+
+Create a document or checklist for rotating API keys:
+
+```markdown
+# API Key Rotation Checklist
+
+- [ ] Generate new key in provider dashboard
+- [ ] Save new key securely (you'll only see it once)
+- [ ] Update .env file (development)
+- [ ] Update environment variables (production)
+- [ ] Deploy application with new key
+- [ ] Verify application works with new key
+- [ ] Monitor for errors (24-48 hours)
+- [ ] Revoke old key in provider dashboard
+- [ ] Verify old key is no longer working
+- [ ] Document rotation date
+```
+
+#### 7. Test your .gitignore setup
+
+Verify that `.env` files are properly ignored:
+
+```bash
+# Create a test .env file
+echo "TEST_KEY=test-value" > .env
+
+# Check git status
+git status
+# .env should NOT appear
+
+# Try to add it explicitly (should fail or be ignored)
+git add .env
+git status
+# Should still not show .env
+
+# Clean up
+rm .env
+```
+
+#### 8. Reflection questions
+
+After completing the exercises, answer these questions:
+- What would happen if you committed a `.env` file with a real API key to a public GitHub repo?
+- How would you detect if an API key was compromised?
+- What's your process for rotating keys when a team member leaves?
+- How do you share API keys securely with team members?
+- What spending limits have you set, and why?
+- How do you handle API keys in different environments (dev/staging/prod)?
 
 ## Tools & Resources
 

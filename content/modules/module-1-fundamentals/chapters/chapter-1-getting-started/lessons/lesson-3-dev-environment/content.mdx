@@ -7,119 +7,660 @@ order: 3
 chapterId: "chapter-1-getting-started"
 moduleId: "module-1-fundamentals"
 prerequisites: ["lesson-1-introduction"]
-estimatedMinutes: 10
+estimatedMinutes: 12
 tags: ["setup", "environment", "tools"]
 difficulty: "beginner"
 ---
 
 # Setting Up Your Development Environment
 
+> **💡** *Setting up a dev environment for AI engineering is like packing for a camping trip—you'll survive with just a tent, but a good sleeping bag, headlamp, and bug spray make all the difference. Same here: Python works alone, but virtual environments, API key management, and the right tools turn survival into comfort.*
+
 ## Overview
 
-A proper development environment is crucial for AI engineering. This lesson covers setting up Python, virtual environments, API keys, and essential tools.
+A proper development environment is crucial for AI engineering. This lesson covers setting up Python, virtual environments, API keys, and essential tools. Getting this right from the start saves hours of debugging later—dependency conflicts, API key leaks, and version mismatches are the most common beginner mistakes.
+
+In 2024-2025, the Python AI ecosystem has matured significantly. Python 3.10+ is the standard, and modern tools like `ruff` (replacing `flake8` + `black` + `isort`) and `uv` (fast package manager) have emerged. We'll cover both the tried-and-true approaches and the latest tools.
 
 ## Main Content
 
 ### Python Setup
 
-Use Python 3.9+ for best compatibility with AI libraries:
+#### Recommended Python Version
+
+Use **Python 3.10 or higher** (3.11+ recommended) for best compatibility with modern AI libraries. Python 3.9 is end-of-life, and 3.12+ offers better performance and features.
 
 ```bash
 # Check Python version
 python --version
+# Should show Python 3.10.x, 3.11.x, or 3.12.x
 
+# If you need to install/upgrade Python:
+# macOS: brew install python@3.11
+# Linux: Use your distribution's package manager
+# Windows: Download from python.org
+```
+
+#### Virtual Environments
+
+**Why Virtual Environments?**
+- Isolate dependencies per project
+- Avoid version conflicts between projects
+- Reproduce environments easily (via `requirements.txt`)
+- Keep your system Python clean
+
+**Using `venv` (Built-in, Recommended for Most Cases)**
+
+```bash
 # Create virtual environment
 python -m venv venv
 
 # Activate (macOS/Linux)
 source venv/bin/activate
 
-# Activate (Windows)
-venv\Scripts\activate
+# Activate (Windows PowerShell)
+venv\Scripts\Activate.ps1
+
+# Activate (Windows Command Prompt)
+venv\Scripts\activate.bat
+
+# You should see (venv) in your terminal prompt
+# Deactivate when done
+deactivate
+```
+
+**Using `uv` (Fast, Modern Alternative)**
+
+`uv` is a new, extremely fast Python package manager written in Rust. It's great for creating environments and managing dependencies:
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment (much faster than venv)
+uv venv
+
+# Activate
+source .venv/bin/activate  # macOS/Linux
+.venv\Scripts\activate     # Windows
+
+# Install packages (faster than pip)
+uv pip install openai langchain
+```
+
+**Using `poetry` (For Larger Projects)**
+
+Poetry manages both dependencies and project metadata:
+
+```bash
+# Install poetry
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Create new project
+poetry new my-ai-project
+cd my-ai-project
+
+# Add dependencies
+poetry add openai langchain
+
+# Activate environment
+poetry shell
 ```
 
 ### Essential Packages
 
+#### Core AI Libraries
+
 ```bash
-pip install openai anthropic langchain langsmith
-pip install tiktoken  # Token counting
-pip install python-dotenv  # Environment variables
+# LLM providers
+pip install openai>=1.0.0          # OpenAI SDK (v1.0+ has breaking changes from v0.x)
+pip install anthropic>=0.18.0      # Anthropic Claude
+
+# Frameworks
+pip install langchain>=0.1.0       # LangChain framework
+pip install langchain-openai       # LangChain OpenAI integration
+pip install langchain-community    # Additional LangChain integrations
+
+# Utilities
+pip install tiktoken>=0.5.0        # Token counting for OpenAI models
+pip install python-dotenv>=1.0.0   # Environment variable management
 ```
+
+#### Optional But Recommended
+
+```bash
+# Evaluation and observability
+pip install langsmith              # LangChain observability platform
+pip install phoenix-evals          # Open-source evaluation framework
+
+# Vector databases (choose based on your needs)
+pip install chromadb               # Lightweight, Python-first
+pip install pinecone-client        # Managed vector database
+
+# Development tools
+pip install pytest>=7.0.0          # Testing framework
+pip install black>=23.0.0          # Code formatter
+pip install ruff>=0.1.0            # Fast linter (replaces flake8 + isort)
+pip install mypy>=1.5.0            # Type checking (optional but recommended)
+```
+
+#### Creating a `requirements.txt`
+
+Always create a `requirements.txt` file for reproducibility:
+
+```txt
+# requirements.txt
+openai>=1.0.0
+anthropic>=0.18.0
+langchain>=0.1.0
+langchain-openai>=0.1.0
+tiktoken>=0.5.0
+python-dotenv>=1.0.0
+pytest>=7.0.0
+black>=23.0.0
+ruff>=0.1.0
+```
+
+Install all at once:
+```bash
+pip install -r requirements.txt
+```
+
+**Pro Tip**: Pin exact versions for production (`==1.0.0`) but use minimum versions (`>=1.0.0`) for development to allow security updates.
 
 ### API Key Management
 
-**Never commit API keys to git!**
+**Critical Security Rule: Never commit API keys to git!**
 
-1. Create a `.env` file:
+API keys are like passwords—if exposed, attackers can use them to make requests on your behalf, racking up charges or accessing your data. Treat them as secrets.
+
+#### Step 1: Create a `.env` File
+
+Create a `.env` file in your project root (same directory as your code):
+
 ```bash
-OPENAI_API_KEY=sk-...
+# .env
+OPENAI_API_KEY=sk-proj-...
 ANTHROPIC_API_KEY=sk-ant-...
+PINECONE_API_KEY=...
+# Add other API keys as needed
 ```
 
-2. Use `python-dotenv`:
+**Important Notes:**
+- Never add quotes around values in `.env` files
+- Don't include spaces around the `=` sign
+- One key per line
+- You can add comments with `#`
+
+#### Step 2: Use `python-dotenv` to Load Environment Variables
+
 ```python
 from dotenv import load_dotenv
 import os
 
+# Load variables from .env file
 load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
+
+# Access environment variables
+openai_api_key = os.getenv("OPENAI_API_KEY")
+anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+
+# Verify keys are loaded (optional, for debugging)
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY not found in environment variables")
 ```
 
-3. Add `.env` to `.gitignore`:
+**Alternative: Using Environment Variables Directly**
+
+On macOS/Linux:
+```bash
+export OPENAI_API_KEY="sk-proj-..."
+python my_script.py
 ```
+
+On Windows:
+```powershell
+$env:OPENAI_API_KEY="sk-proj-..."
+python my_script.py
+```
+
+**Note**: Environment variables set this way only last for the current terminal session. Use `.env` files for persistence.
+
+#### Step 3: Add `.env` to `.gitignore`
+
+Create or update your `.gitignore` file:
+
+```gitignore
+# Environment variables
 .env
 .env.local
+.env.*.local
 *.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
 ```
+
+**Verify `.env` is ignored:**
+```bash
+git status
+# .env should NOT appear in the list
+```
+
+#### Step 4: Create a `.env.example` File
+
+Create a template file that others can copy:
+
+```bash
+# .env.example
+OPENAI_API_KEY=your-openai-api-key-here
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
+PINECONE_API_KEY=your-pinecone-api-key-here
+```
+
+Commit `.env.example` to git so team members know what environment variables are needed. They can copy it:
+```bash
+cp .env.example .env
+# Then edit .env with their actual keys
+```
+
+#### Advanced: Using Secrets Management (Production)
+
+For production deployments, use proper secrets management:
+- **AWS**: AWS Secrets Manager or Parameter Store
+- **GCP**: Secret Manager
+- **Azure**: Key Vault
+- **Vercel/Railway/Heroku**: Environment variables in dashboard
+- **Docker**: Docker secrets or environment variables passed at runtime
 
 ### Recommended Tools
 
-- **IDE**: VS Code with Python extension
-- **Version Control**: Git
-- **Package Manager**: pip or poetry
-- **Testing**: pytest
-- **Linting**: black, ruff, mypy
+#### Integrated Development Environment (IDE)
+
+**VS Code** (Recommended)
+- Free, cross-platform, excellent Python support
+- Extensions to install:
+  - Python (Microsoft)
+  - Pylance (language server)
+  - Python Debugger
+  - Black Formatter (optional, if using Black)
+  - Ruff (for linting)
+- Great Git integration built-in
+
+**PyCharm** (Alternative)
+- Professional IDE with excellent AI/ML support
+- Free Community Edition available
+- More features but heavier than VS Code
+
+#### Version Control
+
+**Git** (Essential)
+- Track code changes
+- Collaborate with teams
+- Never commit:
+  - `.env` files
+  - `__pycache__/` directories
+  - API keys
+  - Large model files (use Git LFS if needed)
+
+#### Code Quality Tools
+
+**Ruff** (Modern, Fast, Recommended)
+- Replaces: `flake8`, `isort`, `black` (formatter mode), `pydocstyle`
+- Extremely fast (written in Rust)
+- Zero-configuration works well
+- Install: `pip install ruff`
+- Run: `ruff check .` and `ruff format .`
+
+**Black** (Traditional Formatter)
+- Opinionated code formatter
+- Install: `pip install black`
+- Run: `black .`
+- Can be used alongside Ruff (Ruff for linting, Black for formatting)
+
+**mypy** (Type Checking)
+- Optional but recommended for larger projects
+- Catches type-related bugs
+- Install: `pip install mypy`
+- Run: `mypy .`
+
+#### Testing
+
+**pytest** (Standard)
+- Most popular Python testing framework
+- Great for testing AI systems
+- Install: `pip install pytest pytest-asyncio`
+- Run: `pytest`
+
+#### Package Management
+
+- **pip**: Standard, works everywhere
+- **poetry**: Better dependency management for larger projects
+- **uv**: Fastest option (new, written in Rust)
+- **conda**: If you need specific Python versions or system dependencies
 
 ## Code Examples
 
-Complete setup example:
+### Complete Setup Example
 
-```python
+Here's a complete, production-ready example showing the proper setup:
+
+**Step 1: Create `requirements.txt`**
+
+```txt
 # requirements.txt
 openai>=1.0.0
 python-dotenv>=1.0.0
 tiktoken>=0.5.0
+```
 
+**Step 2: Create `.env` file**
+
+```bash
+# .env (DO NOT COMMIT THIS FILE!)
+OPENAI_API_KEY=sk-proj-your-actual-key-here
+```
+
+**Step 3: Create `.env.example` (commit this to git)**
+
+```bash
+# .env.example
+OPENAI_API_KEY=your-openai-api-key-here
+```
+
+**Step 4: Create `main.py` with proper error handling**
+
+```python
 # main.py
 import os
 from dotenv import load_dotenv
-import openai
+from openai import OpenAI
 
+# Load environment variables from .env file
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Test connection
-response = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
-print(response.choices[0].message.content)
+# Initialize OpenAI client (v1.0+ API)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Verify API key is set
+if not os.getenv("OPENAI_API_KEY"):
+    raise ValueError(
+        "OPENAI_API_KEY not found. "
+        "Please set it in your .env file or environment variables."
+    )
+
+def test_openai_connection():
+    """Test OpenAI API connection with a simple request."""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # Cost-effective model for testing
+            messages=[
+                {"role": "user", "content": "Say 'Hello, world!' if you can read this."}
+            ],
+            max_tokens=50,
+        )
+        
+        message = response.choices[0].message.content
+        print(f"✅ Connection successful! Response: {message}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Connection failed: {e}")
+        return False
+
+if __name__ == "__main__":
+    print("Testing OpenAI API connection...")
+    test_openai_connection()
 ```
+
+**Step 5: Create `.gitignore`**
+
+```gitignore
+# Environment variables
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+.venv/
+```
+
+**Key Changes from Old Code:**
+- Uses `OpenAI()` client (v1.0+ syntax) instead of `openai.api_key`
+- Uses `client.chat.completions.create()` instead of `openai.ChatCompletion.create()`
+- Uses `gpt-4o-mini` (latest cost-effective model) instead of `gpt-3.5-turbo`
+- Includes proper error handling
+- Follows current best practices
 
 ## Common Mistakes
 
-1. **Committing API keys**: Always use `.env` files and `.gitignore`
-2. **Not using virtual environments**: Leads to dependency conflicts
-3. **Outdated packages**: AI libraries change rapidly; keep updated
-4. **Hardcoding secrets**: Use environment variables or secrets management
+#### 1. Committing API keys to git
+This is the #1 mistake beginners make. Once committed, the key is in git history forever (even if you delete it later). Use `.env` files, add them to `.gitignore`, and always verify with `git status` before committing. If you've already committed a key, rotate it immediately—don't try to remove it from history.
+
+#### 2. Not using virtual environments
+Installing packages globally leads to version conflicts between projects. Your system Python becomes a mess of incompatible packages. Always create a virtual environment per project, even for small scripts.
+
+#### 3. Using outdated package versions
+AI libraries change rapidly. Using old versions (like `openai==0.27.0`) means missing bug fixes, security updates, and new features. However, don't update blindly—test updates in a separate environment first. Use `pip list --outdated` to check for updates.
+
+#### 4. Hardcoding secrets in code
+Never write `api_key = "sk-..."` directly in your code. Use environment variables or secrets management. Hardcoded keys get committed, exposed in screenshots, logged, and shared in code reviews.
+
+#### 5. Not pinning dependency versions in production
+Using `openai>=1.0.0` is fine for development, but production should use exact versions (`openai==1.12.0`) to ensure reproducible deployments. Consider using `pip freeze > requirements.txt` to generate exact versions, or use `poetry` which manages this better.
+
+#### 6. Ignoring Python version compatibility
+Some AI libraries require specific Python versions. Always check the library's documentation for Python version requirements. Python 3.9 is end-of-life, use 3.10+.
+
+#### 7. Not having a `.env.example` file
+Without a `.env.example`, team members don't know what environment variables are needed. Always create a template file showing required variables (without actual values).
 
 ## Exercise
 
-1. Set up a Python virtual environment
-2. Install OpenAI SDK and test a simple API call
-3. Create a `.env` file with your API key
-4. Write a simple script that uses the API key from environment variables
-5. Verify `.env` is in your `.gitignore`
+Follow these steps to set up your development environment. This exercise will give you hands-on experience with the tools you'll use throughout the course.
+
+#### 1. Check and install Python (if needed)
+
+```bash
+# Check your Python version
+python --version
+# Should be 3.10, 3.11, or 3.12
+
+# If you need to install/upgrade:
+# macOS: brew install python@3.11
+# Linux: Use your distro's package manager
+# Windows: Download from python.org
+```
+
+#### 2. Create a new project directory
+
+```bash
+mkdir my-ai-project
+cd my-ai-project
+```
+
+#### 3. Create a virtual environment
+
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate it
+source venv/bin/activate  # macOS/Linux
+# OR
+venv\Scripts\activate     # Windows
+
+# Verify activation (should see "venv" in prompt)
+which python  # macOS/Linux
+where python  # Windows
+# Should point to venv/bin/python or venv\Scripts\python.exe
+```
+
+#### 4. Create `requirements.txt` and install packages
+
+Create `requirements.txt`:
+```txt
+openai>=1.0.0
+python-dotenv>=1.0.0
+tiktoken>=0.5.0
+```
+
+Install packages:
+```bash
+pip install -r requirements.txt
+```
+
+Verify installation:
+```bash
+pip list
+# Should show openai, python-dotenv, tiktoken
+```
+
+#### 5. Set up API key management
+
+Create `.env` file:
+```bash
+# .env
+OPENAI_API_KEY=sk-proj-your-actual-key-here
+```
+
+Create `.env.example`:
+```bash
+# .env.example
+OPENAI_API_KEY=your-openai-api-key-here
+```
+
+Create `.gitignore`:
+```gitignore
+# Environment variables
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+.venv/
+```
+
+Verify `.env` is ignored:
+```bash
+git init  # If not already a git repo
+git status
+# .env should NOT appear in the list
+```
+
+#### 6. Write a test script
+
+Create `test_setup.py`:
+
+```python
+# test_setup.py
+import os
+from dotenv import load_dotenv
+from openai import OpenAI
+
+# Load environment variables
+load_dotenv()
+
+# Verify API key exists
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    print("❌ ERROR: OPENAI_API_KEY not found in .env file")
+    exit(1)
+
+print("✅ API key loaded successfully")
+
+# Initialize OpenAI client
+client = OpenAI(api_key=api_key)
+
+# Test API connection
+try:
+    print("Testing OpenAI API connection...")
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "user", "content": "Reply with exactly: 'Setup successful!'"}
+        ],
+        max_tokens=20,
+    )
+    
+    message = response.choices[0].message.content.strip()
+    print(f"✅ API Response: {message}")
+    print("\n🎉 Your development environment is set up correctly!")
+    
+except Exception as e:
+    print(f"❌ API call failed: {e}")
+    print("Check your API key and internet connection")
+```
+
+Run the test:
+```bash
+python test_setup.py
+```
+
+Expected output:
+```
+✅ API key loaded successfully
+Testing OpenAI API connection...
+✅ API Response: Setup successful!
+🎉 Your development environment is set up correctly!
+```
+
+#### 7. Optional: Set up code quality tools
+
+Install tools:
+```bash
+pip install ruff black mypy pytest
+```
+
+Create `pyproject.toml` for Ruff configuration (optional):
+```toml
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]  # pycodestyle errors, pyflakes, isort
+```
+
+Test linting:
+```bash
+ruff check .
+ruff format --check .
+```
+
+#### 8. Reflection questions
+
+After completing the setup, reflect on:
+- What would happen if you committed `.env` to git? How would you fix it?
+- Why is a virtual environment important even for small scripts?
+- How does `requirements.txt` help with reproducibility?
+- What's the difference between `pip install openai` and `pip install -r requirements.txt`?
 
 ## Tools & Resources
 

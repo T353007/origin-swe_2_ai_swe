@@ -7,64 +7,481 @@ order: 1
 chapterId: "chapter-1-llm-basics"
 moduleId: "module-2-llms"
 prerequisites: []
-estimatedMinutes: 7
+estimatedMinutes: 12
 tags: ["llms", "architecture", "fundamentals"]
 difficulty: "beginner"
 ---
 
 # How LLMs Work (High-Level)
 
+> **💡** *Understanding LLMs is like understanding how a chef works: you don't need to know every recipe by heart, but knowing they use ingredients (tokens), follow patterns (training), and sometimes get creative (probabilistic outputs) helps you work with them better. The key difference? Chefs don't hallucinate recipe ingredients (usually).*
+
 ## Overview
 
-Understanding how LLMs work at a high level helps you use them effectively. You don't need deep ML knowledge, but understanding the basics improves your engineering decisions.
+Understanding how LLMs work at a high level is essential for using them effectively. You don't need deep machine learning knowledge, but understanding the basics (how they process text, what tokens are, how context windows work, and why outputs can vary) improves your engineering decisions and helps you build better AI applications.
+
+In 2024-2025, LLMs have become the foundation of modern AI applications. Models like GPT-5.2, GPT-4o, Claude 4.5, and Gemini 3 are powering everything from chatbots to code generation. Understanding how they work helps you choose the right model, optimize prompts, manage costs, and debug issues effectively.
 
 ## Main Content
 
 ### What Are LLMs?
 
-Large Language Models are neural networks trained on massive text corpora to predict the next token in a sequence. They learn patterns, grammar, facts, and reasoning from training data.
+Large Language Models (LLMs) are neural networks trained on massive text corpora (billions to trillions of tokens) to predict the next token in a sequence. They learn patterns, grammar, facts, reasoning, and even programming from training data. The "large" refers to both the size of the training data and the number of parameters (weights) in the model. Modern LLMs have hundreds of billions to trillions of parameters.
 
-### Key Concepts
+**Key characteristics:**
+- **Autoregressive**: Generate text one token at a time, using previous tokens to predict the next
+- **Transformer architecture**: Based on the transformer architecture introduced in "Attention Is All You Need" (2017)
+- **Self-supervised learning**: Learn from text without explicit labels by predicting masked or next tokens
+- **General-purpose**: Can perform many tasks without task-specific training (zero-shot, few-shot)
 
-**Tokens**: LLMs process text as tokens (words or sub-words)
+### Key Concepts for AI Engineers
 
-**Context Window**: Maximum tokens the model can consider at once
+#### Tokens
 
-**Attention Mechanism**: Allows models to focus on relevant parts of input
+LLMs process text as tokens, not raw characters or whole words. Tokens are sub-word units that represent common words, word parts, or even punctuation.
 
-**Temperature**: Controls randomness in output (covered in Module 1)
+**Important points:**
+- One token ≈ 0.75 words (roughly, varies by language)
+- Same text tokenized differently by different models
+- Token count determines API costs
+- Context length is measured in tokens
 
-**Probabilistic Outputs**: Same input can produce different outputs
+**Examples:**
+- "Hello" = 1 token (common word)
+- "GPT-4o" = 3 tokens (split into parts: "GPT", "-", "4o")
+- "unhappiness" = 2-3 tokens (split into "un", "happiness")
+- "The quick brown fox" = 4-5 tokens
+
+#### Context Window
+
+The context window is the maximum number of tokens a model can consider at once (input + output combined). This is a hard limit: exceeding it causes errors.
+
+**Modern context windows (2025):**
+- **GPT-5.2**: 400,000 tokens
+- **GPT-4o**: 128,000 tokens
+- **GPT-4o-mini**: 128,000 tokens
+- **Claude 4.5 Sonnet/Opus**: 200,000 tokens (standard), up to 1M tokens (extended)
+- **Gemini 3 Pro**: 1,000,000 tokens
+- **Gemini 2.5 Pro**: 1-2 million tokens
+- **Llama 4 Scout**: 10,000,000 tokens (open source)
+
+**What counts toward context:**
+- User messages (prompt)
+- Assistant responses (output)
+- System messages
+- Function/tool definitions (in function calling)
+- Conversation history (in chat models)
+
+#### Attention Mechanism
+
+The attention mechanism allows models to focus on relevant parts of the input when generating each token. Think of it as the model "paying attention" to different parts of the input sequence to understand context and relationships.
+
+**Why it matters:**
+- Enables understanding of long-range dependencies (words far apart in text can still relate)
+- Allows models to focus on relevant context for each token generation
+- Makes transformer architecture powerful for language understanding
+
+#### Temperature and Probabilistic Outputs
+
+LLMs are probabilistic: given the same input, they can produce different outputs. Temperature controls this randomness (covered in detail in Module 1).
+
+**Key points:**
+- Temperature = 0: More deterministic, consistent outputs
+- Temperature > 0: More creative, varied outputs
+- Same prompt can produce different results (this is normal, not a bug)
+- Useful for creative tasks, but can be problematic when you need consistency
+
+#### How LLMs Generate Text
+
+The generation process works like this:
+
+1. **Tokenization**: Input text is converted to tokens
+2. **Embedding**: Tokens are converted to numerical vectors (embeddings)
+3. **Processing**: Model processes embeddings through transformer layers
+4. **Prediction**: Model predicts probability distribution over all possible next tokens
+5. **Sampling**: Next token is sampled from the distribution (based on temperature)
+6. **Repeat**: Process repeats for each new token until stop condition
+
+**Important:** Generation is sequential: each token depends on all previous tokens. This is why longer outputs take more time and cost more.
+
+#### Training vs Inference
+
+**Training:**
+- Happens once, before the model is deployed
+- Requires massive compute resources (thousands of GPUs)
+- Takes weeks to months
+- Creates the model's "knowledge" (weights/parameters)
+
+**Inference:**
+- Happens every time you use the model
+- Uses the trained weights to generate outputs
+- What you interact with via APIs
+- Much faster and cheaper than training
+
+**As an AI engineer, you work with inference, not training.** You use pre-trained models via APIs.
 
 ## Code Examples
 
-Understanding tokenization:
+### Understanding Tokenization
+
+Tokenization is fundamental: you need to understand how text becomes tokens:
 
 ```python
 import tiktoken
 
-encoding = tiktoken.encoding_for_model("gpt-4")
-text = "Hello, world!"
+# Get encoding for a specific model
+encoding = tiktoken.encoding_for_model("gpt-4o")
+
+# Tokenize text
+text = "Hello, world! How are you?"
 tokens = encoding.encode(text)
 
 print(f"Text: {text}")
 print(f"Tokens: {tokens}")
+print(f"Number of tokens: {len(tokens)}")
 print(f"Decoded: {encoding.decode(tokens)}")
+
+# Output:
+# Text: Hello, world! How are you?
+# Tokens: [9906, 11, 1917, 0, 527, 499, 30]
+# Number of tokens: 7
+# Decoded: Hello, world! How are you?
+```
+
+### Comparing Tokenization Across Models
+
+Different models use different tokenizers:
+
+```python
+import tiktoken
+
+def compare_tokenization(text: str):
+    """Compare how different models tokenize the same text."""
+    models = ["gpt-4o", "gpt-3.5-turbo", "text-davinci-003"]
+    
+    results = {}
+    for model in models:
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+            tokens = encoding.encode(text)
+            results[model] = {
+                "token_count": len(tokens),
+                "tokens": tokens[:10]  # First 10 tokens
+            }
+        except KeyError:
+            # Model might not be in tiktoken
+            results[model] = {"error": "Encoding not available"}
+    
+    return results
+
+# Example
+text = "GPT-4o is OpenAI's latest model."
+comparison = compare_tokenization(text)
+
+for model, data in comparison.items():
+    if "error" not in data:
+        print(f"{model}: {data['token_count']} tokens")
+    else:
+        print(f"{model}: {data['error']}")
+```
+
+### Understanding Context Window Limits
+
+Test how context window limits work:
+
+```python
+from openai import OpenAI
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def test_context_limit(model: str = "gpt-4o"):
+    """Demonstrate context window limit behavior."""
+    # GPT-4o has 128K token context window
+    # Try with a very long prompt to see error handling
+    
+    # Create a long prompt (simulated)
+    long_text = "This is a test. " * 10000  # Very long text
+    
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": long_text}],
+            max_tokens=100
+        )
+        print("Request succeeded")
+    except Exception as e:
+        print(f"Error: {e}")
+        # You'll likely see an error about context length
+
+# Better: Check token count before making request
+import tiktoken
+
+def check_context_fits(text: str, model: str = "gpt-4o", max_output_tokens: int = 1000):
+    """Check if text fits within model's context window."""
+    encoding = tiktoken.encoding_for_model(model)
+    
+    # Model-specific context windows
+    context_windows = {
+        "gpt-4o": 128000,
+        "gpt-4o-mini": 128000,
+        "gpt-5.2": 400000,
+    }
+    
+    input_tokens = len(encoding.encode(text))
+    max_input = context_windows.get(model, 128000) - max_output_tokens
+    
+    fits = input_tokens <= max_input
+    
+    return {
+        "input_tokens": input_tokens,
+        "max_input_tokens": max_input,
+        "fits": fits,
+        "remaining": max_input - input_tokens if fits else 0
+    }
+
+# Usage
+result = check_context_fits("Your prompt text here...", "gpt-4o")
+print(f"Input tokens: {result['input_tokens']}")
+print(f"Fits: {result['fits']}")
+print(f"Remaining tokens: {result['remaining']}")
+```
+
+### Observing Probabilistic Behavior
+
+LLMs produce different outputs for the same input:
+
+```python
+from openai import OpenAI
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def demonstrate_probabilistic_output(prompt: str, num_samples: int = 3, temperature: float = 0.7):
+    """Generate multiple outputs for the same prompt to show variability."""
+    outputs = []
+    
+    for i in range(num_samples):
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+            max_tokens=100
+        )
+        outputs.append(response.choices[0].message.content)
+    
+    print(f"Prompt: {prompt}\n")
+    print(f"Generated {num_samples} outputs (temperature={temperature}):\n")
+    for i, output in enumerate(outputs, 1):
+        print(f"Output {i}: {output}\n")
+
+# Example
+demonstrate_probabilistic_output(
+    "Write a one-sentence summary of AI engineering.",
+    num_samples=3,
+    temperature=0.7
+)
+```
+
+### Complete Token Analysis Example
+
+```python
+import tiktoken
+from openai import OpenAI
+import os
+
+def analyze_text_tokens(text: str, model: str = "gpt-4o"):
+    """Comprehensive token analysis for a text."""
+    encoding = tiktoken.encoding_for_model(model)
+    
+    # Tokenize
+    tokens = encoding.encode(text)
+    
+    # Decode individual tokens to see what they represent
+    token_details = []
+    for token in tokens[:20]:  # First 20 tokens
+        decoded = encoding.decode([token])
+        token_details.append({
+            "token_id": token,
+            "text": decoded,
+            "length": len(decoded)
+        })
+    
+    return {
+        "text_length": len(text),
+        "token_count": len(tokens),
+        "avg_chars_per_token": len(text) / len(tokens),
+        "tokens_per_word": len(tokens) / len(text.split()),
+        "first_20_tokens": token_details,
+        "estimated_cost_gpt4o": {
+            "input_per_1m": 2.50,
+            "cost": (len(tokens) / 1_000_000) * 2.50
+        }
+    }
+
+# Usage
+text = """
+Large Language Models are transforming how we build software.
+They can understand, generate, and reason about text in ways
+that were previously impossible.
+"""
+
+analysis = analyze_text_tokens(text)
+print(f"Text length: {analysis['text_length']} characters")
+print(f"Token count: {analysis['token_count']} tokens")
+print(f"Average chars per token: {analysis['avg_chars_per_token']:.2f}")
+print(f"Tokens per word: {analysis['tokens_per_word']:.2f}")
+print(f"Estimated cost (GPT-4o input): ${analysis['estimated_cost_gpt4o']['cost']:.6f}")
 ```
 
 ## Common Mistakes
 
-1. **Expecting deterministic outputs**: LLMs are probabilistic
-2. **Ignoring context limits**: Models have token limits
-3. **Not understanding tokenization**: Leads to unexpected costs
-4. **Assuming factual accuracy**: LLMs can hallucinate
+#### 1. Expecting deterministic outputs
+LLMs are probabilistic by design. The same prompt can produce different outputs, especially with temperature > 0. This is not a bug: it's how LLMs work. If you need consistency, use temperature = 0 or implement caching/retry logic with validation.
+
+#### 2. Ignoring context window limits
+Every model has a maximum context window (e.g., 128K tokens for GPT-4o). Exceeding this limit causes errors. Always check token counts before sending requests, especially with long documents or conversation history. Remember: context = input + output tokens combined.
+
+#### 3. Not understanding tokenization
+Not all text tokenizes the same way. "GPT-4o" might be 3 tokens, while "Hello" is 1 token. This affects costs and context usage unpredictably. Always use token counting libraries (like `tiktoken`) to measure actual token usage, don't estimate based on character or word count.
+
+#### 4. Assuming factual accuracy
+LLMs can hallucinate: they generate plausible-sounding but incorrect information. They're pattern-matching systems, not fact databases. Always verify critical information, especially for production systems. Use function calling or retrieval systems for factual data.
+
+#### 5. Confusing training with inference
+You don't train LLMs as an AI engineer: you use pre-trained models via APIs. Training happens once before deployment and requires massive resources. Your job is prompt engineering, not model training (unless you're fine-tuning, which is different).
+
+#### 6. Not accounting for output tokens in context
+Many developers only count input tokens when checking context limits, forgetting that output tokens (max_tokens) also count. If your input is 120K tokens and you request 10K output tokens, you exceed GPT-4o's 128K limit.
+
+#### 7. Assuming all models work the same way
+Different models (GPT-4o, Claude 4.5, Gemini 3) have different architectures, strengths, and behaviors. What works with one model might not work with another. Understand the differences and choose models based on your use case.
+
+#### 8. Not understanding that generation is sequential
+LLMs generate text one token at a time, sequentially. Each token depends on all previous tokens. This is why longer outputs take more time and cost more. You can't parallelize generation within a single request.
+
+#### 9. Thinking models "understand" like humans
+LLMs don't truly understand text: they predict likely next tokens based on patterns learned during training. They're incredibly good at this, but they don't have real-world knowledge, common sense, or reasoning in the human sense. They're sophisticated pattern-matching systems.
+
+#### 10. Not considering tokenization in prompt engineering
+Token boundaries matter. A prompt that's 100 words might be 120 tokens or 80 tokens depending on the specific words. Complex words, technical terms, and non-English text often tokenize to more tokens than expected. This affects costs and context usage.
 
 ## Exercise
 
-1. Tokenize various text samples and observe tokenization patterns
-2. Experiment with different models and compare outputs
-3. Test context window limits with long inputs
-4. Observe how same prompts produce different outputs
+Complete these exercises to understand how LLMs work. These skills are essential for effective AI engineering.
+
+#### 1. Tokenize various text samples
+
+Observe how different text tokenizes:
+
+```python
+import tiktoken
+
+def explore_tokenization():
+    """TODO: Tokenize different text samples and analyze patterns"""
+    # TODO: Tokenize simple text ("Hello world")
+    # TODO: Tokenize technical text ("GPT-4o transformer architecture")
+    # TODO: Tokenize code ("def hello(): print('world')")
+    # TODO: Tokenize non-English text (if applicable)
+    # TODO: Compare token counts vs character/word counts
+    # TODO: Identify which types of text tokenize to more tokens
+    pass
+```
+
+#### 2. Compare tokenization across models
+
+Different models use different tokenizers:
+
+```python
+def compare_model_tokenization(text: str):
+    """TODO: Compare how GPT-4o and GPT-3.5-turbo tokenize the same text"""
+    # TODO: Tokenize with both models
+    # TODO: Compare token counts
+    # TODO: Identify differences in tokenization patterns
+    pass
+```
+
+#### 3. Test context window limits
+
+Understand how context limits work:
+
+```python
+def test_context_limits():
+    """TODO: Test context window limits"""
+    # TODO: Create text of various lengths
+    # TODO: Check if text fits within model's context window
+    # TODO: Try sending requests that exceed limits (handle errors gracefully)
+    # TODO: Verify that context = input + output tokens
+    pass
+```
+
+#### 4. Observe probabilistic behavior
+
+See how temperature affects output variability:
+
+```python
+def test_probabilistic_output():
+    """TODO: Generate multiple outputs for same prompt"""
+    # TODO: Generate 5 outputs with temperature=0 (should be similar)
+    # TODO: Generate 5 outputs with temperature=0.7 (should vary)
+    # TODO: Generate 5 outputs with temperature=1.5 (should vary significantly)
+    # TODO: Compare the outputs and observe differences
+    pass
+```
+
+#### 5. Analyze token usage in real prompts
+
+Measure actual token usage:
+
+```python
+def analyze_prompt_tokens(prompt: str):
+    """TODO: Analyze token usage of a real prompt"""
+    # TODO: Count input tokens
+    # TODO: Estimate output tokens (if applicable)
+    # TODO: Calculate total context usage
+    # TODO: Calculate cost for different models
+    # TODO: Check if prompt fits in model's context window
+    pass
+```
+
+#### 6. Understand attention patterns
+
+Explore how models focus on different parts of input:
+
+```python
+def test_attention_patterns():
+    """TODO: Test how models handle different prompt structures"""
+    # TODO: Create prompts with information at different positions (start, middle, end)
+    # TODO: Observe if model uses information differently based on position
+    # TODO: Test with very long prompts to see if earlier context is "forgotten"
+    pass
+```
+
+#### 7. Compare model architectures
+
+Understand differences between models:
+
+```python
+def compare_model_behaviors():
+    """TODO: Compare how different models handle the same task"""
+    # TODO: Test GPT-4o, Claude 4.5, and Gemini 3 with same prompt
+    # TODO: Compare response quality, length, and style
+    # TODO: Compare token usage and costs
+    # TODO: Identify strengths/weaknesses of each model
+    pass
+```
+
+#### 8. Reflection questions
+
+After completing the exercises, answer these questions:
+- Why do LLMs tokenize text instead of using raw characters or words?
+- What happens when you exceed a model's context window? How do you handle it?
+- Why are LLM outputs probabilistic? When is this useful vs problematic?
+- How does temperature affect output? When should you use low vs high temperature?
+- What's the difference between training and inference? Which do you do as an AI engineer?
+- How do context windows differ between models? Why does this matter?
+- Why can't LLMs generate text in parallel? What are the implications?
+- What's the relationship between tokens and costs? How do you optimize token usage?
 
 ## Tools & Resources
 

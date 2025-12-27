@@ -2,152 +2,466 @@
 id: "lesson-1-function-calling"
 slug: "function-calling"
 title: "Function/Tool Calling"
-description: "Enable LLMs to call functions and interact with external systems using function calling capabilities."
+description: "Enable LLMs to call functions and interact with external systems using function calling capabilities. Learn to build agents and complex applications."
 order: 1
 chapterId: "chapter-2-advanced-usage"
 moduleId: "module-2-llms"
-prerequisites: ["lesson-3-providers"]
-estimatedMinutes: 7
-tags: ["function-calling", "tool-calling", "tools"]
+prerequisites: ["lesson-2-model-selection"]
+estimatedMinutes: 16
+tags: ["function-calling", "tool-calling", "tools", "agents"]
 difficulty: "intermediate"
 ---
 
 # Function/Tool Calling
 
+> **💡** *Function calling is like giving an LLM a phonebook: it can look up and call functions to do things it can't do itself, like get the weather, search a database, or send an email. Without function calling, LLMs are just really good text generators. With function calling, they become agents that can actually interact with the world. The catch? They'll try to call functions for everything, so you need to be clear about what they can and can't do.*
+
 ## Overview
 
-Function calling (tool calling) allows LLMs to interact with external systems by defining functions the model can invoke. This enables agents and complex applications.
+Function calling (also called tool calling) allows LLMs to interact with external systems, APIs, and data sources by defining functions the model can invoke. This transforms LLMs from text generators into agents capable of taking actions: searching databases, calling APIs, manipulating data, and more.
+
+In 2024-2025, function calling has become essential for building production AI applications. Models like GPT-4o, GPT-5.2, and Claude 4.5 have excellent function calling capabilities, enabling everything from simple API integrations to complex autonomous agents. Understanding function calling is crucial for building real-world AI applications.
 
 ## Main Content
 
 ### How Function Calling Works
 
-1. Define functions with JSON schemas
-2. LLM decides which function(s) to call
-3. Execute function with provided parameters
-4. Return result to LLM
-5. LLM generates final response
+The function calling flow:
 
-### OpenAI Function Calling
+1. **Define functions**: Create JSON schemas describing available functions
+2. **LLM decides**: Model analyzes the request and decides which function(s) to call
+3. **Execute function**: Your code executes the function with provided parameters
+4. **Return result**: Function result is sent back to the LLM
+5. **LLM responds**: Model generates a final response incorporating the function result
+
+**Key concepts:**
+- Functions are defined with JSON Schema
+- Models can call multiple functions in sequence
+- Function calls are deterministic (same input = same function call)
+- Functions enable LLMs to access real-time data and take actions
+
+### OpenAI Function Calling (Current API - 2025)
+
+OpenAI uses the `tools` parameter (replacing the older `functions` parameter):
 
 ```python
 from openai import OpenAI
 import json
+import os
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-functions = [
+# Define tools (functions)
+tools = [
     {
-        "name": "get_weather",
-        "description": "Get current weather for a location",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "location": {
-                    "type": "string",
-                    "description": "City and state"
-                }
-            },
-            "required": ["location"]
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get current weather for a location. Use this when users ask about weather conditions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "City and state, e.g., San Francisco, CA"
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "Temperature unit"
+                    }
+                },
+                "required": ["location"]
+            }
         }
     }
 ]
 
+def get_weather(location: str, unit: str = "fahrenheit") -> str:
+    """Mock weather function - replace with real API call."""
+    # In production, call a real weather API
+    return f"Weather in {location}: 72°F, sunny"
+
+# Initial request
 response = client.chat.completions.create(
-    model="gpt-4",
+    model="gpt-4o",
     messages=[{"role": "user", "content": "What's the weather in San Francisco?"}],
-    functions=functions
+    tools=tools,
+    tool_choice="auto"  # Let model decide whether to use tools
 )
 
 message = response.choices[0].message
 
-if message.function_call:
-    function_name = message.function_call.name
-    function_args = json.loads(message.function_call.arguments)
+# Check if model wants to call a function
+if message.tool_calls:
+    messages = [{"role": "user", "content": "What's the weather in San Francisco?"}]
+    messages.append(message)  # Add assistant's message with tool_calls
     
-    # Execute function
-    if function_name == "get_weather":
-        result = get_weather(function_args["location"])
+    # Execute each tool call
+    for tool_call in message.tool_calls:
+        function_name = tool_call.function.name
+        function_args = json.loads(tool_call.function.arguments)
         
-        # Send result back
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "user", "content": "What's the weather in San Francisco?"},
-                message,
-                {
-                    "role": "function",
-                    "name": function_name,
-                    "content": result
-                }
-            ]
-        )
+        # Execute function
+        if function_name == "get_weather":
+            function_result = get_weather(**function_args)
+            
+            # Add function result to messages
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "name": function_name,
+                "content": function_result
+            })
+    
+    # Get final response with function results
+    final_response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+        tools=tools
+    )
+    
+    print(final_response.choices[0].message.content)
+else:
+    # No function call needed
+    print(message.content)
 ```
 
 ## Code Examples
 
-Complete function calling system:
+### Production-Ready Function Calling System
+
+Complete system with error handling, loop prevention, and multiple functions:
 
 ```python
+from openai import OpenAI
+import json
+import os
+from typing import Dict, Callable, List, Optional
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 class FunctionCallingSystem:
-    def __init__(self):
-        self.client = OpenAI()
-        self.functions = {}
-        self.function_definitions = []
+    """Production-ready function calling system."""
     
-    def register_function(self, name: str, func: callable, description: str, schema: dict):
-        """Register a function."""
+    def __init__(self, model: str = "gpt-4o", max_iterations: int = 10):
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.model = model
+        self.max_iterations = max_iterations
+        self.functions: Dict[str, Callable] = {}
+        self.tools: List[dict] = []
+    
+    def register_function(
+        self,
+        name: str,
+        func: Callable,
+        description: str,
+        parameters: dict
+    ):
+        """
+        Register a function for the LLM to call.
+        
+        Args:
+            name: Function name
+            func: Python function to execute
+            description: Clear description of what the function does
+            parameters: JSON Schema for function parameters
+        """
         self.functions[name] = func
-        self.function_definitions.append({
-            "name": name,
-            "description": description,
-            "parameters": schema
+        self.tools.append({
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": description,
+                "parameters": parameters
+            }
         })
     
     def call(self, user_message: str) -> str:
-        """Call LLM with function calling."""
-        messages = [{"role": "user", "content": user_message}]
+        """
+        Process user message with function calling.
         
-        while True:
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                messages=messages,
-                functions=self.function_definitions
-            )
+        Returns:
+            Final response from LLM
+        """
+        messages = [{"role": "user", "content": user_message}]
+        iterations = 0
+        
+        while iterations < self.max_iterations:
+            iterations += 1
             
-            message = response.choices[0].message
-            messages.append(message)
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    tools=self.tools,
+                    tool_choice="auto"
+                )
+                
+                message = response.choices[0].message
+                messages.append(message)
+                
+                # Check if model wants to call functions
+                if not message.tool_calls:
+                    return message.content
+                
+                # Execute all tool calls
+                for tool_call in message.tool_calls:
+                    func_name = tool_call.function.name
+                    try:
+                        func_args = json.loads(tool_call.function.arguments)
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Invalid JSON in function arguments: {e}")
+                        function_result = f"Error: Invalid arguments: {e}"
+                    else:
+                        # Execute function
+                        if func_name in self.functions:
+                            try:
+                                function_result = self.functions[func_name](**func_args)
+                                function_result = str(function_result)
+                            except Exception as e:
+                                logger.error(f"Function {func_name} failed: {e}")
+                                function_result = f"Error: {str(e)}"
+                        else:
+                            function_result = f"Error: Function {func_name} not found"
+                    
+                    # Add function result
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "name": func_name,
+                        "content": function_result
+                    })
             
-            if not message.function_call:
-                return message.content
-            
-            # Execute function
-            func_name = message.function_call.name
-            func_args = json.loads(message.function_call.arguments)
-            result = self.functions[func_name](**func_args)
-            
-            # Add function result
-            messages.append({
-                "role": "function",
-                "name": func_name,
-                "content": str(result)
-            })
+            except Exception as e:
+                logger.error(f"API call failed: {e}")
+                return f"Error: {str(e)}"
+        
+        # Max iterations reached
+        return "Error: Maximum iterations reached. Possible infinite loop."
+
+# Usage example
+system = FunctionCallingSystem()
+
+# Register functions
+def get_weather(location: str, unit: str = "fahrenheit") -> str:
+    """Get weather for a location."""
+    return f"Weather in {location}: 72°{unit[0].upper()}, sunny"
+
+def search_database(query: str) -> str:
+    """Search internal database."""
+    return f"Found 5 results for: {query}"
+
+system.register_function(
+    name="get_weather",
+    func=get_weather,
+    description="Get current weather conditions for a location. Use when users ask about weather.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "location": {
+                "type": "string",
+                "description": "City and state, e.g., San Francisco, CA"
+            },
+            "unit": {
+                "type": "string",
+                "enum": ["celsius", "fahrenheit"],
+                "description": "Temperature unit",
+                "default": "fahrenheit"
+            }
+        },
+        "required": ["location"]
+    }
+)
+
+system.register_function(
+    name="search_database",
+    func=search_database,
+    description="Search the company database for information. Use when users ask about company data.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Search query"
+            }
+        },
+        "required": ["query"]
+    }
+)
+
+# Use the system
+result = system.call("What's the weather in New York and search for customer data")
+print(result)
 ```
 
 ## Common Mistakes
 
-1. **Poor function descriptions**: LLM can't choose correctly
-2. **Incorrect schemas**: JSON schema errors
-3. **No error handling**: Function failures crash system
-4. **Infinite loops**: LLM keeps calling functions
+#### 1. Poor function descriptions
+Vague descriptions make it hard for the LLM to choose the right function. "Get data" is useless. "Get current weather conditions for a location. Use when users ask about weather, temperature, or climate." is much better. Write clear, specific descriptions that explain when to use each function.
+
+#### 2. Incorrect JSON schemas
+JSON Schema errors cause function calling to fail. Common mistakes: wrong types, missing required fields, invalid enum values, incorrect nesting. Always validate your schemas. Use tools like `jsonschema` to validate before sending to the API.
+
+#### 3. No error handling
+Function failures crash your entire system. Functions can throw exceptions, return unexpected data, or timeout. Always wrap function execution in try/except blocks, handle errors gracefully, and return error messages to the LLM so it can respond appropriately.
+
+#### 4. Infinite loops
+LLMs can get stuck calling functions repeatedly. Without loop prevention, a model might call a function, get a result, then call the same function again indefinitely. Implement maximum iteration limits and detect when the model is stuck in a loop.
+
+#### 5. Using old API (functions instead of tools)
+OpenAI's API changed from `functions` to `tools`. Old code using `functions` and `function_call` still works but is deprecated. Use `tools` and `tool_calls` for current best practices and future compatibility.
+
+#### 6. Not handling multiple tool calls
+Models can call multiple functions in a single response. If you only handle the first tool call, you'll miss others. Always iterate through all `tool_calls` and execute each one, then include all results in the next API call.
+
+#### 7. Forgetting tool_call_id
+Each tool call has a unique `tool_call_id`. When returning function results, you must include the matching `tool_call_id`. Without it, the LLM can't match results to calls, causing errors or incorrect behavior.
+
+#### 8. Tool choice parameter misuse
+The `tool_choice` parameter controls whether the model must use tools. Using `tool_choice="required"` forces tool use even when unnecessary, wasting tokens and API calls. Use `tool_choice="auto"` to let the model decide, or `tool_choice="none"` to disable tools for specific requests.
+
+#### 9. Not validating function arguments
+Always validate function arguments before execution. The LLM might pass invalid data types, missing required fields, or values outside allowed ranges. Validate inputs and return clear error messages if validation fails.
+
+#### 10. Exposing sensitive functions
+Don't register functions that can delete data, modify files, or perform destructive actions without proper authorization. LLMs can be tricked into calling dangerous functions. Only expose safe, read-only functions, or implement proper authentication and authorization checks.
 
 ## Exercise
 
-1. Define 3-5 functions for your use case
-2. Implement function calling
-3. Test with various queries
-4. Handle errors gracefully
-5. Add loop prevention
+Complete these exercises to master function calling. These skills are essential for building agents and interactive AI applications.
+
+#### 1. Implement basic function calling
+
+Create a simple function calling system:
+
+```python
+def implement_basic_function_calling():
+    """TODO: Implement basic function calling"""
+    # TODO: Define a simple function (e.g., get_weather, calculator)
+    # TODO: Create tool definition with JSON Schema
+    # TODO: Make API call with tools parameter
+    # TODO: Handle tool_calls response
+    # TODO: Execute function and return result
+    # TODO: Get final response from LLM
+    pass
+```
+
+#### 2. Build a multi-function system
+
+Register multiple functions:
+
+```python
+class MultiFunctionSystem:
+    def __init__(self):
+        """TODO: Initialize system"""
+        pass
+    
+    def register_weather_function(self):
+        """TODO: Register weather function"""
+        pass
+    
+    def register_calculator_function(self):
+        """TODO: Register calculator function"""
+        pass
+    
+    def register_search_function(self):
+        """TODO: Register search function"""
+        pass
+    
+    def call(self, user_message: str):
+        """TODO: Process message with multiple functions"""
+        pass
+```
+
+#### 3. Handle multiple tool calls
+
+Handle cases where the model calls multiple functions:
+
+```python
+def handle_multiple_tool_calls():
+    """TODO: Handle multiple tool calls in one response"""
+    # TODO: Check for multiple tool_calls
+    # TODO: Execute each tool call
+    # TODO: Include all results with correct tool_call_id
+    # TODO: Get final response
+    pass
+```
+
+#### 4. Implement error handling
+
+Add robust error handling:
+
+```python
+def implement_error_handling():
+    """TODO: Add error handling to function calling"""
+    # TODO: Handle JSON parsing errors
+    # TODO: Handle function execution errors
+    # TODO: Handle missing functions
+    # TODO: Return appropriate error messages to LLM
+    pass
+```
+
+#### 5. Add loop prevention
+
+Prevent infinite loops:
+
+```python
+def add_loop_prevention():
+    """TODO: Add loop prevention"""
+    # TODO: Track iterations
+    # TODO: Set maximum iteration limit
+    # TODO: Detect repetitive function calls
+    # TODO: Break loop if stuck
+    pass
+```
+
+#### 6. Validate function arguments
+
+Add input validation:
+
+```python
+def validate_arguments():
+    """TODO: Validate function arguments"""
+    # TODO: Check required fields
+    # TODO: Validate data types
+    # TODO: Check enum values
+    # TODO: Validate ranges/numeric limits
+    pass
+```
+
+#### 7. Build a real-world agent
+
+Create an agent with practical functions:
+
+```python
+class PracticalAgent:
+    def __init__(self):
+        """TODO: Build agent with useful functions"""
+        # TODO: Register weather function
+        # TODO: Register calendar function
+        # TODO: Register email function (read-only)
+        # TODO: Register search function
+        pass
+    
+    def interact(self, user_message: str):
+        """TODO: Handle user interactions"""
+        pass
+```
+
+#### 8. Reflection questions
+
+After completing the exercises, answer these questions:
+- How do you write good function descriptions?
+- What's the difference between `functions` and `tools` parameters?
+- How do you handle multiple tool calls in one response?
+- What's the purpose of `tool_call_id`?
+- How do you prevent infinite loops?
+- When should you use `tool_choice="required"` vs `tool_choice="auto"`?
+- How do you validate function arguments effectively?
+- What security considerations are important for function calling?
 
 ## Tools & Resources
 

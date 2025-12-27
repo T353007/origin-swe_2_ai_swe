@@ -7,155 +7,890 @@ order: 3
 chapterId: "chapter-1-rag-fundamentals"
 moduleId: "module-3-rag"
 prerequisites: ["lesson-2-vector-dbs"]
-estimatedMinutes: 9
+estimatedMinutes: 15
 tags: ["embeddings", "semantic-search", "models"]
 difficulty: "intermediate"
 ---
 
 # Embeddings in Practice
 
+> **💡** *Embeddings are like turning words into coordinates in a magical space where similar meanings are close together. The word "dog" and "puppy" end up near each other, while "dog" and "quantum physics" are far apart. But here's the thing: not all embedding models are created equal. Some are great for general text, others excel at code or technical content, and some are multilingual masters. Choosing the right embedding model is like choosing the right tool: a hammer works for nails, but you need a screwdriver for screws. Your RAG system's retrieval quality depends on it.*
+
 ## Overview
 
-Embeddings are the foundation of semantic search in RAG. Choosing the right embedding model and using embeddings effectively significantly impacts retrieval quality.
+Embeddings are the foundation of semantic search in RAG. They convert text into high-dimensional vectors that capture semantic meaning, enabling vector databases to find similar content based on meaning rather than keywords. Choosing the right embedding model and using embeddings effectively significantly impacts retrieval quality, which directly affects your RAG system's performance.
+
+In 2024-2025, embedding models have improved dramatically. OpenAI's text-embedding-3-small and text-embedding-3-large offer better quality and lower costs. Specialized models exist for code, multilingual content, and domain-specific use cases. Understanding how to choose, generate, and optimize embeddings is critical for building production-ready RAG systems.
 
 ## Main Content
 
 ### Embedding Model Selection
 
-**OpenAI Embeddings:**
-- `text-embedding-3-small`: 1536 dims, fast, cost-effective
-- `text-embedding-3-large`: 3072 dims, better quality
-- `text-embedding-ada-002`: Older, but still good
+**OpenAI Embeddings (2024-2025):**
 
-**Other Providers:**
-- **Cohere**: `embed-english-v3.0` - excellent for English
-- **Sentence Transformers**: Open-source, domain-specific models
-- **Voyage AI**: High quality, competitive pricing
+1. **text-embedding-3-small**
+   - Dimensions: 1536 (or configurable 512-1536)
+   - Cost: $0.02 per 1M tokens (very affordable)
+   - Speed: Fast
+   - Quality: Excellent for most use cases
+   - Best for: General RAG applications, cost-sensitive projects
+   - Default choice for most applications
 
-**Choosing a model:**
-- **Language**: English-only vs multilingual
-- **Domain**: General vs domain-specific (code, medical, etc.)
-- **Cost**: API costs vs self-hosting
-- **Latency**: Speed requirements
-- **Dimensions**: Affects storage and compute costs
+2. **text-embedding-3-large**
+   - Dimensions: 3072 (or configurable 256-3072)
+   - Cost: $0.13 per 1M tokens
+   - Speed: Slower than small variant
+   - Quality: Better than small variant, especially for complex queries
+   - Best for: High-quality applications where cost is less important
+
+3. **text-embedding-ada-002** (Legacy)
+   - Dimensions: 1536 (fixed)
+   - Cost: $0.10 per 1M tokens
+   - Status: Older model, text-embedding-3-small is generally better
+   - Best for: Existing systems (consider migrating)
+
+**Other Embedding Providers:**
+
+1. **Cohere**
+   - Models: `embed-english-v3.0`, `embed-multilingual-v3.0`
+   - Strengths: Excellent quality, strong multilingual support
+   - Pricing: Competitive
+   - Best for: High-quality applications, multilingual use cases
+
+2. **Sentence Transformers (Open Source)**
+   - Models: Hundreds of specialized models (all-MiniLM-L6-v2, all-mpnet-base-v2, etc.)
+   - Strengths: Free, domain-specific models (code, medical, etc.), run locally
+   - Pricing: Free (self-hosted)
+   - Best for: Cost-sensitive projects, domain-specific content, privacy-sensitive applications
+
+3. **Voyage AI**
+   - Models: `voyage-large-2`, `voyage-code-2` (for code)
+   - Strengths: High quality, competitive pricing, code-specific models
+   - Pricing: Competitive
+   - Best for: High-quality applications, code embeddings
+
+4. **Google (Vertex AI)**
+   - Models: `textembedding-gecko@003`
+   - Strengths: Good integration with Google Cloud
+   - Best for: Google Cloud users
+
+**Choosing the Right Model:**
+
+#### 1. Language Requirements
+
+- **English only**: Most models work well (OpenAI, Cohere, Sentence Transformers)
+- **Multilingual**: Consider Cohere multilingual, Sentence Transformers multilingual models
+- **Specific languages**: Research models optimized for your language
+
+#### 2. Domain Requirements
+
+- **General text**: text-embedding-3-small (default choice)
+- **Code**: Voyage Code, OpenAI with code-specific models, Sentence Transformers code models
+- **Medical/Technical**: Domain-specific Sentence Transformers models
+- **Legal**: Specialized models or fine-tune general models
+
+#### 3. Cost Considerations
+
+- **Budget-constrained**: text-embedding-3-small ($0.02/1M tokens) or Sentence Transformers (free)
+- **Quality-focused**: text-embedding-3-large or Cohere
+- **High volume**: Consider self-hosted Sentence Transformers to avoid API costs
+
+#### 4. Latency Requirements
+
+- **Low latency needed**: text-embedding-3-small (fastest), Sentence Transformers (local)
+- **Latency flexible**: Any model works, prioritize quality
+
+#### 5. Dimension Considerations
+
+- **Storage costs**: Higher dimensions = more storage in vector DB
+- **Query speed**: Higher dimensions = slightly slower similarity search
+- **Quality trade-off**: More dimensions don't always mean better quality
+- **Recommendation**: Use configurable dimensions (text-embedding-3) to optimize for your use case
+
+**Decision Framework:**
+
+| Use Case | Recommended Model |
+|----------|------------------|
+| General RAG, cost-sensitive | text-embedding-3-small |
+| High-quality RAG, cost flexible | text-embedding-3-large or Cohere |
+| Code embeddings | Voyage Code or Sentence Transformers code models |
+| Multilingual | Cohere multilingual or Sentence Transformers multilingual |
+| Privacy-sensitive, high volume | Sentence Transformers (self-hosted) |
+| Domain-specific (medical, legal, etc.) | Domain-specific Sentence Transformers or fine-tuned models |
 
 ### Generating Embeddings
+
+**Basic Embedding Generation:**
 
 ```python
 from openai import OpenAI
 import numpy as np
+import os
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def get_embeddings(texts: list[str], model: str = "text-embedding-3-small"):
-    """Generate embeddings for multiple texts."""
-    response = client.embeddings.create(
-        input=texts,
-        model=model
-    )
+def get_embeddings(
+    texts: list[str],
+    model: str = "text-embedding-3-small",
+    dimensions: int = None
+) -> list[list[float]]:
+    """
+    Generate embeddings for multiple texts.
+    
+    Args:
+        texts: List of texts to embed
+        model: Embedding model to use
+        dimensions: Optional dimension size (for text-embedding-3 models)
+    
+    Returns:
+        List of embedding vectors
+    """
+    params = {
+        "input": texts,
+        "model": model
+    }
+    
+    # Add dimensions for text-embedding-3 models (optional optimization)
+    if dimensions and model.startswith("text-embedding-3"):
+        params["dimensions"] = dimensions
+    
+    response = client.embeddings.create(**params)
     return [item.embedding for item in response.data]
 
-# Batch processing for efficiency
-documents = ["doc 1", "doc 2", "doc 3"]
-embeddings = get_embeddings(documents)
+# Single text embedding
+single_embedding = get_embeddings(["What is RAG?"])[0]
+
+# Batch processing for efficiency (up to 2048 texts per request)
+documents = ["doc 1", "doc 2", "doc 3", ...]
+embeddings = get_embeddings(documents)  # Batch API call
+
+# With dimension optimization
+smaller_embeddings = get_embeddings(
+    documents,
+    model="text-embedding-3-small",
+    dimensions=512  # Reduce dimensions to save storage
+)
+```
+
+**Production-Ready Embedding Generation:**
+
+```python
+from typing import List, Optional
+from openai import OpenAI
+import os
+import time
+import logging
+from functools import lru_cache
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class EmbeddingGenerator:
+    """Production-ready embedding generator with batching, error handling, and optimization."""
+    
+    def __init__(
+        self,
+        model: str = "text-embedding-3-small",
+        api_key: Optional[str] = None,
+        batch_size: int = 100,  # Process in batches
+        max_retries: int = 3
+    ):
+        self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
+        self.model = model
+        self.batch_size = batch_size
+        self.max_retries = max_retries
+        self.stats = {
+            "total_embeddings": 0,
+            "total_requests": 0,
+            "total_cost": 0.0
+        }
+    
+    def _calculate_cost(self, num_tokens: int) -> float:
+        """Calculate embedding cost based on model."""
+        # Pricing per 1M tokens (2025)
+        pricing = {
+            "text-embedding-3-small": 0.02,
+            "text-embedding-3-large": 0.13,
+            "text-embedding-ada-002": 0.10
+        }
+        rate = pricing.get(self.model, 0.02)
+        return (num_tokens / 1_000_000) * rate
+    
+    def generate(
+        self,
+        texts: List[str],
+        dimensions: Optional[int] = None
+    ) -> List[List[float]]:
+        """
+        Generate embeddings for texts with batching and error handling.
+        
+        Args:
+            texts: List of texts to embed
+            dimensions: Optional dimension size
+        
+        Returns:
+            List of embedding vectors
+        """
+        all_embeddings = []
+        
+        # Process in batches
+        for i in range(0, len(texts), self.batch_size):
+            batch = texts[i:i + self.batch_size]
+            logger.info(f"Processing batch {i//self.batch_size + 1} ({len(batch)} texts)")
+            
+            # Retry logic
+            for attempt in range(self.max_retries):
+                try:
+                    params = {
+                        "input": batch,
+                        "model": self.model
+                    }
+                    
+                    if dimensions and self.model.startswith("text-embedding-3"):
+                        params["dimensions"] = dimensions
+                    
+                    response = self.client.embeddings.create(**params)
+                    
+                    batch_embeddings = [item.embedding for item in response.data]
+                    all_embeddings.extend(batch_embeddings)
+                    
+                    # Update statistics
+                    self.stats["total_embeddings"] += len(batch_embeddings)
+                    self.stats["total_requests"] += 1
+                    # Note: Token counting would require tiktoken for accurate cost calculation
+                    
+                    break  # Success, exit retry loop
+                    
+                except Exception as e:
+                    if attempt == self.max_retries - 1:
+                        logger.error(f"Failed to generate embeddings after {self.max_retries} attempts: {e}")
+                        raise
+                    logger.warning(f"Attempt {attempt + 1} failed, retrying...")
+                    time.sleep(2 ** attempt)  # Exponential backoff
+        
+        return all_embeddings
+    
+    def get_stats(self) -> dict:
+        """Get embedding generation statistics."""
+        return self.stats.copy()
+
+# Usage
+generator = EmbeddingGenerator(model="text-embedding-3-small")
+
+documents = ["doc 1", "doc 2", ...]  # Large list of documents
+embeddings = generator.generate(documents)
+
+print(f"Generated {generator.stats['total_embeddings']} embeddings")
+print(f"Made {generator.stats['total_requests']} API requests")
 ```
 
 ### Semantic Similarity
 
-Understanding similarity metrics:
+Understanding similarity metrics is crucial for RAG. Vector databases use similarity metrics to rank retrieved documents.
+
+**Distance Metrics:**
+
+1. **Cosine Similarity** (Most Common)
+   - Range: -1 to 1 (typically 0 to 1 for normalized embeddings)
+   - Measures angle between vectors (ignores magnitude)
+   - Best for: Most embedding use cases
+   - Works well even when vectors have different magnitudes
+
+2. **Euclidean Distance**
+   - Range: 0 to infinity
+   - Measures straight-line distance between vectors
+   - Best for: When magnitude matters
+   - Note: Lower is better (distance, not similarity)
+
+3. **Dot Product**
+   - Range: -infinity to infinity
+   - Measures magnitude-sensitive similarity
+   - Best for: When both direction and magnitude matter
+   - Note: Requires normalized vectors for meaningful comparisons
+
+**Similarity Calculation:**
 
 ```python
 import numpy as np
+from typing import List
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
-    """Calculate cosine similarity between two vectors."""
-    dot_product = np.dot(vec1, vec2)
+    """
+    Calculate cosine similarity between two vectors.
+    
+    Returns:
+        Similarity score between -1 and 1 (typically 0 to 1 for embeddings)
+    """
+    # Handle zero vectors
     norm1 = np.linalg.norm(vec1)
     norm2 = np.linalg.norm(vec2)
+    
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+    
+    dot_product = np.dot(vec1, vec2)
     return dot_product / (norm1 * norm2)
 
-# Example: Comparing query to documents
-query_embedding = np.array(get_embeddings(["What is RAG?"])[0])
-doc_embeddings = get_embeddings(documents)
+def euclidean_distance(vec1: np.ndarray, vec2: np.ndarray) -> float:
+    """
+    Calculate Euclidean distance between two vectors.
+    
+    Returns:
+        Distance (lower is more similar)
+    """
+    return np.linalg.norm(vec1 - vec2)
 
-similarities = [
-    cosine_similarity(query_embedding, doc_emb)
-    for doc_emb in doc_embeddings
+def normalize_vector(vec: np.ndarray) -> np.ndarray:
+    """Normalize vector to unit length."""
+    norm = np.linalg.norm(vec)
+    if norm == 0:
+        return vec
+    return vec / norm
+
+# Example: Comparing query to documents
+def find_most_similar(
+    query_text: str,
+    documents: List[str],
+    top_k: int = 5
+) -> List[tuple[str, float]]:
+    """
+    Find most similar documents to query using embeddings.
+    
+    Returns:
+        List of (document, similarity_score) tuples
+    """
+    # Generate embeddings
+    query_embedding = np.array(get_embeddings([query_text])[0])
+    doc_embeddings = [np.array(emb) for emb in get_embeddings(documents)]
+    
+    # Calculate similarities
+    similarities = [
+        (doc, cosine_similarity(query_embedding, doc_emb))
+        for doc, doc_emb in zip(documents, doc_embeddings)
+    ]
+    
+    # Sort by similarity (descending)
+    similarities.sort(key=lambda x: x[1], reverse=True)
+    
+    return similarities[:top_k]
+
+# Usage
+query = "What is RAG?"
+documents = [
+    "RAG combines retrieval and generation...",
+    "Vector databases store embeddings...",
+    "The weather today is sunny...",  # Unrelated
 ]
+
+results = find_most_similar(query, documents, top_k=3)
+for doc, score in results:
+    print(f"Score: {score:.3f} - {doc[:50]}...")
 ```
+
+**Understanding Similarity Scores:**
+
+- **High similarity (0.8-1.0)**: Very similar, likely relevant
+- **Medium similarity (0.6-0.8)**: Somewhat similar, may be relevant
+- **Low similarity (0.0-0.6)**: Not very similar, likely not relevant
+
+Note: Thresholds vary by model and use case. Always test and tune similarity thresholds for your specific application.
 
 ### Embedding Best Practices
 
-1. **Normalize embeddings**: Some operations work better with normalized vectors
-2. **Batch processing**: Generate embeddings in batches for efficiency
-3. **Cache embeddings**: Don't regenerate embeddings for unchanged documents
-4. **Domain-specific models**: Use specialized models for technical/domain content
-5. **Monitor quality**: Track embedding quality affects retrieval performance
+#### 1. Normalize Embeddings
+
+Normalization ensures consistent similarity calculations:
+
+```python
+def normalize_embeddings(embeddings: List[List[float]]) -> List[List[float]]:
+    """Normalize embeddings to unit length."""
+    normalized = []
+    for emb in embeddings:
+        vec = np.array(emb)
+        norm = np.linalg.norm(vec)
+        normalized.append((vec / norm).tolist() if norm > 0 else emb)
+    return normalized
+```
+
+**When to normalize:**
+- When using dot product for similarity (required)
+- For consistent similarity score ranges
+- When combining embeddings from different models
+
+#### 2. Batch Processing
+
+Always batch embedding requests for efficiency:
+
+- **API limits**: OpenAI supports up to 2048 texts per request
+- **Cost savings**: Batching reduces API overhead
+- **Speed**: Batch requests are faster than individual requests
+- **Recommendation**: Batch size of 100-500 for good balance
+
+#### 3. Cache Embeddings
+
+Cache embeddings for unchanged documents to save costs:
+
+- **Cost savings**: Regenerating embeddings wastes money
+- **Speed**: Cached embeddings are instant
+- **Implementation**: Use document hash/content hash as cache key
+- **Storage**: Consider database (Redis, SQLite) for large caches
+
+#### 4. Use Domain-Specific Models
+
+Choose models optimized for your domain:
+
+- **Code**: Voyage Code, Sentence Transformers code models
+- **Medical**: Domain-specific Sentence Transformers
+- **Multilingual**: Cohere multilingual, Sentence Transformers multilingual
+- **General**: text-embedding-3-small (good default)
+
+#### 5. Monitor Embedding Quality
+
+Track how embedding quality affects retrieval:
+
+- **Retrieval accuracy**: Measure if retrieved documents are relevant
+- **Similarity distributions**: Understand typical similarity scores
+- **A/B testing**: Compare different embedding models
+- **Error analysis**: Identify cases where embeddings fail
+
+#### 6. Optimize Dimensions
+
+Use appropriate dimensions for your use case:
+
+- **text-embedding-3-small**: Configurable 512-1536 dimensions
+- **Lower dimensions**: Save storage and compute, may reduce quality slightly
+- **Higher dimensions**: Better quality, more storage/compute
+- **Recommendation**: Start with default, optimize if needed
+
+#### 7. Handle Errors Gracefully
+
+Implement robust error handling:
+
+- **Retry logic**: API calls can fail (network, rate limits)
+- **Rate limit handling**: Respect rate limits, implement backoff
+- **Fallback strategies**: Consider fallback models if primary fails
+- **Logging**: Log errors for debugging and monitoring
 
 ## Code Examples
 
-Complete embedding pipeline:
+### Complete Embedding Pipeline with Caching
+
+Production-ready embedding system with caching, batching, and error handling:
 
 ```python
 from openai import OpenAI
 import hashlib
 import json
 import os
+import sqlite3
+from typing import List, Optional, Dict
+import numpy as np
+from functools import lru_cache
 
-client = OpenAI()
-CACHE_DIR = "./embedding_cache"
-
-def get_cached_embedding(text: str, model: str) -> list[float] | None:
-    """Check cache for existing embedding."""
-    cache_key = hashlib.md5(f"{text}:{model}".encode()).hexdigest()
-    cache_path = os.path.join(CACHE_DIR, f"{cache_key}.json")
+class EmbeddingCache:
+    """SQLite-based embedding cache."""
     
-    if os.path.exists(cache_path):
-        with open(cache_path) as f:
-            return json.load(f)
-    return None
-
-def save_embedding_cache(text: str, model: str, embedding: list[float]):
-    """Save embedding to cache."""
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    cache_key = hashlib.md5(f"{text}:{model}".encode()).hexdigest()
-    cache_path = os.path.join(CACHE_DIR, f"{cache_key}.json")
+    def __init__(self, cache_db: str = "./embedding_cache.db"):
+        self.conn = sqlite3.connect(cache_db)
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS embeddings (
+                cache_key TEXT PRIMARY KEY,
+                text_hash TEXT,
+                model TEXT,
+                embedding TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        self.conn.commit()
     
-    with open(cache_path, 'w') as f:
-        json.dump(embedding, f)
-
-def get_embedding_with_cache(text: str, model: str = "text-embedding-3-small"):
-    """Get embedding with caching."""
-    cached = get_cached_embedding(text, model)
-    if cached:
-        return cached
+    def get_cache_key(self, text: str, model: str) -> str:
+        """Generate cache key from text and model."""
+        text_hash = hashlib.sha256(text.encode()).hexdigest()
+        return f"{model}:{text_hash}"
     
-    response = client.embeddings.create(
-        input=text,
-        model=model
-    )
-    embedding = response.data[0].embedding
-    save_embedding_cache(text, model, embedding)
-    return embedding
+    def get(self, text: str, model: str) -> Optional[List[float]]:
+        """Get cached embedding."""
+        cache_key = self.get_cache_key(text, model)
+        cursor = self.conn.execute(
+            "SELECT embedding FROM embeddings WHERE cache_key = ?",
+            (cache_key,)
+        )
+        row = cursor.fetchone()
+        if row:
+            return json.loads(row[0])
+        return None
+    
+    def set(self, text: str, model: str, embedding: List[float]):
+        """Save embedding to cache."""
+        cache_key = self.get_cache_key(text, model)
+        text_hash = hashlib.sha256(text.encode()).hexdigest()
+        embedding_json = json.dumps(embedding)
+        
+        self.conn.execute("""
+            INSERT OR REPLACE INTO embeddings (cache_key, text_hash, model, embedding)
+            VALUES (?, ?, ?, ?)
+        """, (cache_key, text_hash, model, embedding_json))
+        self.conn.commit()
+    
+    def stats(self) -> Dict:
+        """Get cache statistics."""
+        cursor = self.conn.execute("SELECT COUNT(*) FROM embeddings")
+        count = cursor.fetchone()[0]
+        
+        cursor = self.conn.execute("SELECT SUM(LENGTH(embedding)) FROM embeddings")
+        size = cursor.fetchone()[0] or 0
+        
+        return {"count": count, "size_bytes": size}
+
+
+class ProductionEmbeddingService:
+    """Production-ready embedding service with caching and batching."""
+    
+    def __init__(
+        self,
+        model: str = "text-embedding-3-small",
+        api_key: Optional[str] = None,
+        cache_db: str = "./embedding_cache.db",
+        batch_size: int = 100
+    ):
+        self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
+        self.model = model
+        self.cache = EmbeddingCache(cache_db)
+        self.batch_size = batch_size
+        self.stats = {
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "api_calls": 0,
+            "total_embeddings": 0
+        }
+    
+    def generate(
+        self,
+        texts: List[str],
+        use_cache: bool = True,
+        dimensions: Optional[int] = None
+    ) -> List[List[float]]:
+        """
+        Generate embeddings with caching and batching.
+        
+        Args:
+            texts: List of texts to embed
+            use_cache: Whether to use cache
+            dimensions: Optional dimension size
+        
+        Returns:
+            List of embedding vectors
+        """
+        embeddings = []
+        texts_to_embed = []
+        text_indices = []
+        
+        # Check cache for each text
+        for i, text in enumerate(texts):
+            if use_cache:
+                cached = self.cache.get(text, self.model)
+                if cached:
+                    embeddings.append(cached)
+                    self.stats["cache_hits"] += 1
+                    continue
+            
+            # Need to generate embedding
+            texts_to_embed.append(text)
+            text_indices.append(i)
+            embeddings.append(None)  # Placeholder
+            self.stats["cache_misses"] += 1
+        
+        # Generate embeddings for uncached texts in batches
+        if texts_to_embed:
+            for i in range(0, len(texts_to_embed), self.batch_size):
+                batch = texts_to_embed[i:i + self.batch_size]
+                batch_indices = text_indices[i:i + self.batch_size]
+                
+                # API call
+                params = {
+                    "input": batch,
+                    "model": self.model
+                }
+                
+                if dimensions and self.model.startswith("text-embedding-3"):
+                    params["dimensions"] = dimensions
+                
+                response = self.client.embeddings.create(**params)
+                self.stats["api_calls"] += 1
+                
+                # Store embeddings and cache
+                for j, embedding in enumerate([item.embedding for item in response.data]):
+                    idx = batch_indices[j]
+                    embeddings[idx] = embedding
+                    
+                    # Cache the embedding
+                    if use_cache:
+                        self.cache.set(batch[j], self.model, embedding)
+        
+        self.stats["total_embeddings"] += len(texts)
+        return embeddings
+    
+    def get_stats(self) -> Dict:
+        """Get service statistics."""
+        cache_stats = self.cache.stats()
+        return {
+            **self.stats,
+            "cache_size": cache_stats["count"],
+            "cache_hit_rate": (
+                self.stats["cache_hits"] / (self.stats["cache_hits"] + self.stats["cache_misses"])
+                if (self.stats["cache_hits"] + self.stats["cache_misses"]) > 0 else 0
+            )
+        }
+
+# Usage
+service = ProductionEmbeddingService(model="text-embedding-3-small")
+
+# First call: API requests made
+documents = ["doc 1", "doc 2", "doc 3"]
+embeddings1 = service.generate(documents)
+print(f"Stats: {service.get_stats()}")
+
+# Second call: All from cache
+embeddings2 = service.generate(documents)
+print(f"Stats: {service.get_stats()}")  # cache_hit_rate should be 1.0
+```
+
+### Comparing Different Embedding Models
+
+Test different models to choose the best one:
+
+```python
+def compare_models(
+    texts: List[str],
+    models: List[str]
+) -> Dict[str, List[List[float]]]:
+    """Compare embeddings from different models."""
+    results = {}
+    
+    for model in models:
+        print(f"Generating embeddings with {model}...")
+        generator = EmbeddingGenerator(model=model)
+        results[model] = generator.generate(texts)
+    
+    return results
+
+# Compare models
+models = [
+    "text-embedding-3-small",
+    "text-embedding-3-large",
+    # Add other models if you have API keys
+]
+
+documents = ["RAG combines retrieval and generation...", ...]
+comparison = compare_models(documents, models)
+
+# Analyze similarity scores across models
+for model, embeddings in comparison.items():
+    # Calculate average similarity between related documents
+    # (Implementation depends on your evaluation criteria)
+    pass
 ```
 
 ## Common Mistakes
 
-1. **Wrong model for domain**: General models may not work well for technical content
-2. **Not batching**: Generating embeddings one-by-one is slow and expensive
-3. **No caching**: Regenerating same embeddings wastes money
-4. **Ignoring normalization**: Some similarity calculations need normalized vectors
-5. **Too many dimensions**: Larger embeddings increase storage/compute costs
-6. **Not monitoring quality**: Embedding quality directly affects retrieval
+#### 1. Wrong model for domain
+Using general-purpose embedding models for specialized content (code, medical, technical) reduces retrieval quality. Code embeddings need models trained on code, medical content needs domain-specific models. Always test different models for your specific domain. Don't assume text-embedding-3-small works best for everything.
+
+#### 2. Not batching embeddings
+Generating embeddings one-by-one is slow and expensive. OpenAI's API supports up to 2048 texts per request. Batching reduces API overhead, costs, and latency. Always batch embedding requests when processing multiple documents. Process in batches of 100-500 for optimal performance.
+
+#### 3. No caching strategy
+Regenerating embeddings for unchanged documents wastes money and time. A single embedding costs fractions of a cent, but at scale (thousands of documents, frequent updates), costs add up quickly. Implement caching using document hashes/content hashes. Use SQLite, Redis, or database for persistent caching.
+
+#### 4. Ignoring normalization
+Some similarity calculations (especially dot product) require normalized vectors. Even for cosine similarity, normalization can help with consistency. Not normalizing can lead to incorrect similarity scores. Normalize embeddings when using dot product, or when combining embeddings from different models.
+
+#### 5. Too many dimensions
+Higher dimensions don't always mean better quality, but they always increase storage and compute costs. text-embedding-3-small supports configurable dimensions (512-1536). Start with default dimensions, test if lower dimensions work for your use case. Only use higher dimensions if you see clear quality improvements.
+
+#### 6. Not monitoring embedding quality
+Embedding quality directly affects retrieval quality, which affects your entire RAG system. Without monitoring, you don't know if embeddings are working well. Track retrieval accuracy, similarity score distributions, and compare different models. Implement evaluation pipelines to measure embedding effectiveness.
+
+#### 7. Mixing embedding models
+Using different embedding models for indexing vs querying creates inconsistency. Models produce embeddings in different vector spaces. Always use the same model for both indexing documents and querying. If you change models, re-index all documents.
+
+#### 8. Not handling API errors
+API calls can fail due to network issues, rate limits, or service problems. Without error handling, your embedding pipeline crashes. Implement retry logic with exponential backoff. Handle rate limits gracefully. Consider fallback strategies or queue systems for large batches.
+
+#### 9. Ignoring rate limits
+Exceeding API rate limits causes failures and delays. Different providers have different rate limits. Implement rate limiting in your code. Use exponential backoff when hitting rate limits. Consider using multiple API keys or providers for high-volume use cases.
+
+#### 10. Not optimizing for cost
+Embedding costs can add up at scale. Without optimization, you waste money. Use caching to avoid regenerating embeddings. Consider self-hosted models (Sentence Transformers) for high-volume use cases. Use dimension optimization if applicable. Monitor and track embedding costs.
 
 ## Exercise
 
-1. Compare embeddings from different models on same text
-2. Measure semantic similarity between related and unrelated texts
-3. Test domain-specific vs general embedding models
-4. Implement embedding caching
-5. Benchmark embedding generation speed and costs
-6. Evaluate which model works best for your use case
+Complete these exercises to master embeddings in practice. These skills are essential for building production RAG systems with high-quality retrieval.
+
+#### 1. Compare different embedding models
+
+Test how different models handle the same text:
+
+```python
+def compare_models_exercise(texts: List[str]):
+    """TODO: Compare embeddings from different models"""
+    # TODO: Generate embeddings with text-embedding-3-small
+    # TODO: Generate embeddings with text-embedding-3-large
+    # TODO: Compare embedding dimensions
+    # TODO: Compare similarity scores for related texts
+    # TODO: Analyze differences
+    pass
+```
+
+#### 2. Measure semantic similarity
+
+Understand similarity scores:
+
+```python
+def measure_similarity_exercise():
+    """TODO: Measure similarity between related and unrelated texts"""
+    # TODO: Create related text pairs (e.g., "dog" and "puppy")
+    # TODO: Create unrelated text pairs (e.g., "dog" and "quantum physics")
+    # TODO: Generate embeddings for all texts
+    # TODO: Calculate cosine similarity for each pair
+    # TODO: Analyze similarity score distributions
+    # TODO: Identify typical similarity ranges
+    pass
+```
+
+#### 3. Test domain-specific models
+
+Compare general vs domain-specific models:
+
+```python
+def test_domain_models_exercise(code_texts: List[str], general_texts: List[str]):
+    """TODO: Test domain-specific embedding models"""
+    # TODO: Get general model embeddings (text-embedding-3-small)
+    # TODO: Get domain-specific embeddings (e.g., code model if available)
+    # TODO: Test similarity for domain-specific queries
+    # TODO: Compare retrieval quality
+    # TODO: Identify when domain-specific models help
+    pass
+```
+
+#### 4. Implement embedding caching
+
+Build a caching system:
+
+```python
+class EmbeddingCacheExercise:
+    """TODO: Implement embedding cache"""
+    
+    def __init__(self):
+        """TODO: Initialize cache (SQLite, Redis, or file-based)"""
+        pass
+    
+    def get(self, text: str, model: str):
+        """TODO: Get cached embedding"""
+        pass
+    
+    def set(self, text: str, model: str, embedding: List[float]):
+        """TODO: Cache embedding"""
+        pass
+    
+    def clear(self):
+        """TODO: Clear cache"""
+        pass
+```
+
+#### 5. Benchmark embedding performance
+
+Measure speed and costs:
+
+```python
+import time
+
+def benchmark_embeddings(texts: List[str], model: str):
+    """TODO: Benchmark embedding generation"""
+    # TODO: Measure time to generate embeddings
+    # TODO: Calculate cost (based on tokens)
+    # TODO: Test with different batch sizes
+    # TODO: Compare with and without caching
+    # TODO: Identify optimal batch size
+    start = time.time()
+    # ... generate embeddings
+    elapsed = time.time() - start
+    # TODO: Report metrics
+    pass
+```
+
+#### 6. Optimize dimensions
+
+Test dimension optimization:
+
+```python
+def optimize_dimensions_exercise(texts: List[str]):
+    """TODO: Test different dimension sizes"""
+    # TODO: Generate embeddings with default dimensions (1536)
+    # TODO: Generate embeddings with lower dimensions (512, 768, 1024)
+    # TODO: Compare similarity scores
+    # TODO: Test retrieval quality with different dimensions
+    # TODO: Find optimal dimension size for your use case
+    pass
+```
+
+#### 7. Build production embedding service
+
+Create a complete service:
+
+```python
+class ProductionEmbeddingServiceExercise:
+    """TODO: Build production embedding service"""
+    
+    def __init__(self):
+        """TODO: Initialize with caching, batching, error handling"""
+        pass
+    
+    def generate(self, texts: List[str]) -> List[List[float]]:
+        """TODO: Generate embeddings with all optimizations"""
+        # TODO: Check cache
+        # TODO: Batch requests
+        # TODO: Handle errors
+        # TODO: Cache results
+        pass
+    
+    def get_stats(self) -> Dict:
+        """TODO: Return statistics (cache hits, API calls, costs)"""
+        pass
+```
+
+#### 8. Evaluate model effectiveness
+
+Measure which model works best:
+
+```python
+def evaluate_models_exercise(
+    documents: List[str],
+    queries: List[str],
+    models: List[str]
+):
+    """TODO: Evaluate different embedding models"""
+    # TODO: Generate document embeddings with each model
+    # TODO: Generate query embeddings with each model
+    # TODO: Test retrieval quality for each model
+    # TODO: Measure precision, recall, or other metrics
+    # TODO: Identify best model for your use case
+    pass
+```
+
+#### 9. Reflection questions
+
+After completing the exercises, answer these questions:
+- How do you choose the right embedding model for your use case?
+- What's the trade-off between embedding dimensions and quality/cost?
+- Why is caching important for embeddings?
+- How do you measure embedding quality?
+- What are the costs of generating embeddings at scale?
+- When should you use domain-specific embedding models?
+- How do similarity scores relate to retrieval quality?
+- What's the optimal batch size for embedding generation?
+- How do you handle errors and rate limits when generating embeddings?
+- How do you evaluate if one embedding model is better than another?
 
 ## Tools & Resources
 

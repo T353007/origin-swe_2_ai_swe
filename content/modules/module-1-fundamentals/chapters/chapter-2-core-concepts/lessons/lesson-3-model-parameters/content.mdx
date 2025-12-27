@@ -7,87 +7,493 @@ order: 3
 chapterId: "chapter-2-core-concepts"
 moduleId: "module-1-fundamentals"
 prerequisites: ["lesson-2-prompt-engineering"]
-estimatedMinutes: 7
+estimatedMinutes: 12
 tags: ["parameters", "temperature", "configuration"]
 difficulty: "intermediate"
 ---
 
 # Model Parameters and Temperature
 
+> **💡** *Model parameters are like the dials on a mixing board—turn temperature too high and your code explanations become poetry, turn it too low and creative writing becomes technical documentation. The trick is finding the right settings for each task, which is easier said than done when "creativity" is measured on a scale of 0 to 2.*
+
 ## Overview
 
-Model parameters control how LLMs generate text. Understanding temperature, top_p, and max_tokens is crucial for getting consistent, high-quality outputs.
+Model parameters control how LLMs generate text. Understanding temperature, top_p, max_tokens, and other parameters is crucial for getting consistent, high-quality outputs that match your use case. The same prompt with different parameters can produce dramatically different results—a fact that surprises many developers who expect deterministic behavior.
+
+In 2024-2025, understanding these parameters has become even more important as models like GPT-4o have become more sensitive to parameter tuning. Getting parameters right can be the difference between a production-ready system and one that produces inconsistent, unusable outputs.
 
 ## Main Content
 
 ### Key Parameters
 
-**Temperature** (0.0 - 2.0):
-- Controls randomness/creativity
-- Lower (0.0-0.3): More deterministic, focused
-- Higher (0.7-2.0): More creative, varied
-- Default: 1.0
+Understanding these parameters is essential for controlling model behavior. Each parameter affects different aspects of text generation.
 
-**Top_p** (Nucleus Sampling) (0.0 - 1.0):
-- Controls diversity via probability threshold
-- Lower: More focused vocabulary
-- Higher: More diverse vocabulary
-- Often used instead of temperature
+#### Temperature (0.0 to 2.0)
 
-**Max Tokens**:
-- Maximum tokens in response
-- Prevents runaway generation
-- Set based on expected output length
+Temperature controls the randomness/creativity of the model's outputs. Think of it as how "confident" the model needs to be before choosing a word.
 
-**Stop Sequences**:
-- Text that stops generation
-- Useful for structured outputs
+**How it works:**
+- Lower temperature (0.0-0.3): Model chooses the most likely tokens. More deterministic, focused, and consistent.
+- Medium temperature (0.5-0.7): Balanced between determinism and creativity.
+- Higher temperature (0.8-2.0): Model considers less likely tokens. More creative, varied, and sometimes unpredictable.
+- Default: Usually 1.0 (varies by model)
+
+**When to use what:**
+- **Temperature 0.0-0.3**: Factual tasks, code generation, data extraction, when you need consistent outputs
+- **Temperature 0.5-0.7**: General-purpose tasks, balanced creativity and consistency
+- **Temperature 0.8-1.5**: Creative writing, brainstorming, when variety is desired
+- **Temperature 1.5-2.0**: Highly creative tasks, experimental outputs (rarely needed)
+
+**Important note**: Even with temperature 0.0, outputs aren't perfectly deterministic due to model architecture and batching. Don't rely on exact reproducibility.
+
+#### Top_p (Nucleus Sampling) (0.0 to 1.0)
+
+Top_p controls diversity by considering only tokens whose cumulative probability exceeds the threshold. It's an alternative to temperature that can provide more nuanced control.
+
+**How it works:**
+- Lower top_p (0.1-0.5): Only considers the most likely tokens. More focused, conservative outputs.
+- Higher top_p (0.7-1.0): Considers more tokens. More diverse, creative outputs.
+- Default: Usually 1.0 (no filtering)
+
+**Top_p vs Temperature:**
+- **Temperature**: Affects all tokens uniformly by scaling probabilities
+- **Top_p**: Filters tokens by cumulative probability, more adaptive
+- **Recommendation**: Use temperature for most cases, use top_p when you need fine-grained control
+
+**When to use top_p:**
+- You want to limit vocabulary to top-N likely tokens
+- You need more control than temperature provides
+- You're working with models that respond better to top_p
+
+**Note**: Don't use temperature and top_p together unless you know what you're doing. They interact in complex ways. Use one or the other.
+
+#### Max Tokens
+
+Maximum number of tokens the model can generate in its response. This is a hard limit that prevents runaway generation.
+
+**Why it matters:**
+- Prevents unexpectedly long outputs (saves tokens and cost)
+- Ensures predictable response times
+- Controls output length for parsing/processing
+- Critical for production systems
+
+**How to set it:**
+- Estimate expected output length (in tokens, not words)
+- Add 10-20% buffer for safety
+- Consider your use case: short answers (50-100 tokens), summaries (200-500 tokens), essays (1000+ tokens)
+- Be realistic: too low truncates responses, too high wastes tokens
+
+**Example calculations:**
+- 1 token ≈ 0.75 words
+- 100 tokens ≈ 75 words ≈ 1-2 paragraphs
+- 500 tokens ≈ 375 words ≈ 1-2 pages
+- 1000 tokens ≈ 750 words ≈ 2-3 pages
+
+#### Stop Sequences
+
+Text sequences that cause the model to stop generating. Useful for controlling output format and structure.
+
+**How it works:**
+- Model stops when it encounters any stop sequence
+- Can specify multiple stop sequences (array)
+- Stop sequence text is not included in the output
+- Useful for structured outputs, list generation, multi-turn conversations
+
+**Common use cases:**
+- Stop at double newline (`\n\n`) for paragraph separation
+- Stop at specific markers (`"---"`, `"###"`) for structured formats
+- Stop at end-of-sentence markers for single-sentence responses
+- Stop at conversation boundaries for chat applications
+
+**Best practices:**
+- Choose sequences unlikely to appear mid-output
+- Test with various inputs to ensure reliable stopping
+- Consider edge cases where stop sequence might not trigger
+- Use in combination with max_tokens as a fallback
+
+#### Other Important Parameters
+
+**presence_penalty** (-2.0 to 2.0):
+- Penalizes tokens based on whether they've appeared in the text so far
+- Positive values encourage new topics, negative values encourage repetition
+- Useful for avoiding repetitive outputs or encouraging topic diversity
+
+**frequency_penalty** (-2.0 to 2.0):
+- Penalizes tokens based on how frequently they've appeared
+- Similar to presence_penalty but based on frequency, not just presence
+- Can help reduce repetitive phrases or words
+
+**Note**: These penalties are less commonly used and can have unpredictable effects. Start with temperature and max_tokens before experimenting with penalties.
 
 ## Code Examples
 
+### Basic Parameter Usage
+
+Complete examples showing how to use parameters effectively:
+
 ```python
 from openai import OpenAI
+import os
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Low temperature - deterministic
+# Low temperature - deterministic (factual tasks)
 response = client.chat.completions.create(
-    model="gpt-4",
+    model="gpt-4o",
     messages=[{"role": "user", "content": "What is 2+2?"}],
-    temperature=0.0,  # Always same answer
+    temperature=0.0,  # Deterministic for factual answers
     max_tokens=50
 )
+print(response.choices[0].message.content)
 
-# High temperature - creative
+# Medium temperature - balanced (general tasks)
 response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "Write a creative story"}],
-    temperature=0.9,  # More varied
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Explain how Python lists work"}],
+    temperature=0.5,  # Balanced creativity and consistency
+    max_tokens=200
+)
+print(response.choices[0].message.content)
+
+# High temperature - creative (creative tasks)
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Write a creative short story opening"}],
+    temperature=0.9,  # More varied, creative outputs
+    max_tokens=200
+)
+print(response.choices[0].message.content)
+```
+
+### Using Stop Sequences
+
+Control output format with stop sequences:
+
+```python
+# Stop at double newline (paragraph boundary)
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Write a single paragraph about AI:"}],
+    stop=["\n\n"],  # Stop at paragraph break
+    max_tokens=300
+)
+
+# Stop at specific marker (structured output)
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "List three benefits of Python:\n1."}],
+    stop=["\n4", "###"],  # Stop at item 4 or markdown header
     max_tokens=200
 )
 
-# With stop sequence
+# Stop at conversation boundary
 response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "List items:"}],
-    stop=["\n\n"],  # Stop at double newline
-    max_tokens=100
+    model="gpt-4o",
+    messages=[
+        {"role": "user", "content": "Tell me a joke"},
+    ],
+    stop=["User:", "Human:"],  # Stop if model tries to continue conversation
+    max_tokens=150
+)
+```
+
+### Comparing Temperature Settings
+
+Test how temperature affects outputs:
+
+```python
+def test_temperature(prompt: str, temperatures: list = [0.0, 0.5, 1.0, 1.5]):
+    """Compare outputs at different temperature settings."""
+    results = {}
+    
+    for temp in temperatures:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # Use cheaper model for testing
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temp,
+            max_tokens=100
+        )
+        results[temp] = response.choices[0].message.content
+        print(f"\nTemperature {temp}:")
+        print(results[temp])
+    
+    return results
+
+# Test with same prompt
+test_temperature("Explain what Python is in one sentence")
+```
+
+### Parameter Presets for Common Tasks
+
+Create reusable parameter configurations:
+
+```python
+PARAMETER_PRESETS = {
+    "factual": {
+        "temperature": 0.0,
+        "max_tokens": 500,
+    },
+    "balanced": {
+        "temperature": 0.5,
+        "max_tokens": 500,
+    },
+    "creative": {
+        "temperature": 0.9,
+        "max_tokens": 1000,
+    },
+    "code": {
+        "temperature": 0.0,
+        "max_tokens": 2000,
+        "stop": ["\n\n\n"],  # Stop at multiple blank lines
+    },
+    "summarization": {
+        "temperature": 0.3,
+        "max_tokens": 300,
+    },
+    "qa": {
+        "temperature": 0.0,
+        "max_tokens": 200,
+    },
+}
+
+def generate_with_preset(prompt: str, preset: str, model: str = "gpt-4o"):
+    """Generate with a preset parameter configuration."""
+    if preset not in PARAMETER_PRESETS:
+        raise ValueError(f"Unknown preset: {preset}")
+    
+    params = PARAMETER_PRESETS[preset].copy()
+    
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        **params
+    )
+    
+    return response.choices[0].message.content
+
+# Usage
+code_explanation = generate_with_preset(
+    "Explain how Python decorators work",
+    preset="code"
+)
+```
+
+### Using Top_p Instead of Temperature
+
+Example using top_p for fine-grained control:
+
+```python
+# Using top_p instead of temperature
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Write a creative tagline"}],
+    top_p=0.9,  # Consider tokens in top 90% probability mass
+    max_tokens=50
+    # Note: Don't set temperature when using top_p
 )
 ```
 
 ## Common Mistakes
 
-1. **Temperature too high for factual tasks**: Use low temp for facts
-2. **No max_tokens**: Can generate very long outputs
-3. **Not using stop sequences**: Hard to parse structured outputs
-4. **Same params for all tasks**: Adjust per use case
+#### 1. Temperature too high for factual tasks
+Using high temperature (0.8+) for factual questions, code generation, or data extraction leads to inconsistent, sometimes incorrect outputs. For factual tasks, use temperature 0.0-0.3. Save high temperature for creative tasks where variety is desired.
+
+#### 2. Not setting max_tokens
+Without max_tokens, the model can generate thousands of tokens, wasting money and making responses hard to parse. Always set max_tokens based on expected output length. A 500-token response costs $0.005 with GPT-4o; an unbounded 5000-token response costs $0.05 (10x more).
+
+#### 3. Not using stop sequences for structured outputs
+Stop sequences are essential for controlling output format. Without them, list generation continues indefinitely, structured formats break, and parsing becomes difficult. Use stop sequences like `\n\n`, `"---"`, or custom markers to control where generation stops.
+
+#### 4. Using the same parameters for all tasks
+Different tasks need different parameters. Factual Q&A needs temperature 0.0, creative writing needs 0.8-1.0, code generation needs 0.0 with high max_tokens. Don't use a one-size-fits-all approach—tune parameters per use case.
+
+#### 5. Using temperature and top_p together
+Temperature and top_p interact in complex ways. Using both simultaneously leads to unpredictable behavior. Pick one: use temperature for most cases, or use top_p when you need fine-grained control. Don't set both unless you've tested the interaction.
+
+#### 6. Setting max_tokens too low
+If max_tokens is too low, responses get truncated mid-sentence. Estimate your expected output length and add a buffer (10-20%). Test with real inputs to ensure you're not cutting off important content. It's better to set it slightly high than too low.
+
+#### 7. Assuming temperature 0.0 is perfectly deterministic
+Even with temperature 0.0, outputs can vary slightly due to model architecture, batching, and other factors. Don't write code that depends on exact string matches. Use temperature 0.0 for consistency, but still validate outputs rather than assuming they're identical.
+
+#### 8. Not testing parameter settings
+Parameters affect outputs significantly. Don't guess—test different settings with your actual use case. What works for one task might not work for another. Create test cases, compare outputs, and choose parameters based on real results, not assumptions.
+
+#### 9. Ignoring token costs when setting max_tokens
+Higher max_tokens means higher potential costs. Setting max_tokens to 4000 "just to be safe" means every response could cost $0.04 (GPT-4o output pricing). Be realistic about actual needs. Monitor actual token usage and adjust accordingly.
+
+#### 10. Stop sequences that are too common
+If your stop sequence appears naturally in the output, generation stops prematurely. Choose stop sequences that are unlikely to appear in normal text. Test with various inputs to ensure stop sequences work reliably across different scenarios.
 
 ## Exercise
 
-1. Generate text with temperature 0.0, 0.7, and 1.5 - compare outputs
-2. Set max_tokens to limit response length
-3. Use stop sequences to control output format
-4. Experiment with top_p vs temperature
+Complete these exercises to understand how parameters affect model outputs. These skills are essential for tuning models in production.
+
+#### 1. Compare temperature settings
+
+Generate the same prompt with different temperature values and compare outputs:
+
+```python
+def compare_temperatures(prompt: str):
+    """Generate responses with different temperatures."""
+    temperatures = [0.0, 0.5, 1.0, 1.5]
+    results = {}
+    
+    for temp in temperatures:
+        # TODO: Generate response with temperature=temp
+        # TODO: Store result
+        pass
+    
+    # TODO: Print comparisons
+    # TODO: Analyze how temperature affects output
+    return results
+
+# Test with different prompt types
+compare_temperatures("What is Python?")  # Factual
+compare_temperatures("Write a creative tagline for a coffee shop")  # Creative
+```
+
+#### 2. Test max_tokens limits
+
+Experiment with different max_tokens settings:
+
+```python
+def test_max_tokens(prompt: str, max_tokens_values: list = [50, 100, 200, 500]):
+    """Test how max_tokens affects output length."""
+    # TODO: Generate responses with different max_tokens
+    # TODO: Count actual tokens in responses
+    # TODO: Check for truncation
+    # TODO: Analyze cost implications
+    pass
+
+test_max_tokens("Explain how machine learning works")
+```
+
+#### 3. Use stop sequences for structured outputs
+
+Create outputs that stop at specific points:
+
+```python
+# Task 1: Generate a list that stops at item 5
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "List 5 benefits of Python:\n1."}],
+    # TODO: Add stop sequence to stop at item 6
+    max_tokens=200
+)
+
+# Task 2: Generate a single paragraph (stop at double newline)
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Write one paragraph about AI:"}],
+    # TODO: Add stop sequence
+    max_tokens=300
+)
+
+# Task 3: Generate until specific marker
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Summarize this topic and end with '---END---':"}],
+    # TODO: Add stop sequence
+    max_tokens=200
+)
+```
+
+#### 4. Compare temperature vs top_p
+
+Test whether temperature or top_p works better for your use case:
+
+```python
+def compare_sampling_methods(prompt: str):
+    """Compare temperature vs top_p."""
+    # Using temperature
+    response_temp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=100
+    )
+    
+    # Using top_p (equivalent diversity)
+    response_topp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        top_p=0.9,  # Equivalent to temperature 0.7
+        max_tokens=100
+    )
+    
+    # TODO: Compare outputs
+    # TODO: Generate multiple times to see variability
+    # TODO: Determine which works better for your task
+    pass
+```
+
+#### 5. Create parameter presets
+
+Build a system for managing parameter presets:
+
+```python
+class ParameterPreset:
+    """Manage parameter presets for different task types."""
+    
+    def __init__(self):
+        self.presets = {}
+    
+    def add_preset(self, name: str, **params):
+        """TODO: Add a parameter preset"""
+        pass
+    
+    def get_preset(self, name: str) -> dict:
+        """TODO: Get preset parameters"""
+        pass
+    
+    def apply_preset(self, prompt: str, preset_name: str):
+        """TODO: Generate with preset parameters"""
+        pass
+
+# Test
+presets = ParameterPreset()
+presets.add_preset("factual", temperature=0.0, max_tokens=200)
+presets.add_preset("creative", temperature=0.9, max_tokens=500)
+# TODO: Add more presets and test them
+```
+
+#### 6. Measure actual token usage
+
+Track how parameters affect actual token consumption:
+
+```python
+def measure_token_usage(prompt: str, **params):
+    """Generate response and measure token usage."""
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        **params
+    )
+    
+    usage = response.usage
+    # TODO: Print token usage
+    # TODO: Calculate cost
+    # TODO: Compare with max_tokens setting
+    
+    return {
+        "prompt_tokens": usage.prompt_tokens,
+        "completion_tokens": usage.completion_tokens,
+        "total_tokens": usage.total_tokens,
+        "max_tokens_set": params.get("max_tokens", "not set"),
+    }
+```
+
+#### 7. Reflection questions
+
+After completing the exercises, answer these questions:
+- How does temperature 0.0 differ from 1.0 in practice? Give examples.
+- What's a reasonable max_tokens for a code explanation? A creative story? A summary?
+- When would you use stop sequences vs max_tokens?
+- What's the difference between temperature and top_p? When would you use each?
+- How do you determine the right parameters for a new task?
+- What happens if you set max_tokens too low? Too high?
+- How do parameters affect token costs?
 
 ## Tools & Resources
 

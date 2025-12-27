@@ -2,7 +2,8 @@
   "id": "chapter-1-rag-fundamentals",
   "slug": "fundamentals",
   "title": "RAG Fundamentals",
-  "description": "RAG Fundamentals chapter",
+  "description": "Understanding RAG basics, vector databases, chunking strategies, and building your first RAG system.",
   "order": 1,
   "moduleId": "module-3-rag"
 }
+

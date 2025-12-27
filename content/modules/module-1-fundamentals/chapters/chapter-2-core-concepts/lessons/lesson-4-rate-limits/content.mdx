@@ -7,112 +7,649 @@ order: 4
 chapterId: "chapter-2-core-concepts"
 moduleId: "module-1-fundamentals"
 prerequisites: ["lesson-5-api-keys-security"]
-estimatedMinutes: 7
+estimatedMinutes: 13
 tags: ["rate-limits", "error-handling", "retries"]
 difficulty: "intermediate"
 ---
 
 # Rate Limits and Error Handling
 
+> **💡** *Rate limits are like traffic lights for APIs—they exist to prevent chaos, but hitting one means you're stuck waiting. The difference is that with APIs, you can implement smart retry logic that doesn't just sit there honking. Exponential backoff is your friend: wait a bit, try again, wait longer, try again. It's the API equivalent of patience.*
+
 ## Overview
 
-API providers enforce rate limits to manage load. Production applications must handle rate limits, errors, and implement proper retry logic.
+API providers enforce rate limits to manage load and ensure fair usage. Production applications must handle rate limits gracefully, implement proper retry logic, and distinguish between transient errors (retry) and permanent errors (fail fast). Without proper error handling, your application will fail unpredictably in production.
+
+In 2024-2025, as AI applications scale, rate limit handling has become critical. Hitting rate limits is not a bug—it's expected behavior at scale. The key is handling them gracefully with exponential backoff, proper error classification, and monitoring.
 
 ## Main Content
 
 ### Understanding Rate Limits
 
-Common rate limit types:
-- **Requests per minute (RPM)**: Number of requests
-- **Tokens per minute (TPM)**: Token throughput
-- **Requests per day (RPD)**: Daily quota
+Rate limits are constraints that API providers enforce to manage server load and ensure fair usage across all users. Understanding the different types helps you build systems that handle them gracefully.
 
-### Error Handling
+#### Types of Rate Limits
+
+**Requests per Minute (RPM)**
+- Limits the number of API requests you can make per minute
+- Example: 500 RPM means max 500 requests per 60-second window
+- Common for: Most API endpoints
+- Impact: Too many requests in a short time triggers rate limit errors
+
+**Tokens per Minute (TPM)**
+- Limits token throughput (input + output tokens combined)
+- Example: 1M TPM means max 1 million tokens processed per minute
+- Common for: LLM APIs (OpenAI, Anthropic)
+- Impact: Large requests or high-volume usage can hit token limits even if RPM is fine
+
+**Requests per Day (RPD)**
+- Daily quota limit
+- Example: 10,000 requests per day
+- Common for: Free tiers, trial accounts
+- Impact: Once exceeded, you're blocked until the next day
+
+**Concurrent Requests**
+- Limits simultaneous active requests
+- Example: Max 10 concurrent requests
+- Common for: Some providers to prevent abuse
+- Impact: Too many parallel requests get queued or rejected
+
+#### Rate Limit Headers
+
+Most APIs return rate limit information in response headers:
+
+```
+x-ratelimit-limit: 500
+x-ratelimit-remaining: 450
+x-ratelimit-reset: 1234567890
+retry-after: 60
+```
+
+**Important headers:**
+- `x-ratelimit-remaining`: How many requests left in current window
+- `retry-after`: Seconds to wait before retrying (often included in 429 responses)
+- `x-ratelimit-reset`: Timestamp when the rate limit window resets
+
+#### Common Rate Limit Scenarios
+
+**Scenario 1: Burst Traffic**
+- Your application receives a sudden spike in traffic
+- RPM limit is exceeded quickly
+- Solution: Implement request queuing and throttling
+
+**Scenario 2: Large Requests**
+- Individual requests consume many tokens
+- TPM limit is hit even with few requests
+- Solution: Reduce request size, batch smaller requests, or upgrade tier
+
+**Scenario 3: Sustained High Volume**
+- Consistent high usage over time
+- Daily or hourly quotas exhausted
+- Solution: Implement request prioritization, caching, or rate limiting on your side
+
+### Error Types and When to Retry
+
+Not all errors should be retried. Understanding error types helps you implement proper retry logic.
+
+#### HTTP Status Codes
+
+**429 Too Many Requests (Rate Limit)**
+- **Should retry**: Yes, with exponential backoff
+- **Wait time**: Check `retry-after` header or use exponential backoff
+- **Action**: Wait and retry
+
+**500, 502, 503, 504 (Server Errors)**
+- **Should retry**: Yes, these are transient server issues
+- **Wait time**: Exponential backoff
+- **Action**: Retry with backoff
+
+**400 Bad Request (Client Error)**
+- **Should retry**: No, your request is invalid
+- **Action**: Fix the request, don't retry
+
+**401 Unauthorized (Authentication Error)**
+- **Should retry**: No, authentication failed
+- **Action**: Check API key, don't retry
+
+**404 Not Found**
+- **Should retry**: No, resource doesn't exist
+- **Action**: Fix the endpoint/ID, don't retry
+
+#### OpenAI-Specific Errors
+
+**RateLimitError**
+- Rate limit exceeded
+- Always retry with exponential backoff
+
+**APIError**
+- Generic API error, check status_code to determine if retryable
+- 5xx: Retry, 4xx: Don't retry
+
+**APITimeoutError**
+- Request timed out
+- Retry with backoff
+
+**APIConnectionError**
+- Network/connection issues
+- Retry with backoff
+
+## Code Examples
+
+### Basic Exponential Backoff Retry
+
+Production-ready retry logic with exponential backoff:
 
 ```python
-from openai import OpenAI, RateLimitError, APIError
+from openai import OpenAI, RateLimitError, APIError, APITimeoutError, APIConnectionError
 import time
-from typing import Optional
+import random
+from typing import Optional, Callable, Any
+import os
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def call_with_retry(
-    prompt: str, 
+    prompt: str,
     max_retries: int = 3,
-    backoff_factor: float = 2.0
+    initial_backoff: float = 1.0,
+    max_backoff: float = 60.0,
+    backoff_factor: float = 2.0,
+    jitter: bool = True
 ) -> Optional[str]:
-    """Call API with exponential backoff retry logic."""
+    """
+    Call API with exponential backoff retry logic.
     
+    Args:
+        prompt: The prompt to send
+        max_retries: Maximum number of retry attempts
+        initial_backoff: Initial wait time in seconds
+        max_backoff: Maximum wait time in seconds
+        backoff_factor: Multiplier for each retry (2.0 = exponential)
+        jitter: Add random jitter to prevent thundering herd
+    
+    Returns:
+        Response content or None if all retries failed
+    """
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}]
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500
             )
             return response.choices[0].message.content
             
         except RateLimitError as e:
             if attempt < max_retries - 1:
-                wait_time = backoff_factor ** attempt
-                print(f"Rate limited. Waiting {wait_time}s...")
+                # Calculate wait time with exponential backoff
+                wait_time = min(
+                    initial_backoff * (backoff_factor ** attempt),
+                    max_backoff
+                )
+                
+                # Add jitter to prevent synchronized retries
+                if jitter:
+                    wait_time = wait_time * (0.5 + random.random() * 0.5)
+                
+                print(f"Rate limited (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.2f}s...")
+                time.sleep(wait_time)
+            else:
+                print(f"Rate limit exceeded after {max_retries} attempts")
+                raise
+                
+        except (APITimeoutError, APIConnectionError) as e:
+            # Network/timeout errors - retry
+            if attempt < max_retries - 1:
+                wait_time = min(
+                    initial_backoff * (backoff_factor ** attempt),
+                    max_backoff
+                )
+                print(f"Connection error (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.2f}s...")
                 time.sleep(wait_time)
             else:
                 raise
                 
         except APIError as e:
-            print(f"API error: {e}")
-            raise
+            # Check if it's a retryable error (5xx) or client error (4xx)
+            if e.status_code and e.status_code >= 500:
+                # Server error - retry
+                if attempt < max_retries - 1:
+                    wait_time = min(
+                        initial_backoff * (backoff_factor ** attempt),
+                        max_backoff
+                    )
+                    print(f"Server error {e.status_code} (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.2f}s...")
+                    time.sleep(wait_time)
+                else:
+                    raise
+            else:
+                # Client error (4xx) - don't retry
+                print(f"Client error {e.status_code}: {e}")
+                raise
             
     return None
 ```
 
-## Code Examples
+### Advanced Retry Logic with Decorator
 
-Robust error handling with rate limit detection:
+Reusable retry decorator for any API call:
 
 ```python
+import functools
 import time
-from openai import OpenAI, RateLimitError, APIError
+import random
+from typing import TypeVar, Callable
+from openai import RateLimitError, APIError, APITimeoutError, APIConnectionError
 
-def safe_api_call(func, *args, **kwargs):
-    """Wrapper for API calls with retry logic."""
-    max_retries = 3
-    backoff = 1
-    
+T = TypeVar('T')
+
+def retry_with_backoff(
+    max_retries: int = 3,
+    initial_backoff: float = 1.0,
+    max_backoff: float = 60.0,
+    backoff_factor: float = 2.0,
+    retryable_exceptions: tuple = (RateLimitError, APITimeoutError, APIConnectionError)
+):
+    """
+    Decorator for retrying functions with exponential backoff.
+    """
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> T:
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                    
+                except retryable_exceptions as e:
+                    if attempt < max_retries - 1:
+                        wait_time = min(
+                            initial_backoff * (backoff_factor ** attempt),
+                            max_backoff
+                        )
+                        # Add jitter
+                        wait_time = wait_time * (0.5 + random.random() * 0.5)
+                        print(f"Retrying after {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                    else:
+                        raise
+                        
+                except APIError as e:
+                    # Only retry server errors (5xx)
+                    if e.status_code and e.status_code >= 500:
+                        if attempt < max_retries - 1:
+                            wait_time = min(
+                                initial_backoff * (backoff_factor ** attempt),
+                                max_backoff
+                            )
+                            time.sleep(wait_time)
+                        else:
+                            raise
+                    else:
+                        # Client errors - don't retry
+                        raise
+                        
+            return None
+        return wrapper
+    return decorator
+
+# Usage
+@retry_with_backoff(max_retries=5, initial_backoff=2.0)
+def call_openai_api(prompt: str):
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=500
+    )
+    return response.choices[0].message.content
+```
+
+### Using Retry-After Header
+
+Respect the `retry-after` header when provided:
+
+```python
+def call_with_retry_after(
+    prompt: str,
+    max_retries: int = 5
+) -> Optional[str]:
+    """Call API with retry, respecting retry-after header."""
     for attempt in range(max_retries):
         try:
-            return func(*args, **kwargs)
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500
+            )
+            return response.choices[0].message.content
+            
         except RateLimitError as e:
             if attempt < max_retries - 1:
-                wait = backoff * (2 ** attempt)
-                time.sleep(wait)
+                # Check if retry-after header is available
+                if hasattr(e, 'response') and e.response:
+                    retry_after = e.response.headers.get('retry-after')
+                    if retry_after:
+                        wait_time = float(retry_after)
+                        print(f"Rate limited. Server says wait {wait_time}s")
+                    else:
+                        # Fallback to exponential backoff
+                        wait_time = min(2.0 ** attempt, 60.0)
+                        print(f"Rate limited. Using backoff: {wait_time:.2f}s")
+                else:
+                    # No response object, use backoff
+                    wait_time = min(2.0 ** attempt, 60.0)
+                    print(f"Rate limited. Using backoff: {wait_time:.2f}s")
+                
+                time.sleep(wait_time)
             else:
                 raise
-        except APIError as e:
-            if e.status_code >= 500:  # Server errors - retry
-                if attempt < max_retries - 1:
-                    time.sleep(backoff * (2 ** attempt))
-                else:
+                
+    return None
+```
+
+### Comprehensive Error Handler Class
+
+Production-ready error handling class:
+
+```python
+import logging
+from typing import Optional, Dict, Any
+import time
+import random
+
+logger = logging.getLogger(__name__)
+
+class APIErrorHandler:
+    """Handles API errors with retry logic and logging."""
+    
+    def __init__(
+        self,
+        max_retries: int = 3,
+        initial_backoff: float = 1.0,
+        max_backoff: float = 60.0,
+        backoff_factor: float = 2.0,
+        jitter: bool = True
+    ):
+        self.max_retries = max_retries
+        self.initial_backoff = initial_backoff
+        self.max_backoff = max_backoff
+        self.backoff_factor = backoff_factor
+        self.jitter = jitter
+        
+        self.stats = {
+            "total_requests": 0,
+            "successful_requests": 0,
+            "retries": 0,
+            "rate_limit_hits": 0,
+            "failures": 0,
+        }
+    
+    def _calculate_wait_time(self, attempt: int) -> float:
+        """Calculate wait time with exponential backoff and jitter."""
+        wait_time = min(
+            self.initial_backoff * (self.backoff_factor ** attempt),
+            self.max_backoff
+        )
+        
+        if self.jitter:
+            wait_time = wait_time * (0.5 + random.random() * 0.5)
+        
+        return wait_time
+    
+    def _is_retryable(self, error: Exception) -> bool:
+        """Determine if an error should be retried."""
+        if isinstance(error, RateLimitError):
+            return True
+        if isinstance(error, (APITimeoutError, APIConnectionError)):
+            return True
+        if isinstance(error, APIError):
+            # Retry server errors (5xx), not client errors (4xx)
+            if error.status_code and error.status_code >= 500:
+                return True
+        return False
+    
+    def execute(self, func: Callable, *args, **kwargs) -> Any:
+        """Execute function with retry logic."""
+        self.stats["total_requests"] += 1
+        
+        for attempt in range(self.max_retries):
+            try:
+                result = func(*args, **kwargs)
+                self.stats["successful_requests"] += 1
+                return result
+                
+            except Exception as e:
+                if not self._is_retryable(e):
+                    # Non-retryable error
+                    self.stats["failures"] += 1
+                    logger.error(f"Non-retryable error: {e}")
                     raise
-            else:  # Client errors - don't retry
-                raise
+                
+                if attempt < self.max_retries - 1:
+                    # Retryable error, wait and retry
+                    self.stats["retries"] += 1
+                    if isinstance(e, RateLimitError):
+                        self.stats["rate_limit_hits"] += 1
+                    
+                    wait_time = self._calculate_wait_time(attempt)
+                    logger.warning(
+                        f"Retryable error on attempt {attempt + 1}/{self.max_retries}: {e}. "
+                        f"Waiting {wait_time:.2f}s..."
+                    )
+                    time.sleep(wait_time)
+                else:
+                    # Max retries exceeded
+                    self.stats["failures"] += 1
+                    logger.error(f"Max retries exceeded: {e}")
+                    raise
+        
+        return None
+    
+    def get_stats(self) -> Dict[str, int]:
+        """Get error handling statistics."""
+        return self.stats.copy()
+
+# Usage
+handler = APIErrorHandler(max_retries=5)
+
+def make_api_call(prompt: str):
+    return client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=500
+    )
+
+response = handler.execute(make_api_call, "Hello!")
+print(handler.get_stats())
 ```
 
 ## Common Mistakes
 
-1. **No retry logic**: Fails on first rate limit
-2. **Fixed delays**: Doesn't scale with backoff
-3. **Infinite retries**: Can hang forever
-4. **Not distinguishing errors**: Client errors shouldn't retry
-5. **No logging**: Hard to debug rate limit issues
+#### 1. No retry logic
+Failing on the first rate limit error breaks production applications. Rate limits are expected at scale. Always implement retry logic with exponential backoff. A single rate limit error shouldn't crash your application.
+
+#### 2. Fixed delay retries
+Using a fixed delay (e.g., always wait 5 seconds) doesn't scale. If you're still rate-limited after 5 seconds, you'll hit the limit again immediately. Use exponential backoff: wait 1s, then 2s, then 4s, etc., giving the rate limit window time to reset.
+
+#### 3. Infinite retries
+Retrying forever can hang your application indefinitely. Always set a maximum number of retries (typically 3-5). After max retries, fail gracefully, log the error, and potentially queue the request for later processing.
+
+#### 4. Retrying non-retryable errors
+Client errors (4xx) like 400 Bad Request or 401 Unauthorized should never be retried. They indicate your request is invalid or authentication failed. Retrying wastes time and API calls. Only retry server errors (5xx) and rate limits (429).
+
+#### 5. No logging or monitoring
+Without logging, you can't debug rate limit issues or understand failure patterns. Log retry attempts, wait times, error types, and success rates. Monitor rate limit hits to identify when you need to upgrade your tier or optimize usage.
+
+#### 6. No jitter in backoff
+Without jitter, all retrying clients wait the same time and retry simultaneously (thundering herd problem). This can cause cascading rate limit errors. Add random jitter to backoff times to spread out retries.
+
+#### 7. Ignoring retry-after headers
+Some APIs provide `retry-after` headers telling you exactly when to retry. Ignoring this and using fixed backoff means you might wait too long (slow) or not long enough (still rate-limited). Check for and respect `retry-after` headers when available.
+
+#### 8. Blocking retries in async code
+Using `time.sleep()` in async code blocks the event loop, preventing other requests from processing. Use `asyncio.sleep()` in async contexts. For high-volume applications, consider using async retry libraries.
+
+#### 9. Not implementing request queuing
+At high volume, retries alone aren't enough. You need request queuing to throttle requests and prevent hitting rate limits in the first place. Implement a queue with rate limiting on your side to stay under API limits.
+
+#### 10. Same retry logic for all endpoints
+Different endpoints may have different rate limits. A chat completion endpoint might have 500 RPM, while embeddings might have 1000 RPM. Use different retry strategies per endpoint, and track rate limits separately.
 
 ## Exercise
 
-1. Implement exponential backoff retry logic
-2. Handle different error types appropriately
-3. Add logging for rate limit events
-4. Test with intentional rate limiting
-5. Implement a request queue for high-volume scenarios
+Complete these exercises to build robust error handling. These skills are essential for production systems that need to handle rate limits gracefully.
+
+#### 1. Implement exponential backoff retry logic
+
+Create a function with exponential backoff:
+
+```python
+def call_with_exponential_backoff(
+    prompt: str,
+    max_retries: int = 3,
+    initial_backoff: float = 1.0
+) -> Optional[str]:
+    """TODO: Implement exponential backoff retry logic"""
+    # TODO: Make API call
+    # TODO: Catch RateLimitError
+    # TODO: Calculate wait time: initial_backoff * (2 ** attempt)
+    # TODO: Sleep and retry
+    pass
+```
+
+#### 2. Handle different error types appropriately
+
+Create error handling that distinguishes between retryable and non-retryable errors:
+
+```python
+def call_with_smart_retry(prompt: str) -> Optional[str]:
+    """TODO: Implement retry logic that only retries appropriate errors"""
+    # TODO: Catch different error types
+    # TODO: Retry RateLimitError, APITimeoutError, server errors (5xx)
+    # TODO: Don't retry client errors (4xx), authentication errors
+    # TODO: Log error types and retry decisions
+    pass
+```
+
+#### 3. Add logging and monitoring
+
+Enhance your retry logic with logging:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def call_with_logging(prompt: str) -> Optional[str]:
+    """TODO: Add logging to retry logic"""
+    # TODO: Log each retry attempt
+    # TODO: Log wait times
+    # TODO: Log error types
+    # TODO: Log success/failure rates
+    pass
+```
+
+#### 4. Implement jitter
+
+Add random jitter to prevent thundering herd:
+
+```python
+import random
+
+def call_with_jitter(prompt: str) -> Optional[str]:
+    """TODO: Add jitter to backoff times"""
+    # TODO: Calculate base wait time
+    # TODO: Add random jitter: wait_time * (0.5 + random() * 0.5)
+    # TODO: This spreads out retries across clients
+    pass
+```
+
+#### 5. Respect retry-after headers
+
+Check for and use retry-after headers when available:
+
+```python
+def call_with_retry_after(prompt: str) -> Optional[str]:
+    """TODO: Use retry-after header if available"""
+    # TODO: Catch RateLimitError
+    # TODO: Check e.response.headers.get('retry-after')
+    # TODO: Use header value if present, otherwise use backoff
+    pass
+```
+
+#### 6. Create a retry decorator
+
+Build a reusable decorator for any function:
+
+```python
+def retry_with_backoff(max_retries: int = 3):
+    """TODO: Create retry decorator"""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            # TODO: Implement retry logic
+            # TODO: Apply to any function
+            pass
+        return wrapper
+    return decorator
+
+# Usage
+@retry_with_backoff(max_retries=5)
+def my_api_call(prompt: str):
+    return client.chat.completions.create(...)
+```
+
+#### 7. Build an error handler class
+
+Create a comprehensive error handler class:
+
+```python
+class RateLimitHandler:
+    def __init__(self, max_retries: int = 3):
+        # TODO: Initialize handler with configuration
+        self.stats = {}
+        pass
+    
+    def execute(self, func, *args, **kwargs):
+        """TODO: Execute function with retry logic"""
+        # TODO: Track statistics
+        # TODO: Implement retry logic
+        # TODO: Return result or raise error
+        pass
+    
+    def get_stats(self):
+        """TODO: Return retry statistics"""
+        pass
+```
+
+#### 8. Test error handling
+
+Create tests to verify your error handling works:
+
+```python
+# Test 1: Rate limit handling
+# TODO: Simulate rate limit errors (or use a test API)
+# TODO: Verify retries happen
+# TODO: Verify backoff times increase
+
+# Test 2: Non-retryable errors
+# TODO: Simulate 400 Bad Request
+# TODO: Verify it's not retried
+
+# Test 3: Success after retry
+# TODO: Simulate failure then success
+# TODO: Verify it succeeds on retry
+```
+
+#### 9. Reflection questions
+
+After completing the exercises, answer these questions:
+- What's the difference between exponential backoff and fixed delay? Why does it matter?
+- Which errors should be retried and which shouldn't? How do you decide?
+- What's the purpose of jitter in backoff? What happens without it?
+- How do you determine the right max_retries for your use case?
+- What's the retry-after header and when should you use it?
+- How do you monitor and alert on rate limit issues in production?
+- What's the difference between rate limits (429) and quota limits? How do you handle each?
 
 ## Tools & Resources
 

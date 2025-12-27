@@ -7,39 +7,104 @@ order: 1
 chapterId: "chapter-2-core-concepts"
 moduleId: "module-1-fundamentals"
 prerequisites: ["lesson-4-tokens-costs"]
-estimatedMinutes: 8
+estimatedMinutes: 14
 tags: ["embeddings", "vectors", "semantic-search"]
 difficulty: "intermediate"
 ---
 
 # Understanding Embeddings
 
+> **💡** *Embeddings are like GPS coordinates for meaning—they turn "dog" and "puppy" into points in space that are close together, while "dog" and "tax filing" are far apart. But instead of 2D maps, we're working with 1536-dimensional spaces where similarity means everything.*
+
 ## Overview
 
-Embeddings are numerical representations of text that capture semantic meaning. They're the foundation of semantic search, RAG, and many AI applications.
+Embeddings are numerical representations of text that capture semantic meaning. They convert words, sentences, or entire documents into fixed-size vectors (arrays of numbers) where similar texts have similar vectors. They're the foundation of semantic search, RAG (Retrieval-Augmented Generation), recommendation systems, and many modern AI applications.
+
+In 2024-2025, embedding models have become incredibly powerful. OpenAI's `text-embedding-3` models offer state-of-the-art performance with configurable dimensions, making them both accurate and cost-effective. Understanding embeddings is essential for building production AI systems.
 
 ## Main Content
 
 ### What Are Embeddings?
 
-Embeddings convert text into high-dimensional vectors (arrays of numbers) where similar texts have similar vectors. For example:
-- "dog" and "puppy" → similar vectors
-- "dog" and "airplane" → different vectors
+Embeddings convert text into high-dimensional vectors (arrays of numbers) where similar texts have similar vectors. The key insight is that meaning can be represented as position in a mathematical space.
+
+**Simple Example:**
+- "dog" and "puppy" → similar vectors (close together in vector space)
+- "dog" and "cat" → somewhat similar vectors (both are animals)
+- "dog" and "airplane" → very different vectors (far apart in vector space)
+
+**Real-World Analogy:**
+Think of embeddings like GPS coordinates for meaning. Just as cities close together have similar coordinates, words with similar meanings have similar embedding vectors. But instead of 2D (latitude/longitude), embeddings use 1536 dimensions (or more) to capture complex semantic relationships.
+
+#### Properties of Good Embeddings
+
+1. **Semantic Similarity**: Similar meanings → similar vectors
+2. **Fixed Size**: All embeddings have the same dimensions (e.g., 1536)
+3. **Dense Representation**: Every dimension carries information (unlike sparse one-hot encoding)
+4. **General Purpose**: Same embedding can be used for different tasks
+
+#### Why Embeddings Matter
+
+Embeddings enable:
+- **Semantic Search**: Find documents by meaning, not just keywords
+- **RAG Systems**: Retrieve relevant context for LLM prompts
+- **Clustering**: Group similar documents together
+- **Recommendations**: Find similar items
+- **Classification**: Use embeddings as features for ML models
 
 ### How Embeddings Work
 
-1. Text → Tokenization
-2. Tokens → Model processing
-3. Model output → Fixed-size vector (e.g., 1536 dimensions)
+The embedding process transforms text into vectors:
 
-### Using Embeddings
+#### Step 1: Tokenization
+Text is broken into tokens (words or subwords):
+```
+"Hello, world!" → ["Hello", ",", " world", "!"]
+```
+
+#### Step 2: Model Processing
+The embedding model (a neural network) processes tokens:
+- Takes tokenized text as input
+- Uses learned weights from training on vast text corpora
+- Captures semantic relationships learned during training
+
+#### Step 3: Vector Output
+The model outputs a fixed-size vector:
+- **text-embedding-3-small**: 1536 dimensions (default)
+- **text-embedding-3-large**: 3072 dimensions (default, or configurable down to 256)
+- Each dimension represents some aspect of meaning
+
+#### Key Characteristics
+
+**Fixed Size**: All texts produce vectors of the same length, regardless of input length. A 1-word query and a 1000-word document both become 1536-dimensional vectors.
+
+**Normalized**: Modern embedding models produce normalized vectors (unit length), which makes cosine similarity calculations efficient and accurate.
+
+**Dense**: Every dimension has a value (unlike sparse representations where most values are zero). This enables efficient storage and computation.
+
+### Using Embeddings with OpenAI
+
+OpenAI provides state-of-the-art embedding models. As of 2024-2025, `text-embedding-3-small` and `text-embedding-3-large` are the latest models.
+
+#### Basic Usage
 
 ```python
 from openai import OpenAI
+import os
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def get_embedding(text: str, model: str = "text-embedding-3-small"):
+    """
+    Generate embedding for text using OpenAI API.
+    
+    Args:
+        text: Text to embed
+        model: Embedding model to use
+        
+    Returns:
+        List of floats representing the embedding vector
+    """
     response = client.embeddings.create(
         input=text,
         model=model
@@ -49,19 +114,129 @@ def get_embedding(text: str, model: str = "text-embedding-3-small"):
 # Example
 embedding = get_embedding("Hello, world!")
 print(f"Embedding dimension: {len(embedding)}")
+# Output: Embedding dimension: 1536
 ```
+
+#### Current Embedding Models
+
+**text-embedding-3-small** (Recommended for Most Cases)
+- Dimensions: 1536 (fixed)
+- Cost: $0.02 per 1M tokens
+- Best for: Most use cases, cost-effective, excellent performance
+- Use when: You want good quality at low cost
+
+**text-embedding-3-large** (Higher Quality)
+- Dimensions: 3072 (default), configurable down to 256
+- Cost: $0.13 per 1M tokens
+- Best for: When you need highest quality, can use smaller dimensions for cost savings
+- Use when: Quality is more important than cost, or you need configurable dimensions
+
+**text-embedding-ada-002** (Legacy)
+- Dimensions: 1536 (fixed)
+- Cost: $0.10 per 1M tokens
+- Status: Older model, still available but not recommended for new projects
+- Note: `text-embedding-3-small` is better and cheaper
+
+#### Configurable Dimensions (text-embedding-3-large)
+
+You can reduce dimensions of `text-embedding-3-large` for cost/storage savings:
+
+```python
+# Use full 3072 dimensions
+embedding_large = get_embedding("Hello, world!", model="text-embedding-3-large")
+
+# Use reduced 256 dimensions (smaller, cheaper to store/search)
+response = client.embeddings.create(
+    input="Hello, world!",
+    model="text-embedding-3-large",
+    dimensions=256  # Reduce from 3072 to 256
+)
+embedding_reduced = response.data[0].embedding
+print(f"Reduced dimension: {len(embedding_reduced)}")  # 256
+```
+
+**Trade-offs:**
+- Smaller dimensions: Lower storage costs, faster similarity search, slightly lower quality
+- Larger dimensions: Higher quality, more storage, slower search
+- Recommendation: Start with `text-embedding-3-small` (1536 dims), only use large if you need the quality boost
+
+#### Batch Embedding Generation
+
+Generate embeddings for multiple texts efficiently:
+
+```python
+def get_embeddings_batch(texts: list[str], model: str = "text-embedding-3-small"):
+    """Generate embeddings for multiple texts in one API call."""
+    response = client.embeddings.create(
+        input=texts,  # Pass list instead of single string
+        model=model
+    )
+    return [item.embedding for item in response.data]
+
+# Example
+texts = ["Hello, world!", "How are you?", "I love programming"]
+embeddings = get_embeddings_batch(texts)
+print(f"Generated {len(embeddings)} embeddings")
+```
+
+**Benefits of Batching:**
+- More efficient (fewer API calls)
+- Faster overall processing
+- Rate limit friendly
+- Lower overhead
+
+**Best Practices:**
+- Batch sizes: 100-1000 texts per batch (check API limits)
+- Handle rate limits with exponential backoff
+- Cache embeddings for repeated texts
 
 ### Semantic Similarity
 
-Calculate similarity using cosine similarity:
+Similarity between embeddings measures how semantically related two texts are. Cosine similarity is the standard metric for normalized embeddings.
+
+#### Cosine Similarity
+
+Cosine similarity measures the cosine of the angle between two vectors:
+- Range: -1 to 1 (for normalized embeddings, typically 0 to 1)
+- 1.0 = identical meaning
+- 0.0 = no similarity
+- -1.0 = opposite meaning (rare with embeddings)
+
+**Why Cosine Similarity?**
+- Works well with normalized vectors (modern embeddings are normalized)
+- Scale-invariant (magnitude doesn't matter, only direction)
+- Computationally efficient
+- Intuitive interpretation (0-1 scale)
 
 ```python
 import numpy as np
 
 def cosine_similarity(vec1: list, vec2: list) -> float:
+    """
+    Calculate cosine similarity between two vectors.
+    
+    Args:
+        vec1: First embedding vector
+        vec2: Second embedding vector
+        
+    Returns:
+        Cosine similarity score (0-1 for normalized embeddings)
+    """
     vec1 = np.array(vec1)
     vec2 = np.array(vec2)
-    return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+    
+    # Dot product
+    dot_product = np.dot(vec1, vec2)
+    
+    # Magnitudes
+    norm1 = np.linalg.norm(vec1)
+    norm2 = np.linalg.norm(vec2)
+    
+    # Cosine similarity
+    if norm1 == 0 or norm2 == 0:
+        return 0.0  # Handle zero vectors
+    
+    return dot_product / (norm1 * norm2)
 
 # Example
 text1 = "I love programming"
@@ -72,42 +247,441 @@ emb1 = get_embedding(text1)
 emb2 = get_embedding(text2)
 emb3 = get_embedding(text3)
 
-print(f"Similarity 1-2: {cosine_similarity(emb1, emb2)}")  # High
-print(f"Similarity 1-3: {cosine_similarity(emb1, emb3)}")  # Low
+similarity_12 = cosine_similarity(emb1, emb2)  # Should be high (0.8+)
+similarity_13 = cosine_similarity(emb1, emb3)  # Should be lower (0.5-0.7)
+
+print(f"Similarity 'programming' vs 'coding': {similarity_12:.3f}")
+print(f"Similarity 'programming' vs 'cooking': {similarity_13:.3f}")
+
+# Typical output:
+# Similarity 'programming' vs 'coding': 0.856
+# Similarity 'programming' vs 'cooking': 0.623
+```
+
+#### Alternative Similarity Metrics
+
+**Euclidean Distance** (Less Common)
+- Measures straight-line distance between vectors
+- Lower distance = more similar
+- Not as effective for normalized embeddings
+
+**Dot Product** (Only for Normalized Vectors)
+- For normalized vectors, dot product equals cosine similarity
+- Faster computation (no normalization needed)
+- Use when vectors are already normalized
+
+```python
+def dot_product_similarity(vec1: list, vec2: list) -> float:
+    """Dot product similarity (only for normalized vectors)."""
+    return np.dot(vec1, vec2)  # Same as cosine for normalized vectors
+```
+
+#### Understanding Similarity Scores
+
+**Score Interpretation:**
+- **0.9-1.0**: Nearly identical meaning (synonyms, paraphrases)
+- **0.7-0.9**: Very similar (related concepts)
+- **0.5-0.7**: Somewhat related (topical similarity)
+- **0.3-0.5**: Weakly related
+- **0.0-0.3**: Unrelated
+
+**Real-World Example:**
+```python
+queries = [
+    "machine learning algorithms",
+    "AI model training",
+    "recipe for chocolate cake",
+]
+
+documents = [
+    "Deep learning neural networks for pattern recognition",
+    "Training data preparation for ML models",
+    "How to bake a delicious chocolate dessert",
+    "Weather forecast for tomorrow",
+]
+
+# Find most similar document for each query
+for query in queries:
+    query_emb = get_embedding(query)
+    doc_embs = [get_embedding(doc) for doc in documents]
+    
+    similarities = [cosine_similarity(query_emb, doc_emb) for doc_emb in doc_embs]
+    best_match_idx = np.argmax(similarities)
+    
+    print(f"\nQuery: '{query}'")
+    print(f"Best match: '{documents[best_match_idx]}'")
+    print(f"Similarity: {similarities[best_match_idx]:.3f}")
 ```
 
 ## Code Examples
 
-Finding similar documents:
+### Finding Similar Documents
+
+Complete example for semantic search:
 
 ```python
-def find_most_similar(query: str, documents: list[str], top_k: int = 3):
-    query_embedding = get_embedding(query)
-    doc_embeddings = [get_embedding(doc) for doc in documents]
+from typing import List, Tuple
+import numpy as np
+
+def find_most_similar(
+    query: str, 
+    documents: List[str], 
+    top_k: int = 3,
+    model: str = "text-embedding-3-small"
+) -> List[Tuple[str, float]]:
+    """
+    Find the most similar documents to a query using embeddings.
     
+    Args:
+        query: Search query text
+        documents: List of documents to search
+        top_k: Number of top results to return
+        model: Embedding model to use
+        
+    Returns:
+        List of (document, similarity_score) tuples, sorted by similarity
+    """
+    # Generate embeddings
+    query_embedding = get_embedding(query, model=model)
+    doc_embeddings = [get_embedding(doc, model=model) for doc in documents]
+    
+    # Calculate similarities
     similarities = [
         cosine_similarity(query_embedding, doc_emb) 
         for doc_emb in doc_embeddings
     ]
     
-    # Get top K most similar
+    # Get top K most similar (highest scores first)
     top_indices = np.argsort(similarities)[-top_k:][::-1]
+    
     return [(documents[i], similarities[i]) for i in top_indices]
+
+# Example usage
+documents = [
+    "Python is a popular programming language for data science",
+    "Machine learning models require training data",
+    "The weather is nice today",
+    "Deep learning uses neural networks",
+]
+
+results = find_most_similar("artificial intelligence", documents, top_k=2)
+for doc, score in results:
+    print(f"Score: {score:.3f} - {doc}")
+```
+
+### Caching Embeddings for Performance
+
+Cache embeddings to avoid regenerating them:
+
+```python
+from functools import lru_cache
+import hashlib
+import json
+
+# Simple in-memory cache (use Redis for production)
+embedding_cache = {}
+
+def get_cached_embedding(text: str, model: str = "text-embedding-3-small"):
+    """Get embedding with caching."""
+    # Create cache key
+    cache_key = hashlib.md5(f"{model}:{text}".encode()).hexdigest()
+    
+    # Check cache
+    if cache_key in embedding_cache:
+        return embedding_cache[cache_key]
+    
+    # Generate embedding
+    embedding = get_embedding(text, model=model)
+    
+    # Store in cache
+    embedding_cache[cache_key] = embedding
+    
+    return embedding
+
+# Usage (first call generates, subsequent calls use cache)
+emb1 = get_cached_embedding("Hello, world!")  # API call
+emb2 = get_cached_embedding("Hello, world!")  # Cache hit (instant)
+```
+
+### Building a Simple Semantic Search System
+
+Complete example with error handling and optimization:
+
+```python
+class SemanticSearch:
+    """Simple semantic search system using embeddings."""
+    
+    def __init__(self, model: str = "text-embedding-3-small"):
+        self.model = model
+        self.documents = []
+        self.embeddings = []
+    
+    def add_documents(self, documents: List[str]):
+        """Add documents and generate embeddings."""
+        print(f"Generating embeddings for {len(documents)} documents...")
+        
+        # Batch generate embeddings (more efficient)
+        self.embeddings = get_embeddings_batch(documents, model=self.model)
+        self.documents = documents
+        
+        print(f"✅ Indexed {len(self.documents)} documents")
+    
+    def search(self, query: str, top_k: int = 5) -> List[Tuple[str, float]]:
+        """Search for similar documents."""
+        if not self.documents:
+            return []
+        
+        # Generate query embedding
+        query_emb = get_embedding(query, model=self.model)
+        
+        # Calculate similarities
+        similarities = [
+            cosine_similarity(query_emb, doc_emb)
+            for doc_emb in self.embeddings
+        ]
+        
+        # Get top K results
+        top_indices = np.argsort(similarities)[-top_k:][::-1]
+        
+        return [
+            (self.documents[i], similarities[i])
+            for i in top_indices
+        ]
+
+# Usage
+search_system = SemanticSearch()
+
+# Add documents
+docs = [
+    "Python is a programming language",
+    "Machine learning is a subset of AI",
+    "The sun rises in the east",
+    "Deep learning uses neural networks",
+]
+search_system.add_documents(docs)
+
+# Search
+results = search_system.search("artificial intelligence", top_k=2)
+for doc, score in results:
+    print(f"[{score:.3f}] {doc}")
 ```
 
 ## Common Mistakes
 
-1. **Not normalizing embeddings**: Some operations require normalized vectors
-2. **Wrong model choice**: Different models for different use cases
-3. **Batch size too large**: API rate limits
-4. **Not caching embeddings**: Regenerating the same embeddings wastes money
+#### 1. Not caching embeddings
+Regenerating the same embeddings wastes API calls and money. If you're searching the same documents repeatedly, cache the embeddings. A document embedding costs ~$0.00002 (text-embedding-3-small), so 10,000 searches of the same 100 documents = $20 wasted. Cache embeddings in memory, Redis, or a database.
+
+#### 2. Wrong model choice
+Using `text-embedding-3-large` when `text-embedding-3-small` would suffice wastes money (6.5x more expensive). Using `text-embedding-ada-002` when newer models are available gets you worse quality at higher cost. Start with `text-embedding-3-small` (best quality/cost ratio), only upgrade if needed.
+
+#### 3. Not batching embedding generation
+Generating embeddings one at a time is slow and inefficient. The OpenAI API supports batching—send 100 texts in one API call instead of 100 separate calls. Batching is faster, more rate-limit friendly, and reduces overhead.
+
+#### 4. Assuming embeddings understand everything
+Embeddings capture semantic similarity but don't understand logic, math, or precise facts. "2 + 2 = 4" and "2 + 2 = 5" might have similar embeddings because they're structurally similar, even though one is wrong. Use embeddings for similarity search, not for factual verification.
+
+#### 5. Not handling rate limits
+Embedding APIs have rate limits. Generating embeddings for 10,000 documents without rate limit handling will fail. Implement exponential backoff, batch processing, and rate limit error handling. Check provider documentation for current rate limits.
+
+#### 6. Mixing embedding models
+Different models produce embeddings in different vector spaces. You can't directly compare embeddings from `text-embedding-3-small` and `text-embedding-3-large`—they're incompatible. Always use the same model for queries and documents in the same search system.
+
+#### 7. Ignoring input length limits
+Embedding models have maximum input lengths (typically 8,192 tokens for OpenAI models). Longer texts are truncated silently, which can lose important information. Chunk long documents before embedding, or use models with longer context windows if needed.
+
+#### 8. Not normalizing for cosine similarity
+While modern OpenAI embeddings are normalized, if you're using custom embeddings or other providers, ensure they're normalized for cosine similarity to work correctly. Non-normalized vectors give incorrect similarity scores.
+
+#### 9. Embedding entire documents without chunking
+Embedding very long documents (thousands of tokens) loses granularity—you're averaging meaning across the entire document. For better search results, chunk documents into smaller pieces (e.g., 500-1000 tokens), embed each chunk, and search at the chunk level. This is critical for RAG systems.
 
 ## Exercise
 
-1. Generate embeddings for 10 different text strings
-2. Calculate similarity between pairs
-3. Build a simple search function that finds the most similar text to a query
-4. Compare embeddings from different models (text-embedding-ada-002 vs text-embedding-3-small)
+Complete these exercises to get hands-on experience with embeddings. These skills are essential for building semantic search and RAG systems.
+
+#### 1. Generate embeddings and explore dimensions
+
+Create a function to generate embeddings and explore their properties:
+
+```python
+def explore_embeddings():
+    """Generate embeddings and examine their properties."""
+    texts = [
+        "I love programming",
+        "Coding is fun",
+        "I enjoy software development",
+        "The weather is nice",
+        "It's sunny outside",
+        "Machine learning is interesting",
+        "AI models are powerful",
+        "Python is a great language",
+        "Cooking is a hobby",
+        "I like to read books",
+    ]
+    
+    # TODO: Generate embeddings for all texts
+    # TODO: Print the dimension of embeddings
+    # TODO: Print a sample embedding (first 10 values)
+    
+    return embeddings
+```
+
+#### 2. Calculate similarity between text pairs
+
+Write a function that calculates similarity between pairs of texts:
+
+```python
+def calculate_pairwise_similarities(texts: List[str]) -> List[Tuple[str, str, float]]:
+    """
+    Calculate similarity between all pairs of texts.
+    
+    Returns:
+        List of (text1, text2, similarity) tuples
+    """
+    # TODO: Generate embeddings for all texts
+    # TODO: Calculate cosine similarity for each pair
+    # TODO: Return results sorted by similarity (highest first)
+    pass
+
+# Test
+texts = [
+    "I love programming",
+    "Coding is fun",
+    "The weather is nice",
+]
+results = calculate_pairwise_similarities(texts)
+for text1, text2, sim in results:
+    print(f"Similarity: {sim:.3f}")
+    print(f"  '{text1}' <-> '{text2}'")
+```
+
+#### 3. Build a semantic search function
+
+Create a complete search function that finds the most similar texts to a query:
+
+```python
+class SimpleSearchEngine:
+    def __init__(self):
+        self.texts = []
+        self.embeddings = []
+    
+    def add_texts(self, texts: List[str]):
+        """TODO: Add texts and generate embeddings"""
+        pass
+    
+    def search(self, query: str, top_k: int = 3) -> List[Tuple[str, float]]:
+        """TODO: Search for similar texts"""
+        pass
+
+# Test
+engine = SimpleSearchEngine()
+engine.add_texts([
+    "Python is a programming language",
+    "Machine learning uses algorithms",
+    "The sun is a star",
+    "Deep learning is a type of ML",
+])
+results = engine.search("artificial intelligence", top_k=2)
+for text, score in results:
+    print(f"[{score:.3f}] {text}")
+```
+
+#### 4. Compare different embedding models
+
+Compare embeddings from different models to see quality differences:
+
+```python
+def compare_models():
+    """Compare text-embedding-3-small vs text-embedding-3-large."""
+    query = "artificial intelligence"
+    documents = [
+        "Machine learning algorithms",
+        "Neural networks for pattern recognition",
+        "Recipe for chocolate cake",
+    ]
+    
+    # TODO: Generate embeddings with text-embedding-3-small
+    # TODO: Generate embeddings with text-embedding-3-large
+    # TODO: Compare search results from both models
+    # TODO: Note differences in similarity scores and rankings
+    pass
+```
+
+#### 5. Implement embedding caching
+
+Add caching to avoid regenerating embeddings:
+
+```python
+class CachedEmbeddingGenerator:
+    def __init__(self):
+        self.cache = {}
+    
+    def get_embedding(self, text: str, model: str = "text-embedding-3-small"):
+        """TODO: Get embedding with caching"""
+        # TODO: Check cache first
+        # TODO: Generate if not cached
+        # TODO: Store in cache
+        pass
+    
+    def get_cache_stats(self) -> dict:
+        """Return cache statistics."""
+        # TODO: Return cache hit rate, size, etc.
+        pass
+```
+
+#### 6. Handle batch embedding generation
+
+Implement batch processing for efficiency:
+
+```python
+def generate_embeddings_batch(texts: List[str], batch_size: int = 100):
+    """
+    Generate embeddings in batches to handle large lists efficiently.
+    
+    TODO: Split texts into batches
+    TODO: Generate embeddings for each batch
+    TODO: Combine results
+    TODO: Handle rate limits and errors
+    """
+    pass
+
+# Test with large list
+large_text_list = [f"Document {i}: Some content here" for i in range(500)]
+embeddings = generate_embeddings_batch(large_text_list, batch_size=100)
+print(f"Generated {len(embeddings)} embeddings")
+```
+
+#### 7. Build a document similarity analyzer
+
+Create a tool that analyzes similarity between documents:
+
+```python
+def analyze_document_similarity(documents: List[str]) -> dict:
+    """
+    Analyze similarity between all pairs of documents.
+    
+    Returns:
+        Dict with similarity matrix and insights
+    """
+    # TODO: Generate embeddings for all documents
+    # TODO: Calculate pairwise similarities
+    # TODO: Find most similar pair
+    # TODO: Find least similar pair
+    # TODO: Calculate average similarity
+    # TODO: Group documents by similarity (clustering hint)
+    pass
+```
+
+#### 8. Reflection questions
+
+After completing the exercises, answer these questions:
+- What's the dimension of `text-embedding-3-small` embeddings? Why is this dimension chosen?
+- How does similarity score relate to actual semantic similarity? Give examples.
+- What's the cost difference between `text-embedding-3-small` and `text-embedding-3-large` for 1M tokens?
+- Why is caching important for embeddings? How much money does it save?
+- How would you handle rate limits when generating embeddings for 10,000 documents?
+- What's the difference between cosine similarity and euclidean distance? When would you use each?
+- How do embeddings enable semantic search compared to traditional keyword search?
 
 ## Tools & Resources
 

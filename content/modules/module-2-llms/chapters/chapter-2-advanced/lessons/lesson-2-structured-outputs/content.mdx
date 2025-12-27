@@ -2,144 +2,573 @@
 id: "lesson-2-structured-outputs"
 slug: "structured-outputs"
 title: "Structured Outputs"
-description: "Get structured, parseable outputs from LLMs using JSON mode, function calling, and prompt engineering techniques."
+description: "Get structured, parseable outputs from LLMs using JSON mode, structured outputs API, function calling, and prompt engineering techniques."
 order: 2
 chapterId: "chapter-2-advanced-usage"
 moduleId: "module-2-llms"
 prerequisites: ["lesson-1-function-calling"]
-estimatedMinutes: 8
-tags: ["structured-outputs", "json", "parsing"]
+estimatedMinutes: 15
+tags: ["structured-outputs", "json", "parsing", "schema"]
 difficulty: "intermediate"
 ---
 
 # Structured Outputs
 
+> **💡** *Getting structured output from LLMs is like trying to get a cat to follow instructions: sometimes it works perfectly, sometimes you get a completely unexpected response, and sometimes the response is technically correct but formatted in a way that breaks your parser. JSON mode helps, but even with JSON mode, you still need validation because LLMs are creative creatures that think "null" is a valid JSON when you asked for a string.*
+
 ## Overview
 
-LLMs typically return free-form text, but many applications need structured data (JSON, XML, etc.). This lesson covers techniques for getting reliable structured outputs.
+LLMs typically return free-form text, but many applications need structured data (JSON, XML, database records, etc.). Getting reliable, parseable structured outputs is essential for building production AI applications that integrate with other systems, APIs, and databases.
+
+In 2024-2025, structured outputs have become much more reliable. OpenAI's JSON mode and structured outputs API, Anthropic's structured outputs, and advanced prompt engineering techniques make it possible to get consistent, validated structured data from LLMs. This lesson covers all the techniques you need to implement robust structured output systems.
 
 ## Main Content
 
-### JSON Mode
+### Why Structured Outputs Matter
 
-OpenAI supports JSON mode for guaranteed JSON output:
+Structured outputs enable:
+- **API Integration**: Return data in formats other systems expect (JSON, XML)
+- **Database Storage**: Insert parsed data directly into databases
+- **Data Processing**: Process extracted data programmatically
+- **Validation**: Validate data against schemas before use
+- **Type Safety**: Work with typed data structures in your code
+
+### JSON Mode (OpenAI)
+
+OpenAI's JSON mode guarantees valid JSON output:
 
 ```python
 from openai import OpenAI
 import json
+import os
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 response = client.chat.completions.create(
-    model="gpt-4",
+    model="gpt-4o",
     messages=[{
         "role": "user",
-        "content": "Extract information as JSON: name, age, location"
+        "content": "Extract information as JSON with fields: name, age, location. Text: John is 30 years old and lives in San Francisco."
     }],
+    response_format={"type": "json_object"}  # JSON mode
+)
+
+result = json.loads(response.choices[0].message.content)
+print(result)
+# Output: {"name": "John", "age": 30, "location": "San Francisco"}
+```
+
+**Important:** When using JSON mode, you must instruct the model to produce JSON in your prompt. The model doesn't automatically know the structure you want.
+
+**Best Practice:** Always include a JSON schema example in your prompt when using JSON mode.
+
+### Structured Outputs API (OpenAI - Recommended)
+
+OpenAI's structured outputs API (2024+) provides schema validation and guaranteed structure:
+
+```python
+from openai import OpenAI
+from pydantic import BaseModel
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Define schema using Pydantic
+class PersonInfo(BaseModel):
+    name: str
+    age: int
+    location: str
+
+response = client.beta.chat.completions.parse(
+    model="gpt-4o",
+    messages=[{
+        "role": "user",
+        "content": "Extract: John is 30 years old and lives in San Francisco."
+    }],
+    response_format=PersonInfo  # Pydantic model as schema
+)
+
+# Response is automatically parsed and validated
+person = response.choices[0].message.parsed
+print(person.name)  # "John"
+print(person.age)   # 30
+print(person.location)  # "San Francisco"
+```
+
+**Benefits:**
+- Automatic validation against schema
+- Type-safe results
+- No manual JSON parsing needed
+- Guaranteed structure matching your schema
+
+### Prompt Engineering for Structure
+
+When using JSON mode or standard completions, use clear instructions:
+
+```python
+def create_structured_prompt(text: str) -> str:
+    """Create prompt with explicit JSON schema."""
+    return f"""Extract information from this text and return as valid JSON.
+
+Text: {text}
+
+Return JSON with this exact structure:
+{{
+  "name": "string (person's full name)",
+  "age": number (person's age as integer),
+  "location": "string (city and state)"
+}}
+
+JSON:"""
+
+# Usage
+prompt = create_structured_prompt("John is 30 years old and lives in San Francisco.")
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": prompt}],
     response_format={"type": "json_object"}
 )
 
 result = json.loads(response.choices[0].message.content)
 ```
 
-### Prompt Engineering for Structure
-
-Use clear instructions and examples:
-
-```python
-prompt = """Extract information from this text and return as JSON.
-
-Text: John is 30 years old and lives in San Francisco.
-
-Format:
-{
-  "name": "string",
-  "age": number,
-  "location": "string"
-}
-
-JSON:"""
-```
-
 ### Function Calling for Structure
 
-Use function calling to get structured output:
+Use function/tool calling to get structured output (works with any model that supports function calling):
 
 ```python
+from openai import OpenAI
+import json
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 schema = {
     "type": "object",
     "properties": {
-        "name": {"type": "string"},
-        "age": {"type": "number"},
-        "location": {"type": "string"}
+        "name": {"type": "string", "description": "Person's full name"},
+        "age": {"type": "integer", "description": "Person's age"},
+        "location": {"type": "string", "description": "City and state"}
     },
     "required": ["name", "age", "location"]
 }
 
-functions = [{
-    "name": "extract_info",
-    "description": "Extract structured information",
-    "parameters": schema
+tools = [{
+    "type": "function",
+    "function": {
+        "name": "extract_info",
+        "description": "Extract structured person information from text",
+        "parameters": schema
+    }
 }]
 
 response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "Extract: John, 30, San Francisco"}],
-    functions=functions
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Extract: John is 30 years old and lives in San Francisco"}],
+    tools=tools,
+    tool_choice={"type": "function", "function": {"name": "extract_info"}}  # Force this function
 )
 
-# Parse from function_call.arguments
-data = json.loads(response.choices[0].message.function_call.arguments)
+# Parse from tool_calls
+message = response.choices[0].message
+if message.tool_calls:
+    tool_call = message.tool_calls[0]
+    data = json.loads(tool_call.function.arguments)
+    print(data)
+    # Output: {"name": "John", "age": 30, "location": "San Francisco"}
 ```
+
+**When to use function calling for structure:**
+- When you need structured output from models without JSON mode
+- When you want to reuse function definitions
+- When building agents that might also need to call functions
+- For compatibility across different providers
 
 ## Code Examples
 
-Robust structured output:
+### Production-Ready Structured Output System
+
+Complete system with validation, error handling, and retries:
 
 ```python
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, Field
+from typing import Optional, List
+from openai import OpenAI
 import json
+import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class PersonInfo(BaseModel):
+    """Person information schema."""
+    name: str = Field(description="Person's full name")
+    age: int = Field(gt=0, le=150, description="Person's age")
+    location: str = Field(description="City and state")
+
+class StructuredExtractor:
+    """Extract structured data from text with validation."""
+    
+    def __init__(self, model: str = "gpt-4o", max_retries: int = 3):
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.model = model
+        self.max_retries = max_retries
+    
+    def extract_with_json_mode(
+        self,
+        text: str,
+        schema: type[BaseModel],
+        retry_on_error: bool = True
+    ) -> BaseModel:
+        """
+        Extract structured data using JSON mode.
+        
+        Args:
+            text: Input text to extract from
+            schema: Pydantic model defining the structure
+            retry_on_error: Whether to retry on parsing errors
+        
+        Returns:
+            Parsed and validated instance of schema
+        """
+        schema_example = schema.model_json_schema()
+        
+        prompt = f"""Extract information from this text and return as valid JSON.
+
+Text: {text}
+
+Return JSON matching this schema:
+{json.dumps(schema_example, indent=2)}
+
+JSON:"""
+        
+        for attempt in range(self.max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"}
+                )
+                
+                content = response.choices[0].message.content
+                data = json.loads(content)
+                
+                # Validate with Pydantic
+                return schema(**data)
+                
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON parsing error (attempt {attempt + 1}): {e}")
+                if not retry_on_error or attempt == self.max_retries - 1:
+                    raise ValueError(f"Failed to parse JSON: {e}")
+                    
+            except ValidationError as e:
+                logger.warning(f"Validation error (attempt {attempt + 1}): {e}")
+                if not retry_on_error or attempt == self.max_retries - 1:
+                    raise ValueError(f"Data validation failed: {e}")
+        
+        raise ValueError("Max retries exceeded")
+    
+    def extract_with_structured_outputs(
+        self,
+        text: str,
+        schema: type[BaseModel]
+    ) -> BaseModel:
+        """
+        Extract structured data using OpenAI's structured outputs API.
+        
+        This is the recommended approach as it provides automatic validation.
+        """
+        try:
+            response = self.client.beta.chat.completions.parse(
+                model=self.model,
+                messages=[{
+                    "role": "user",
+                    "content": f"Extract information from: {text}"
+                }],
+                response_format=schema
+            )
+            
+            return response.choices[0].message.parsed
+            
+        except Exception as e:
+            logger.error(f"Structured output extraction failed: {e}")
+            raise
+
+# Usage
+extractor = StructuredExtractor()
+
+# Method 1: JSON mode (more compatible, requires manual validation)
+person1 = extractor.extract_with_json_mode(
+    "John is 30 years old and lives in San Francisco.",
+    PersonInfo
+)
+
+# Method 2: Structured outputs API (recommended, automatic validation)
+person2 = extractor.extract_with_structured_outputs(
+    "Sarah is 28 years old and lives in New York.",
+    PersonInfo
+)
+
+print(f"{person1.name}, {person1.age}, {person1.location}")
+print(f"{person2.name}, {person2.age}, {person2.location}")
+```
+
+### Complex Structured Outputs
+
+Handle nested structures and arrays:
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class Address(BaseModel):
+    street: str
+    city: str
+    state: str
+    zip_code: str = Field(alias="zip")
+
+class Person(BaseModel):
     name: str
     age: int
-    location: str
+    email: Optional[str] = None
+    address: Address
+    hobbies: List[str] = Field(default_factory=list)
 
-def extract_structured(text: str) -> PersonInfo:
-    """Extract structured data with validation."""
-    prompt = f"""Extract person information as JSON:
-{text}
+# Extract complex structure
+text = """
+John Doe, age 30, email john@example.com
+Lives at 123 Main St, San Francisco, CA 94102
+Enjoys hiking, reading, and coding
+"""
 
-Return JSON with name, age, location."""
+extractor = StructuredExtractor()
+person = extractor.extract_with_structured_outputs(text, Person)
+
+print(person.name)  # "John Doe"
+print(person.address.city)  # "San Francisco"
+print(person.hobbies)  # ["hiking", "reading", "coding"]
+```
+
+### Error Handling and Retries
+
+Robust error handling for production:
+
+```python
+class RobustStructuredExtractor:
+    """Extract structured data with comprehensive error handling."""
     
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"}
-    )
-    
-    try:
-        data = json.loads(response.choices[0].message.content)
-        return PersonInfo(**data)  # Validates with Pydantic
-    except (json.JSONDecodeError, ValidationError) as e:
-        # Retry or handle error
-        raise ValueError(f"Failed to extract structured data: {e}")
+    def extract(self, text: str, schema: type[BaseModel]) -> Optional[BaseModel]:
+        """Extract with fallback strategies."""
+        # Try structured outputs API first (most reliable)
+        try:
+            return self._extract_with_structured_outputs(text, schema)
+        except Exception as e:
+            logger.warning(f"Structured outputs failed: {e}")
+        
+        # Fallback to JSON mode
+        try:
+            return self._extract_with_json_mode(text, schema)
+        except Exception as e:
+            logger.warning(f"JSON mode failed: {e}")
+        
+        # Fallback to function calling
+        try:
+            return self._extract_with_function_calling(text, schema)
+        except Exception as e:
+            logger.error(f"All extraction methods failed: {e}")
+            return None
 ```
 
 ## Common Mistakes
 
-1. **No validation**: Trusting LLM output structure
-2. **Parsing errors**: Not handling malformed JSON
-3. **No retries**: Single attempt may fail
-4. **Unclear prompts**: LLM doesn't understand format needed
+#### 1. No validation
+Trusting LLM output structure without validation leads to runtime errors. Even with JSON mode, the structure might not match your expectations. Always validate with Pydantic or JSON Schema. Don't assume the LLM will always return the exact format you want.
+
+#### 2. Not handling parsing errors
+JSON parsing can fail for many reasons: malformed JSON, unexpected structure, encoding issues. Without try/except blocks, parsing errors crash your application. Always wrap JSON parsing in error handling and implement retries.
+
+#### 3. No retries
+Single extraction attempts can fail due to parsing errors, validation failures, or unexpected model outputs. Implement retry logic with exponential backoff. Most extraction failures are transient and succeed on retry.
+
+#### 4. Unclear prompts
+Vague prompts produce inconsistent outputs. "Extract information" is useless. "Extract person information as JSON with fields name (string), age (integer), location (string)" is much better. Always include explicit schema examples in your prompts when using JSON mode.
+
+#### 5. Not using structured outputs API when available
+OpenAI's structured outputs API provides automatic validation and guarantees structure matching your schema. If you're using OpenAI and need structured output, use the structured outputs API instead of JSON mode with manual validation. It's more reliable and easier to use.
+
+#### 6. Forgetting to instruct JSON mode
+When using `response_format={"type": "json_object"}`, you must still tell the model to produce JSON in your prompt. The JSON mode parameter doesn't automatically make the model return JSON: it just validates that the output is valid JSON. Always include JSON instructions in your prompt.
+
+#### 7. Missing required fields in schema
+If your schema requires fields but the text doesn't contain them, extraction fails. Make fields optional when data might be missing, or provide defaults. Use Pydantic's `Optional` and `Field(default=...)` for flexibility.
+
+#### 8. Type mismatches
+LLMs might return strings when you expect integers, or vice versa. Always specify types clearly in your schema and validate types. Pydantic automatically converts compatible types, but be explicit about expected types in your prompts.
+
+#### 9. Not handling arrays properly
+Arrays require special handling. Specify in your prompt that arrays should be JSON arrays, not comma-separated strings. Use `List[Type]` in Pydantic schemas and provide examples of array formats in your prompts.
+
+#### 10. Ignoring validation errors
+Validation errors provide valuable information about what went wrong. Don't just catch and ignore them: log validation errors, analyze patterns, and improve your prompts or schemas based on common failures. This helps you build more robust extraction systems over time.
 
 ## Exercise
 
-1. Extract structured data from text
-2. Validate with Pydantic
-3. Handle parsing errors
-4. Compare JSON mode vs prompt engineering
-5. Add retry logic
+Complete these exercises to master structured outputs. These skills are essential for building production AI applications that integrate with other systems.
+
+#### 1. Extract simple structured data
+
+Extract basic information with validation:
+
+```python
+from pydantic import BaseModel
+
+class ContactInfo(BaseModel):
+    name: str
+    email: str
+    phone: str
+
+def extract_contact(text: str) -> ContactInfo:
+    """TODO: Extract contact information"""
+    # TODO: Create prompt with JSON schema
+    # TODO: Use JSON mode or structured outputs API
+    # TODO: Parse and validate response
+    # TODO: Return validated ContactInfo instance
+    pass
+```
+
+#### 2. Handle nested structures
+
+Extract complex nested data:
+
+```python
+class Address(BaseModel):
+    street: str
+    city: str
+    state: str
+    zip_code: str
+
+class Person(BaseModel):
+    name: str
+    age: int
+    address: Address
+
+def extract_person(text: str) -> Person:
+    """TODO: Extract person with nested address"""
+    # TODO: Define nested schema
+    # TODO: Extract with proper nesting
+    # TODO: Validate nested structure
+    pass
+```
+
+#### 3. Implement error handling and retries
+
+Add robust error handling:
+
+```python
+def extract_with_retries(text: str, schema: type[BaseModel], max_retries: int = 3):
+    """TODO: Extract with retry logic"""
+    # TODO: Wrap extraction in try/except
+    # TODO: Implement retry loop
+    # TODO: Handle JSON parsing errors
+    # TODO: Handle validation errors
+    # TODO: Log errors for analysis
+    pass
+```
+
+#### 4. Compare extraction methods
+
+Compare different approaches:
+
+```python
+def compare_extraction_methods(text: str, schema: type[BaseModel]):
+    """TODO: Compare extraction methods"""
+    # TODO: Try structured outputs API
+    # TODO: Try JSON mode
+    # TODO: Try function calling
+    # TODO: Compare reliability, speed, ease of use
+    # TODO: Determine best method for your use case
+    pass
+```
+
+#### 5. Build a production extractor class
+
+Create a reusable extraction system:
+
+```python
+class StructuredDataExtractor:
+    def __init__(self):
+        """TODO: Initialize extractor"""
+        pass
+    
+    def extract(self, text: str, schema: type[BaseModel]) -> BaseModel:
+        """TODO: Extract with fallback strategies"""
+        # TODO: Try structured outputs API first
+        # TODO: Fallback to JSON mode
+        # TODO: Fallback to function calling
+        # TODO: Return validated result
+        pass
+    
+    def extract_batch(self, texts: List[str], schema: type[BaseModel]) -> List[BaseModel]:
+        """TODO: Extract from multiple texts"""
+        pass
+```
+
+#### 6. Handle optional and missing fields
+
+Extract data where some fields might be missing:
+
+```python
+from typing import Optional
+
+class FlexiblePerson(BaseModel):
+    name: str
+    age: Optional[int] = None
+    email: Optional[str] = None
+    location: str
+
+def extract_flexible(text: str) -> FlexiblePerson:
+    """TODO: Extract with optional fields"""
+    # TODO: Define schema with Optional fields
+    # TODO: Handle missing data gracefully
+    # TODO: Provide defaults where appropriate
+    pass
+```
+
+#### 7. Extract arrays and lists
+
+Handle array extraction:
+
+```python
+from typing import List
+
+class Article(BaseModel):
+    title: str
+    tags: List[str]
+    authors: List[str]
+
+def extract_article(text: str) -> Article:
+    """TODO: Extract with arrays"""
+    # TODO: Define schema with List types
+    # TODO: Ensure prompt instructs array format
+    # TODO: Validate arrays are properly formatted
+    pass
+```
+
+#### 8. Reflection questions
+
+After completing the exercises, answer these questions:
+- When should you use structured outputs API vs JSON mode vs function calling?
+- How do you handle missing or optional fields?
+- What's the best way to validate extracted data?
+- How do you implement retries effectively?
+- What's the difference between JSON mode and structured outputs API?
+- How do you extract nested structures reliably?
+- What error handling strategies work best?
+- How do you improve extraction reliability over time?
 
 ## Tools & Resources
 

@@ -7,101 +7,815 @@ order: 5
 chapterId: "chapter-2-core-concepts"
 moduleId: "module-1-fundamentals"
 prerequisites: ["lesson-4-tokens-costs"]
-estimatedMinutes: 8
+estimatedMinutes: 13
 tags: ["tokens", "context-window", "optimization"]
 difficulty: "intermediate"
 ---
 
 # Token Counting and Context Windows
 
+> **💡** *Context windows are like luggage limits on airlines—you can fit a surprising amount if you pack smart, but go over the limit and you're stuck paying extra (or in this case, your request fails). The difference is that with context windows, you can actually count your tokens before trying to fit everything in, and sometimes you need to summarize your old conversations to make room for new ones.*
+
 ## Overview
 
-Every model has a maximum context window (total input + output tokens). Managing context effectively is crucial for working with long documents and conversations.
+Every model has a maximum context window (total input + output tokens). Managing context effectively is crucial for working with long documents, maintaining conversation history, and optimizing costs. Exceeding the context window causes API errors, while using too much context wastes tokens and money.
+
+In 2024-2025, context windows have expanded significantly (GPT-4o supports 128K tokens), but proper context management remains critical for cost optimization and ensuring requests succeed. This lesson covers accurate token counting, context window management, and strategies for working with long documents and conversations.
 
 ## Main Content
 
 ### Context Windows
 
-Different models have different limits:
-- GPT-3.5-turbo: 16K tokens
-- GPT-4: 8K tokens (32K available)
-- GPT-4-turbo: 128K tokens
-- Claude 3: 200K tokens
+The context window is the maximum number of tokens (input + output) that a model can process in a single request. Understanding context window limits is essential for building applications that work with long documents or maintain conversation history.
+
+#### Current Model Context Windows (Latest as of 2025)
+
+**OpenAI Models**
+
+**GPT-5.2** (Latest, December 2025)
+- Context window: 400,000 tokens
+- Maximum output: 128,000 tokens
+- Best for: Extremely long documents, large codebases, complex multi-source workflows
+- Note: Latest generation with significantly expanded context
+
+**GPT-4o** (Widely Available)
+- Context window: 128,000 tokens
+- Input: Up to 128K tokens
+- Output: Limited by `max_tokens` parameter
+- Best for: Long documents, extensive conversation history, complex tasks
+
+**GPT-4o-mini** (Cost-Effective)
+- Context window: 128,000 tokens
+- Same context window as GPT-4o
+- Best for: Long context needs at lower cost
+
+**GPT-4 Turbo** (Previous Generation)
+- Context window: 128,000 tokens
+- Note: GPT-4o is better and cheaper, prefer GPT-4o
+
+**GPT-3.5-turbo** (Legacy)
+- Context window: 16,384 tokens
+- Limited compared to newer models
+- Still useful for simpler tasks with shorter context
+
+**Other Providers**
+
+**Claude 4.5 Sonnet** (Anthropic, Latest)
+- Context window: 200,000 tokens (standard)
+- Extended context: Up to 1,000,000 tokens (beta via API)
+- Best for: Extremely long documents, extensive context needs
+- Note: Extended context option available for very large inputs
+
+**Claude 4.5 Opus** (Anthropic, Latest, November 2025)
+- Context window: 200,000 tokens
+- Highest quality Anthropic model with large context
+- Best for: Complex reasoning tasks requiring extensive context
+- Note: Recommended to use 20K-80K tokens per request for optimal performance in production
+
+**Gemini 3 Pro** (Google, Latest)
+- Context window: 1,000,000 tokens
+- Very large context window for processing massive documents
+- Best for: Processing entire codebases, very long research papers
+
+**Gemini 2.5 Pro** (Google)
+- Context window: 1,000,000 to 2,000,000 tokens
+- 2M tokens available in preview/enterprise versions
+- Massive context for enterprise use cases
+
+**Open Source**
+
+**Llama 4 Scout** (Meta)
+- Context window: 10,000,000 tokens
+- Largest context window available (open source)
+- Requires self-hosting or cloud deployment
+
+#### Understanding Context Window Limits
+
+**Important points:**
+- Context window = Input tokens + Output tokens (combined)
+- If your input is 120K tokens and you set max_tokens to 10K, total is 130K (exceeds 128K limit = error)
+- Always reserve tokens for output when calculating available input tokens
+- Different models have different limits—check the model's documentation
+
+**Example calculations:**
+
+**GPT-4o (128K context):**
+- Context window: 128,000 tokens
+- Reserved for output: 5,000 tokens (max_tokens)
+- Available for input: 128,000 - 5,000 = 123,000 tokens
+- This includes: system message + user messages + conversation history
+
+**GPT-5.2 (400K context - Latest):**
+- Context window: 400,000 tokens
+- Reserved for output: 10,000 tokens (max_tokens)
+- Available for input: 400,000 - 10,000 = 390,000 tokens
+- Can handle: Entire codebases, multiple long documents, extensive research papers
+- Note: Latest model with 3x larger context than GPT-4o
+
+**Claude 4.5 Sonnet (200K standard, 1M extended):**
+- Standard context: 200,000 tokens
+- Extended context (beta): 1,000,000 tokens
+- Best for: When you need more than GPT-4o but less than Gemini's massive windows
+
+**Claude 4.5 Sonnet (200K standard, 1M extended):**
+- Standard context: 200,000 tokens
+- Extended context (beta): 1,000,000 tokens
+- Best for: When you need more than GPT-4o but less than Gemini's massive windows
 
 ### Token Counting Before Sending
+
+Counting tokens before sending requests is essential for:
+- Ensuring requests fit within context windows
+- Estimating costs
+- Optimizing prompt length
+- Managing conversation history
+
+#### Using tiktoken for Accurate Counting
 
 ```python
 import tiktoken
 
-def count_tokens(text: str, model: str = "gpt-4") -> int:
-    encoding = tiktoken.encoding_for_model(model)
-    return len(encoding.encode(text))
+def count_tokens(text: str, model: str = "gpt-4o") -> int:
+    """
+    Count tokens in text using the model's tokenizer.
+    
+    Args:
+        text: Text to count tokens for
+        model: Model name (determines tokenizer)
+        
+    Returns:
+        Number of tokens
+    """
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+        return len(encoding.encode(text))
+    except KeyError:
+        # Fallback for unknown models
+        encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(text))
 
-def truncate_to_fit(text: str, max_tokens: int, model: str = "gpt-4") -> str:
+# Example usage
+text = "Hello, how are you? This is a test message."
+token_count = count_tokens(text, model="gpt-4o")
+print(f"Token count: {token_count}")
+```
+
+#### Counting Tokens in Messages
+
+For chat completions, you need to count the entire message structure:
+
+```python
+def count_message_tokens(messages: list, model: str = "gpt-4o") -> int:
+    """
+    Count total tokens in a list of messages.
+    
+    Messages format:
+    [
+        {"role": "system", "content": "..."},
+        {"role": "user", "content": "..."},
+        {"role": "assistant", "content": "..."},
+    ]
+    """
+    encoding = tiktoken.encoding_for_model(model)
+    
+    # Each message has overhead: ~4 tokens per message
+    tokens_per_message = 4
+    total_tokens = tokens_per_message * len(messages)
+    
+    for message in messages:
+        total_tokens += len(encoding.encode(message["content"]))
+        total_tokens += len(encoding.encode(message["role"]))
+    
+    return total_tokens
+
+# Example
+messages = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What is Python?"},
+]
+token_count = count_message_tokens(messages, model="gpt-4o")
+print(f"Total message tokens: {token_count}")
+```
+
+#### Truncating Text to Fit Context
+
+Truncate text to fit within token limits:
+
+```python
+def truncate_to_fit(
+    text: str, 
+    max_tokens: int, 
+    model: str = "gpt-4o",
+    strategy: str = "end"
+) -> str:
+    """
+    Truncate text to fit within token limit.
+    
+    Args:
+        text: Text to truncate
+        max_tokens: Maximum tokens allowed
+        model: Model name for tokenizer
+        strategy: "start" (keep beginning), "end" (keep end), "middle" (keep both ends)
+        
+    Returns:
+        Truncated text
+    """
     encoding = tiktoken.encoding_for_model(model)
     tokens = encoding.encode(text)
     
     if len(tokens) <= max_tokens:
         return text
     
-    truncated = tokens[:max_tokens]
-    return encoding.decode(truncated)
+    if strategy == "end":
+        # Keep the end (most recent content)
+        truncated = tokens[-max_tokens:]
+        return encoding.decode(truncated)
+    elif strategy == "start":
+        # Keep the beginning
+        truncated = tokens[:max_tokens]
+        return encoding.decode(truncated)
+    elif strategy == "middle":
+        # Keep both ends, remove middle
+        half = max_tokens // 2
+        truncated = tokens[:half] + tokens[-half:]
+        return encoding.decode(truncated)
+    else:
+        raise ValueError(f"Unknown strategy: {strategy}")
+
+# Example
+long_text = "..." * 10000  # Very long text
+truncated = truncate_to_fit(long_text, max_tokens=1000, strategy="end")
 ```
 
 ### Managing Long Contexts
 
-Strategies:
-1. **Truncation**: Cut to fit
-2. **Summarization**: Summarize old content
-3. **Chunking**: Split into smaller pieces
-4. **Sliding window**: Keep recent + summary
+When working with long documents or conversations that exceed context windows, you need strategies to manage context effectively. Each strategy has trade-offs.
+
+#### Strategy 1: Truncation
+
+Cut text to fit within limits.
+
+**Pros:**
+- Simple to implement
+- Fast (no API calls needed)
+- Preserves exact text
+
+**Cons:**
+- Loses information (either beginning or end)
+- May cut important content
+- Not ideal for documents where all content matters
+
+**Use when:**
+- Working with streaming logs or recent data
+- You only need the most recent information
+- Speed is more important than completeness
+
+#### Strategy 2: Summarization
+
+Summarize old content to reduce token count.
+
+**Pros:**
+- Preserves important information
+- Can maintain context over long conversations
+- Better than truncation for historical context
+
+**Cons:**
+- Requires additional API calls (costs tokens and money)
+- May lose nuanced details
+- More complex to implement
+
+**Use when:**
+- Maintaining conversation history
+- Working with long documents where all content matters
+- You need to preserve context over many interactions
+
+#### Strategy 3: Chunking
+
+Split documents into smaller chunks, process separately.
+
+**Pros:**
+- Can handle arbitrarily long documents
+- Preserves all content (process all chunks)
+- Works well for document processing
+
+**Cons:**
+- May lose cross-chunk context
+- Requires multiple API calls
+- Need to combine results from multiple chunks
+
+**Use when:**
+- Processing long documents (RAG systems)
+- You can process chunks independently
+- Cross-chunk context isn't critical
+
+#### Strategy 4: Sliding Window
+
+Keep recent messages + summary of older messages.
+
+**Pros:**
+- Balances recent context with historical summary
+- Good for long conversations
+- Preserves both recent detail and historical context
+
+**Cons:**
+- More complex implementation
+- Requires summarization (API calls, cost)
+- Summary quality affects overall performance
+
+**Use when:**
+- Long-running conversations
+- Both recent and historical context matter
+- You need to maintain context over many turns
+
+#### Strategy 5: Hierarchical Chunking
+
+Organize content hierarchically (e.g., document -> sections -> paragraphs).
+
+**Pros:**
+- Maintains structure
+- Can retrieve relevant sections
+- Works well with RAG systems
+
+**Cons:**
+- Complex to implement
+- Requires metadata management
+- May need vector databases for efficient retrieval
+
+**Use when:**
+- Working with structured documents
+- Building RAG systems
+- Need to retrieve specific sections efficiently
 
 ## Code Examples
 
-Context window management:
+### Context Window Manager
+
+Complete context window management system:
 
 ```python
-def prepare_messages(
-    system_prompt: str,
-    conversation_history: list,
-    max_context_tokens: int = 8000,
-    reserved_for_response: int = 500
-) -> list:
-    """Prepare messages that fit within context window."""
+from typing import List, Dict, Any
+import tiktoken
+
+class ContextWindowManager:
+    """Manages messages to fit within context window limits."""
     
-    available_tokens = max_context_tokens - reserved_for_response
-    system_tokens = count_tokens(system_prompt)
-    available_for_history = available_tokens - system_tokens
+    def __init__(self, model: str = "gpt-4o", max_context_tokens: int = 128000):
+        self.model = model
+        self.max_context_tokens = max_context_tokens
+        self.encoding = tiktoken.encoding_for_model(model)
     
-    messages = [{"role": "system", "content": system_prompt}]
-    total_tokens = system_tokens
+    def count_tokens(self, text: str) -> int:
+        """Count tokens in text."""
+        return len(self.encoding.encode(text))
     
-    # Add messages from most recent backwards
-    for msg in reversed(conversation_history):
-        msg_tokens = count_tokens(msg["content"])
-        if total_tokens + msg_tokens > available_for_history:
-            break
-        messages.insert(1, msg)
-        total_tokens += msg_tokens
+    def count_message_tokens(self, message: Dict[str, str]) -> int:
+        """Count tokens in a single message."""
+        # Overhead: ~4 tokens per message
+        tokens = 4
+        tokens += len(self.encoding.encode(message["role"]))
+        tokens += len(self.encoding.encode(message["content"]))
+        return tokens
     
-    return messages
+    def prepare_messages(
+        self,
+        system_prompt: str,
+        conversation_history: List[Dict[str, str]],
+        reserved_for_response: int = 5000,
+        max_tokens_for_history: int = None
+    ) -> List[Dict[str, str]]:
+        """
+        Prepare messages that fit within context window.
+        
+        Args:
+            system_prompt: System message content
+            conversation_history: List of message dicts (oldest to newest)
+            reserved_for_response: Tokens to reserve for model output
+            max_tokens_for_history: Optional limit on history tokens
+            
+        Returns:
+            List of messages that fit within context window
+        """
+        # Calculate available tokens
+        available_tokens = self.max_context_tokens - reserved_for_response
+        
+        # Count system prompt tokens
+        system_message = {"role": "system", "content": system_prompt}
+        system_tokens = self.count_message_tokens(system_message)
+        available_for_history = available_tokens - system_tokens
+        
+        if max_tokens_for_history:
+            available_for_history = min(available_for_history, max_tokens_for_history)
+        
+        # Start with system message
+        messages = [system_message]
+        total_tokens = system_tokens
+        
+        # Add conversation history from most recent backwards
+        for msg in reversed(conversation_history):
+            msg_tokens = self.count_message_tokens(msg)
+            if total_tokens + msg_tokens > available_for_history:
+                break
+            messages.insert(1, msg)  # Insert after system message
+            total_tokens += msg_tokens
+        
+        return messages
+    
+    def truncate_conversation(
+        self,
+        messages: List[Dict[str, str]],
+        max_tokens: int,
+        keep_system: bool = True
+    ) -> List[Dict[str, str]]:
+        """
+        Truncate conversation to fit within token limit.
+        Keeps system message and most recent messages.
+        """
+        result = []
+        total_tokens = 0
+        
+        # Always keep system message if requested
+        if keep_system and messages and messages[0]["role"] == "system":
+            sys_msg = messages[0]
+            sys_tokens = self.count_message_tokens(sys_msg)
+            if sys_tokens <= max_tokens:
+                result.append(sys_msg)
+                total_tokens += sys_tokens
+                messages = messages[1:]
+        
+        # Add messages from end (most recent) backwards
+        for msg in reversed(messages):
+            msg_tokens = self.count_message_tokens(msg)
+            if total_tokens + msg_tokens > max_tokens:
+                break
+            result.insert(len(result) - (1 if keep_system else 0), msg)
+            total_tokens += msg_tokens
+        
+        return result
+
+# Usage
+manager = ContextWindowManager(model="gpt-4o", max_context_tokens=128000)
+
+messages = manager.prepare_messages(
+    system_prompt="You are a helpful assistant.",
+    conversation_history=[
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi! How can I help?"},
+        # ... many more messages
+    ],
+    reserved_for_response=5000
+)
+```
+
+### Smart Truncation with Summarization
+
+For long conversations, summarize old messages:
+
+```python
+from openai import OpenAI
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+class ConversationManager:
+    """Manages conversation history with summarization."""
+    
+    def __init__(self, model: str = "gpt-4o", max_context_tokens: int = 128000):
+        self.model = model
+        self.max_context_tokens = max_context_tokens
+        self.encoding = tiktoken.encoding_for_model(model)
+        self.summary = ""  # Accumulated summary of old messages
+    
+    def count_tokens(self, text: str) -> int:
+        return len(self.encoding.encode(text))
+    
+    def summarize_messages(self, messages: List[Dict[str, str]]) -> str:
+        """Summarize a list of messages."""
+        # Combine messages into text
+        conversation_text = "\n".join([
+            f"{msg['role']}: {msg['content']}"
+            for msg in messages
+        ])
+        
+        # Summarize using API
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # Use cheaper model for summarization
+            messages=[{
+                "role": "user",
+                "content": f"Summarize this conversation concisely:\n\n{conversation_text}"
+            }],
+            max_tokens=500,
+            temperature=0.3
+        )
+        
+        return response.choices[0].message.content
+    
+    def prepare_messages_with_summary(
+        self,
+        system_prompt: str,
+        recent_messages: List[Dict[str, str]],
+        old_messages: List[Dict[str, str]] = None,
+        reserved_for_response: int = 5000
+    ) -> List[Dict[str, str]]:
+        """
+        Prepare messages keeping recent messages and summarizing old ones.
+        """
+        available_tokens = self.max_context_tokens - reserved_for_response
+        
+        # Start with system prompt
+        messages = [{"role": "system", "content": system_prompt}]
+        total_tokens = self.count_tokens(system_prompt) + 4  # Message overhead
+        
+        # Add summary of old messages if exists
+        if self.summary:
+            summary_msg = {
+                "role": "system",
+                "content": f"Previous conversation summary: {self.summary}"
+            }
+            summary_tokens = self.count_tokens(summary_msg["content"]) + 4
+            if total_tokens + summary_tokens <= available_tokens * 0.3:  # Use max 30% for summary
+                messages.append(summary_msg)
+                total_tokens += summary_tokens
+        
+        # Add recent messages
+        for msg in recent_messages:
+            msg_tokens = self.count_message_tokens(msg)
+            if total_tokens + msg_tokens > available_tokens:
+                break
+            messages.append(msg)
+            total_tokens += msg_tokens
+        
+        # If we have old messages that didn't fit, summarize them
+        if old_messages and len(old_messages) > len(recent_messages):
+            messages_to_summarize = old_messages[:-len(recent_messages)]
+            self.summary = self.summarize_messages(messages_to_summarize)
+        
+        return messages
+```
+
+### Document Chunking for Long Contexts
+
+Split long documents into manageable chunks:
+
+```python
+class DocumentChunker:
+    """Split documents into chunks that fit within context windows."""
+    
+    def __init__(self, model: str = "gpt-4o", chunk_size_tokens: int = 1000, overlap: int = 100):
+        self.model = model
+        self.chunk_size_tokens = chunk_size_tokens
+        self.overlap = overlap  # Overlap between chunks to preserve context
+        self.encoding = tiktoken.encoding_for_model(model)
+    
+    def count_tokens(self, text: str) -> int:
+        return len(self.encoding.encode(text))
+    
+    def chunk_text(self, text: str) -> List[str]:
+        """
+        Split text into chunks with overlap.
+        
+        Returns:
+            List of text chunks
+        """
+        tokens = self.encoding.encode(text)
+        chunks = []
+        
+        start = 0
+        while start < len(tokens):
+            end = min(start + self.chunk_size_tokens, len(tokens))
+            chunk_tokens = tokens[start:end]
+            chunk_text = self.encoding.decode(chunk_tokens)
+            chunks.append(chunk_text)
+            
+            # Move start forward, with overlap
+            start = end - self.overlap
+        
+        return chunks
+    
+    def chunk_with_metadata(self, text: str, metadata: dict = None) -> List[Dict[str, Any]]:
+        """
+        Split text into chunks with metadata.
+        
+        Returns:
+            List of dicts with 'content' and 'metadata' keys
+        """
+        chunks = self.chunk_text(text)
+        result = []
+        
+        for i, chunk in enumerate(chunks):
+            result.append({
+                "content": chunk,
+                "metadata": {
+                    **(metadata or {}),
+                    "chunk_index": i,
+                    "total_chunks": len(chunks),
+                    "token_count": self.count_tokens(chunk),
+                }
+            })
+        
+        return result
+
+# Usage
+chunker = DocumentChunker(model="gpt-4o", chunk_size_tokens=1000, overlap=100)
+long_document = "..."  # Very long text
+chunks = chunker.chunk_text(long_document)
+print(f"Split into {len(chunks)} chunks")
 ```
 
 ## Common Mistakes
 
-1. **Not counting tokens**: Exceeds context window
-2. **Ignoring system prompts**: Counts against limit
-3. **No buffer for responses**: Leaves no room for output
-4. **Inefficient truncation**: Cuts important information
-5. **Not handling edge cases**: Empty or very long inputs
+#### 1. Not counting tokens before sending
+Sending requests without counting tokens leads to context window exceeded errors. Always count tokens before making API calls, especially with user-generated content or long conversations. Pre-counting prevents API errors and wasted requests.
+
+#### 2. Ignoring system prompts and message overhead
+System prompts and message formatting consume tokens. Each message has ~4 tokens of overhead. A system prompt + 10 messages = significant token usage. Count all message components, not just content.
+
+#### 3. Not reserving tokens for responses
+If your input uses the entire context window, there's no room for the model's response. Always reserve tokens for output (typically 10-20% of context window). For GPT-4o (128K tokens), reserve at least 5K-10K tokens for responses.
+
+#### 4. Truncating from the wrong end
+Truncating from the beginning loses recent information, truncating from the end loses context. Choose truncation strategy based on your use case: keep recent messages (end), keep important context (start), or keep both ends (middle).
+
+#### 5. Not handling edge cases
+Empty inputs, extremely long inputs, or malformed messages can cause errors. Always validate input length, handle empty strings, and check token counts before processing. Edge cases break production systems.
+
+#### 6. Assuming token count equals character/word count
+Tokens don't equal characters or words. Code, non-English text, and special characters tokenize differently. Always use the model's tokenizer (tiktoken) for accurate counts. Estimates (1 token = 4 chars) are rough approximations.
+
+#### 7. Not using actual API token counts for validation
+Pre-counting with tiktoken is an estimate. Actual API token counts include formatting, message structure, and system overhead. Use API response `usage` fields to validate your counting logic and adjust estimates based on real usage.
+
+#### 8. Chunking without overlap
+Splitting documents into chunks without overlap loses context at boundaries. Important information at chunk boundaries gets lost. Always use overlapping chunks (e.g., 100-200 token overlap) to preserve context across boundaries.
+
+#### 9. Not managing conversation history efficiently
+Keeping full conversation history causes exponential token growth. After 20-30 messages, you can easily exceed context windows. Implement conversation summarization, sliding windows, or message pruning to manage history effectively.
+
+#### 10. Using wrong tokenizer for the model
+Different models use different tokenizers. Using the wrong tokenizer gives incorrect counts. Always use `tiktoken.encoding_for_model(model_name)` to get the correct tokenizer for your model. GPT-4o uses `cl100k_base`, but check for each model.
 
 ## Exercise
 
-1. Implement accurate token counting
-2. Build a context window manager
-3. Implement smart truncation that preserves important content
-4. Create a conversation history manager that fits within limits
-5. Test with various context sizes
+Complete these exercises to master token counting and context window management. These skills are essential for building production applications that handle long documents and conversations.
+
+#### 1. Implement accurate token counting
+
+Create functions to count tokens accurately:
+
+```python
+import tiktoken
+
+def count_tokens_simple(text: str, model: str = "gpt-4o") -> int:
+    """TODO: Count tokens in text"""
+    pass
+
+def count_message_tokens(message: dict, model: str = "gpt-4o") -> int:
+    """TODO: Count tokens in a message dict"""
+    # TODO: Account for role, content, and message overhead (~4 tokens)
+    pass
+
+def count_conversation_tokens(messages: list, model: str = "gpt-4o") -> int:
+    """TODO: Count total tokens in a conversation"""
+    pass
+```
+
+#### 2. Build a context window manager
+
+Create a class that manages messages to fit within context windows:
+
+```python
+class ContextManager:
+    def __init__(self, model: str = "gpt-4o", max_context: int = 128000):
+        """TODO: Initialize with model and context window size"""
+        pass
+    
+    def fit_messages(
+        self,
+        system_prompt: str,
+        messages: list,
+        reserved_for_output: int = 5000
+    ) -> list:
+        """TODO: Return messages that fit within context window"""
+        # TODO: Count system prompt tokens
+        # TODO: Add messages from most recent backwards
+        # TODO: Stop when approaching limit
+        pass
+```
+
+#### 3. Implement smart truncation
+
+Create truncation functions with different strategies:
+
+```python
+def truncate_text(
+    text: str,
+    max_tokens: int,
+    model: str = "gpt-4o",
+    strategy: str = "end"
+) -> str:
+    """
+    TODO: Truncate text using different strategies
+    
+    Strategies:
+    - "start": Keep beginning
+    - "end": Keep end
+    - "middle": Keep both ends
+    """
+    pass
+```
+
+#### 4. Create a conversation history manager
+
+Build a system that manages conversation history efficiently:
+
+```python
+class ConversationHistoryManager:
+    def __init__(self, max_history_tokens: int = 10000):
+        """TODO: Initialize with token limit for history"""
+        self.history = []
+        self.max_tokens = max_history_tokens
+        pass
+    
+    def add_message(self, role: str, content: str):
+        """TODO: Add message and prune if needed"""
+        # TODO: Add message to history
+        # TODO: Check if exceeds limit
+        # TODO: Remove oldest messages if needed
+        pass
+    
+    def get_messages(self) -> list:
+        """TODO: Return current conversation history"""
+        pass
+    
+    def clear(self):
+        """TODO: Clear conversation history"""
+        pass
+```
+
+#### 5. Implement document chunking
+
+Create a document chunker that handles long documents:
+
+```python
+class DocumentChunker:
+    def __init__(self, chunk_size_tokens: int = 1000, overlap: int = 100):
+        """TODO: Initialize chunker with size and overlap"""
+        pass
+    
+    def chunk(self, text: str, model: str = "gpt-4o") -> list:
+        """TODO: Split text into overlapping chunks"""
+        # TODO: Count tokens
+        # TODO: Create chunks with overlap
+        # TODO: Return list of chunks
+        pass
+```
+
+#### 6. Test with various context sizes
+
+Test your implementations with different scenarios:
+
+```python
+# Test 1: Small context (GPT-3.5-turbo, 16K tokens)
+manager_small = ContextManager(model="gpt-3.5-turbo", max_context=16384)
+# TODO: Test with various message sizes
+
+# Test 2: Large context (GPT-4o, 128K tokens)
+manager_large = ContextManager(model="gpt-4o", max_context=128000)
+# TODO: Test with long documents
+
+# Test 3: Edge cases
+# TODO: Test with empty messages
+# TODO: Test with very long single message
+# TODO: Test with exactly max tokens
+# TODO: Test with tokens exceeding limit
+```
+
+#### 7. Compare token counting methods
+
+Compare different counting approaches:
+
+```python
+def compare_token_counts(text: str):
+    """Compare different token counting methods."""
+    # Method 1: tiktoken pre-counting
+    count1 = count_tokens(text, model="gpt-4o")
+    
+    # Method 2: Actual API response (make API call)
+    # TODO: Make API call and get usage.prompt_tokens
+    # TODO: Compare counts
+    # TODO: Analyze differences
+    pass
+```
+
+#### 8. Reflection questions
+
+After completing the exercises, answer these questions:
+- What's the difference between pre-counting tokens and actual API token usage?
+- How do you determine how many tokens to reserve for model output?
+- What's the best strategy for truncating conversation history? Why?
+- How does overlap in document chunking help preserve context?
+- What are the trade-offs between different context management strategies?
+- How do context window limits affect your application architecture?
+- What happens if you exceed a context window? How do you prevent it?
 
 ## Tools & Resources
 

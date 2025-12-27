@@ -7,145 +7,786 @@ order: 2
 chapterId: "chapter-1-rag-fundamentals"
 moduleId: "module-3-rag"
 prerequisites: ["lesson-1-what-is-rag"]
-estimatedMinutes: 9
+estimatedMinutes: 16
 tags: ["vector-database", "embeddings", "storage", "pinecone", "chroma"]
 difficulty: "beginner"
 ---
 
 # Vector Databases Overview
 
+> **💡** *Vector databases are like specialized libraries that organize books not by title or author, but by how similar their content is. Instead of saying "find me books about machine learning," you say "find me books similar to this one" and the database instantly finds the most relevant matches using mathematical similarity. Traditional databases search by exact matches; vector databases search by meaning. For RAG, this means finding the most semantically similar document chunks to your query in milliseconds, even across millions of vectors.*
+
 ## Overview
 
-Vector databases are specialized databases designed to store and query high-dimensional vectors efficiently. They're essential for RAG because they enable fast similarity search over millions of document embeddings.
+Vector databases are specialized databases designed to store and query high-dimensional vectors efficiently. They're essential for RAG because they enable fast similarity search over millions of document embeddings, making it possible to find relevant context in real-time.
+
+Unlike traditional databases that search by exact matches (SQL WHERE clauses), vector databases use mathematical distance metrics (cosine similarity, Euclidean distance, dot product) to find similar vectors. This semantic search capability is what powers RAG: convert documents to embeddings, store in a vector database, then retrieve the most similar chunks to any query embedding.
+
+In 2024-2025, vector databases have matured significantly. Options range from managed cloud services (Pinecone, Weaviate Cloud) to open-source solutions (Chroma, Qdrant, Milvus, PGVector) that you can self-host. Choosing the right vector database is critical for RAG performance, cost, and scalability.
 
 ## Main Content
 
 ### What Are Vector Databases?
 
-Traditional databases store scalar values (numbers, strings). Vector databases store vectors (arrays of numbers) and can quickly find similar vectors using distance metrics like cosine similarity.
+**Traditional Databases:**
+- Store scalar values (numbers, strings, dates)
+- Search by exact matches or ranges (SQL WHERE clauses)
+- Index by keys (B-trees, hash indexes)
+- Fast for structured queries
 
-**Key operations:**
-- **Insert**: Store vectors with optional metadata
-- **Search**: Find most similar vectors to a query vector
-- **Update/Delete**: Modify or remove stored vectors
-- **Filter**: Combine vector search with metadata filtering
+**Vector Databases:**
+- Store high-dimensional vectors (arrays of numbers, typically 384-1536 dimensions)
+- Search by similarity using distance metrics
+- Index using approximate nearest neighbor (ANN) algorithms
+- Fast for semantic similarity queries
 
-### Popular Vector Databases
+**Why Vector Databases Matter for RAG:**
+
+1. **Semantic Search**: Find documents by meaning, not keywords
+2. **Scalability**: Efficiently search millions or billions of vectors
+3. **Speed**: Sub-100ms search times even at scale
+4. **Metadata Filtering**: Combine similarity search with traditional filtering
+5. **Real-time Updates**: Insert new vectors and immediately search them
+
+**Key Operations:**
+
+1. **Insert/Upsert**
+   - Store vectors with optional metadata
+   - Metadata enables filtering (date, source, category, etc.)
+   - Upsert allows updates (update existing vectors)
+
+2. **Similarity Search**
+   - Find most similar vectors to a query vector
+   - Returns top-k results ranked by similarity
+   - Uses distance metrics: cosine similarity, Euclidean distance, dot product
+
+3. **Metadata Filtering**
+   - Filter results by metadata fields (WHERE clauses)
+   - Combine vector search with traditional filtering
+   - Essential for production use cases
+
+4. **Update/Delete**
+   - Modify existing vectors or metadata
+   - Remove vectors from the index
+   - Maintain data freshness
+
+5. **Hybrid Search** (some databases)
+   - Combine vector search with keyword/BM25 search
+   - Improves retrieval quality
+   - Useful when both semantic and keyword matching matter
+
+### Popular Vector Databases (2024-2025)
 
 #### Pinecone
-- **Type**: Managed cloud service
-- **Pros**: Easy setup, automatic scaling, fast performance
-- **Cons**: Cost at scale, vendor lock-in
-- **Best for**: Production apps needing reliability
 
-#### Weaviate
-- **Type**: Open-source, self-hosted or managed
-- **Pros**: Full-featured, GraphQL API, hybrid search
-- **Cons**: More complex setup
-- **Best for**: Complex applications needing flexibility
+**Type**: Managed cloud service
 
-#### Qdrant
-- **Type**: Open-source, self-hosted or cloud
-- **Pros**: Fast, Rust-based, good filtering
-- **Cons**: Smaller community
-- **Best for**: Performance-critical applications
+**Pros:**
+- Easiest setup: just API keys, no infrastructure
+- Automatic scaling: handles millions of vectors
+- Fast performance: sub-100ms latency
+- High reliability: managed infrastructure
+- Good documentation and support
+
+**Cons:**
+- Cost: can get expensive at scale ($70+/month for production)
+- Vendor lock-in: data stored in Pinecone's cloud
+- Limited control: can't customize infrastructure
+
+**Best for**: Production applications needing reliability and ease of use
+
+**Pricing (2025)**: Free tier available, paid plans start around $70/month
 
 #### Chroma
-- **Type**: Open-source, embedded or client-server
-- **Pros**: Python-first, simple API, local-first
-- **Cons**: Less mature, smaller scale
-- **Best for**: Development and small-scale production
+
+**Type**: Open-source, embedded or client-server
+
+**Pros:**
+- Python-first: native Python API, great for development
+- Simple API: easy to get started
+- Local-first: can run entirely locally (no server needed)
+- Lightweight: minimal dependencies
+- Good for prototyping and small-scale production
+
+**Cons:**
+- Less mature: newer project, smaller ecosystem
+- Limited scale: best for small to medium datasets
+- Less performance optimization compared to specialized databases
+
+**Best for**: Development, prototyping, small-scale production applications
+
+#### Qdrant
+
+**Type**: Open-source (self-hosted or cloud)
+
+**Pros:**
+- Fast: Rust-based, optimized for performance
+- Good filtering: strong metadata filtering capabilities
+- Self-hosted option: full control over infrastructure
+- Cloud option available: managed service
+- Active development and community
+
+**Cons:**
+- Smaller community: less resources/tutorials than Pinecone
+- Self-hosting requires infrastructure management
+- Less beginner-friendly than managed services
+
+**Best for**: Performance-critical applications, teams comfortable with infrastructure
+
+#### Weaviate
+
+**Type**: Open-source (self-hosted or cloud)
+
+**Pros:**
+- Full-featured: GraphQL API, vector + graph database
+- Hybrid search: combines vector and keyword search
+- Schema flexibility: supports complex data models
+- Active community and good documentation
+- Cloud option available
+
+**Cons:**
+- More complex: steeper learning curve
+- Overkill for simple use cases
+- Self-hosting requires more setup
+
+**Best for**: Complex applications needing flexibility, graph + vector queries
+
+#### Milvus
+
+**Type**: Open-source (self-hosted or cloud via Zilliz)
+
+**Pros:**
+- High performance: designed for large-scale deployments
+- Scalable: handles billions of vectors
+- Flexible: multiple index types (IVF, HNSW, etc.)
+- Active open-source community
+- Production-proven at scale
+
+**Cons:**
+- Complex setup: requires infrastructure expertise
+- Steeper learning curve
+- Self-hosting requires significant resources
+
+**Best for**: Large-scale production deployments, teams with infrastructure expertise
+
+#### PGVector (PostgreSQL Extension)
+
+**Type**: Open-source PostgreSQL extension
+
+**Pros:**
+- Uses existing PostgreSQL infrastructure
+- SQL interface: leverage SQL queries and filtering
+- Mature: built on PostgreSQL's reliability
+- Cost-effective: no additional database needed
+- Good for teams already using PostgreSQL
+
+**Cons:**
+- Less optimized: not as fast as specialized vector databases
+- Limited scalability: best for small to medium datasets
+- Requires PostgreSQL expertise
+
+**Best for**: Teams already using PostgreSQL, small to medium datasets
+
+#### Pinecone Serverless (2024)
+
+**Type**: Managed serverless vector database
+
+**Pros:**
+- Pay-per-use pricing: only pay for what you use
+- No infrastructure management
+- Easy scaling: automatic scaling
+- Good for variable workloads
+
+**Cons:**
+- Newer offering: less mature than standard Pinecone
+- Pricing can be unpredictable for high-traffic use cases
+- Vendor lock-in
+
+**Best for**: Variable workloads, cost-conscious applications
 
 ### Choosing a Vector Database
 
-**Considerations:**
-- **Scale**: How many vectors will you store?
-- **Latency**: How fast do searches need to be?
-- **Budget**: Managed vs self-hosted costs
-- **Features**: Need filtering, hybrid search, etc.?
-- **Team expertise**: Easier setup vs more control
+**Decision Framework:**
+
+#### 1. Scale Requirements
+
+**Small Scale (< 100K vectors):**
+- Chroma (local development)
+- PGVector (if using PostgreSQL)
+- Pinecone free tier
+
+**Medium Scale (100K - 10M vectors):**
+- Pinecone (managed, easiest)
+- Qdrant (self-hosted or cloud)
+- Chroma (client-server mode)
+- Weaviate
+
+**Large Scale (> 10M vectors):**
+- Milvus (self-hosted or Zilliz cloud)
+- Pinecone (managed, expensive)
+- Qdrant Cloud
+
+#### 2. Latency Requirements
+
+**Sub-50ms latency needed:**
+- Pinecone (optimized for latency)
+- Qdrant (well-optimized)
+- Milvus (with proper configuration)
+
+**50-200ms acceptable:**
+- Chroma
+- Weaviate
+- PGVector
+
+#### 3. Budget Considerations
+
+**Low budget / cost-conscious:**
+- Chroma (free, open-source)
+- PGVector (free if you have PostgreSQL)
+- Qdrant (self-hosted, free)
+- Milvus (self-hosted, free)
+
+**Managed service budget:**
+- Pinecone: $70-500+/month
+- Qdrant Cloud: varies
+- Weaviate Cloud: varies
+- Zilliz (Milvus cloud): varies
+
+**Consider total cost of ownership:**
+- Managed: higher monthly cost, lower operational overhead
+- Self-hosted: lower monthly cost, higher operational overhead (engineering time, infrastructure)
+
+#### 4. Required Features
+
+**Essential features:**
+- Vector similarity search (all databases)
+- Metadata filtering (most databases)
+
+**Advanced features:**
+- Hybrid search (vector + keyword): Weaviate, Qdrant, Pinecone
+- Real-time updates: most databases
+- Batch operations: varies by database
+- Multi-tenancy: Pinecone, Weaviate, Qdrant
+
+#### 5. Team Expertise and Preferences
+
+**Python-first teams:**
+- Chroma (native Python API)
+- LangChain/LlamaIndex integrations (works with all)
+
+**Infrastructure expertise available:**
+- Consider self-hosted: Qdrant, Milvus, Weaviate
+- More control, lower costs, higher complexity
+
+**Want managed service:**
+- Pinecone (easiest)
+- Qdrant Cloud
+- Weaviate Cloud
+- Zilliz (Milvus cloud)
+
+#### 6. Vendor Lock-in Considerations
+
+**Avoiding vendor lock-in:**
+- Choose open-source with self-hosting option
+- Use abstraction layers (LangChain, LlamaIndex)
+- Plan for migration if needed
+
+**Recommendation Matrix:**
+
+| Use Case | Recommended Database |
+|----------|---------------------|
+| Quick prototype | Chroma |
+| Small production app | Pinecone or Chroma |
+| Medium production app | Pinecone or Qdrant |
+| Large scale production | Milvus or Pinecone |
+| Already using PostgreSQL | PGVector |
+| Need hybrid search | Weaviate or Qdrant |
+| Cost-sensitive | Chroma or self-hosted Qdrant/Milvus |
+| Want easiest setup | Pinecone |
+| Need maximum control | Self-hosted Milvus or Qdrant |
 
 ## Code Examples
 
-Basic vector database operations with Pinecone:
+### Pinecone (v3+ API)
+
+Using Pinecone with the latest API (2024-2025):
 
 ```python
-import pinecone
+from pinecone import Pinecone, ServerlessSpec
 from openai import OpenAI
+import os
 
-# Initialize Pinecone
-pinecone.init(api_key="your-api-key", environment="us-west1-gcp")
-index = pinecone.Index("my-index")
+# Initialize Pinecone (new API)
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+
+# Create index (if it doesn't exist)
+index_name = "my-rag-index"
+if index_name not in pc.list_indexes().names():
+    pc.create_index(
+        name=index_name,
+        dimension=1536,  # text-embedding-3-small dimension
+        metric="cosine",
+        spec=ServerlessSpec(
+            cloud="aws",
+            region="us-east-1"
+        )
+    )
+
+# Connect to index
+index = pc.Index(index_name)
 
 # Create embeddings
-client = OpenAI()
-def get_embedding(text):
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def get_embedding(text: str, model: str = "text-embedding-3-small"):
+    """Get embedding for text."""
     response = client.embeddings.create(
         input=text,
-        model="text-embedding-3-small"
+        model=model
     )
     return response.data[0].embedding
 
-# Insert vectors
-documents = ["Document 1 text...", "Document 2 text..."]
-for i, doc in enumerate(documents):
-    embedding = get_embedding(doc)
-    index.upsert([(f"doc-{i}", embedding, {"text": doc})])
+# Insert vectors with metadata
+documents = [
+    {"id": "doc1", "text": "RAG is a technique that combines retrieval and generation..."},
+    {"id": "doc2", "text": "Vector databases store embeddings for similarity search..."},
+]
 
-# Query
+vectors_to_upsert = []
+for doc in documents:
+    embedding = get_embedding(doc["text"])
+    vectors_to_upsert.append({
+        "id": doc["id"],
+        "values": embedding,
+        "metadata": {
+            "text": doc["text"],
+            "source": "internal_docs",
+            "category": "fundamentals"
+        }
+    })
+
+# Batch upsert
+index.upsert(vectors=vectors_to_upsert)
+
+# Query with metadata filtering
 query_embedding = get_embedding("What is RAG?")
 results = index.query(
     vector=query_embedding,
     top_k=5,
-    include_metadata=True
+    include_metadata=True,
+    filter={"category": "fundamentals"}  # Metadata filtering
 )
+
+for match in results.matches:
+    print(f"Score: {match.score}")
+    print(f"ID: {match.id}")
+    print(f"Text: {match.metadata['text']}")
+    print("---")
 ```
 
-Using Chroma (local):
+### Chroma (Latest API)
+
+Using Chroma with the current API:
 
 ```python
 import chromadb
 from chromadb.config import Settings
+from openai import OpenAI
+import os
 
-# Create/connect to database
+# Initialize Chroma client
 client = chromadb.Client(Settings(
     chroma_db_impl="duckdb+parquet",
     persist_directory="./chroma_db"
 ))
 
-collection = client.get_or_create_collection("documents")
+# Create or get collection
+collection = client.get_or_create_collection(
+    name="documents",
+    metadata={"description": "RAG document collection"}
+)
 
-# Add documents
+# Create embeddings
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def get_embedding(text: str) -> list[float]:
+    """Get embedding for text."""
+    response = openai_client.embeddings.create(
+        input=text,
+        model="text-embedding-3-small"
+    )
+    return response.data[0].embedding
+
+# Prepare documents
+documents = [
+    "RAG is a technique that combines retrieval and generation...",
+    "Vector databases store embeddings for similarity search...",
+]
+
+# Generate embeddings
+embeddings = [get_embedding(doc) for doc in documents]
+ids = [f"doc-{i}" for i in range(len(documents))]
+metadatas = [
+    {"source": "internal_docs", "category": "fundamentals"}
+    for _ in documents
+]
+
+# Add to collection
 collection.add(
-    embeddings=embeddings_list,
-    documents=texts,
-    ids=[f"doc-{i}" for i in range(len(texts))]
+    embeddings=embeddings,
+    documents=documents,
+    ids=ids,
+    metadatas=metadatas
 )
 
 # Query
+query_embedding = get_embedding("What is RAG?")
 results = collection.query(
     query_embeddings=[query_embedding],
-    n_results=5
+    n_results=5,
+    where={"category": "fundamentals"},  # Metadata filtering
+    include=["documents", "metadatas", "distances"]
 )
+
+print(f"Found {len(results['ids'][0])} results")
+for i, doc_id in enumerate(results['ids'][0]):
+    print(f"ID: {doc_id}")
+    print(f"Distance: {results['distances'][0][i]}")
+    print(f"Text: {results['documents'][0][i]}")
+    print("---")
+```
+
+### Production-Ready Vector Database Wrapper
+
+Abstract vector database operations for easy switching:
+
+```python
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any, Optional
+from openai import OpenAI
+import os
+
+class VectorDB(ABC):
+    """Abstract base class for vector databases."""
+    
+    @abstractmethod
+    def upsert(self, vectors: List[Dict[str, Any]]):
+        """Insert or update vectors."""
+        pass
+    
+    @abstractmethod
+    def query(self, query_vector: List[float], top_k: int, filter: Optional[Dict] = None) -> List[Dict]:
+        """Query for similar vectors."""
+        pass
+    
+    @abstractmethod
+    def delete(self, ids: List[str]):
+        """Delete vectors by IDs."""
+        pass
+
+class PineconeDB(VectorDB):
+    """Pinecone implementation."""
+    
+    def __init__(self, index_name: str):
+        from pinecone import Pinecone
+        pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+        self.index = pc.Index(index_name)
+    
+    def upsert(self, vectors: List[Dict[str, Any]]):
+        """Upsert vectors to Pinecone."""
+        formatted_vectors = [
+            {
+                "id": v["id"],
+                "values": v["embedding"],
+                "metadata": v.get("metadata", {})
+            }
+            for v in vectors
+        ]
+        self.index.upsert(vectors=formatted_vectors)
+    
+    def query(self, query_vector: List[float], top_k: int, filter: Optional[Dict] = None) -> List[Dict]:
+        """Query Pinecone."""
+        results = self.index.query(
+            vector=query_vector,
+            top_k=top_k,
+            include_metadata=True,
+            filter=filter
+        )
+        return [
+            {
+                "id": match.id,
+                "score": match.score,
+                "metadata": match.metadata
+            }
+            for match in results.matches
+        ]
+    
+    def delete(self, ids: List[str]):
+        """Delete from Pinecone."""
+        self.index.delete(ids=ids)
+
+class ChromaDB(VectorDB):
+    """Chroma implementation."""
+    
+    def __init__(self, collection_name: str):
+        import chromadb
+        client = chromadb.Client()
+        self.collection = client.get_or_create_collection(collection_name)
+    
+    def upsert(self, vectors: List[Dict[str, Any]]):
+        """Upsert vectors to Chroma."""
+        embeddings = [v["embedding"] for v in vectors]
+        documents = [v.get("document", "") for v in vectors]
+        ids = [v["id"] for v in vectors]
+        metadatas = [v.get("metadata", {}) for v in vectors]
+        
+        self.collection.add(
+            embeddings=embeddings,
+            documents=documents,
+            ids=ids,
+            metadatas=metadatas
+        )
+    
+    def query(self, query_vector: List[float], top_k: int, filter: Optional[Dict] = None) -> List[Dict]:
+        """Query Chroma."""
+        results = self.collection.query(
+            query_embeddings=[query_vector],
+            n_results=top_k,
+            where=filter,
+            include=["documents", "metadatas", "distances"]
+        )
+        
+        return [
+            {
+                "id": results["ids"][0][i],
+                "score": 1 - results["distances"][0][i],  # Convert distance to similarity
+                "metadata": results["metadatas"][0][i] if results["metadatas"] else {}
+            }
+            for i in range(len(results["ids"][0]))
+        ]
+    
+    def delete(self, ids: List[str]):
+        """Delete from Chroma."""
+        self.collection.delete(ids=ids)
+
+# Usage with abstraction
+def create_vector_db(db_type: str = "chroma") -> VectorDB:
+    """Factory function to create vector DB."""
+    if db_type == "pinecone":
+        return PineconeDB("my-index")
+    elif db_type == "chroma":
+        return ChromaDB("my-collection")
+    else:
+        raise ValueError(f"Unknown DB type: {db_type}")
+
+# Use with any implementation
+db = create_vector_db("chroma")  # or "pinecone"
+
+# Insert
+db.upsert([
+    {
+        "id": "doc1",
+        "embedding": [0.1] * 1536,  # Example embedding
+        "document": "Example document text",
+        "metadata": {"source": "docs"}
+    }
+])
+
+# Query
+results = db.query(query_vector=[0.1] * 1536, top_k=5)
 ```
 
 ## Common Mistakes
 
-1. **Not indexing metadata**: Makes filtering and debugging harder
-2. **Wrong distance metric**: Cosine similarity vs Euclidean matters
-3. **No indexing strategy**: Large datasets need proper indexing
-4. **Ignoring costs**: Managed services can get expensive at scale
-5. **Not testing performance**: Vector DB performance varies by use case
-6. **Over-engineering**: Simple use cases don't need complex solutions
+#### 1. Not indexing metadata
+Metadata is essential for filtering, debugging, and source attribution. Without metadata, you can't filter by date, source, category, or other criteria. You also can't provide citations to users or debug why certain documents were retrieved. Always include relevant metadata when inserting vectors: document source, creation date, category, author, etc.
+
+#### 2. Wrong distance metric
+Different distance metrics (cosine similarity, Euclidean distance, dot product) work differently and can significantly affect results. Cosine similarity is most common for embeddings (normalizes by vector magnitude). Euclidean distance works when magnitude matters. Dot product can work but is sensitive to vector magnitude. Use cosine similarity for most embedding use cases. Don't assume all databases use the same default.
+
+#### 3. No indexing strategy
+Large datasets need proper indexing configuration. Different databases support different index types (HNSW, IVF, etc.) with different performance characteristics. Using default indexes may not be optimal for your scale or latency requirements. Research index types for your chosen database and configure appropriately for your use case.
+
+#### 4. Ignoring costs
+Managed vector database services can get expensive at scale. Pinecone, for example, starts at $70/month and scales up. Self-hosted solutions have lower direct costs but require infrastructure and engineering time. Calculate total cost of ownership: managed costs vs self-hosting costs (infrastructure + engineering time). Don't just look at monthly fees.
+
+#### 5. Not testing performance
+Vector database performance varies significantly by use case, dataset size, query patterns, and configuration. Don't assume a database will meet your latency requirements without testing. Benchmark different databases with your actual data and query patterns. Test at scale (not just with small datasets). Performance characteristics change as datasets grow.
+
+#### 6. Over-engineering for simple use cases
+Simple use cases don't need complex solutions. If you're prototyping or have a small dataset, Chroma or PGVector might be sufficient. Don't over-engineer with Milvus or complex setups if you don't need the scale. Start simple, migrate when needed. Premature optimization is a real problem with vector databases.
+
+#### 7. Vendor lock-in without abstraction
+Using a vector database directly in your code makes it hard to switch later. If you might need to switch databases (cost, features, requirements change), use an abstraction layer. LangChain and LlamaIndex provide vector store abstractions. Consider building your own abstraction layer if you need more control.
+
+#### 8. Not considering dimension mismatch
+Different embedding models produce different dimensions (e.g., text-embedding-3-small = 1536, text-embedding-3-large = 3072). If you change embedding models, you need to re-index your vectors. Plan for dimension compatibility. Some databases allow dimension changes, others require re-creating indexes. Consider this when choosing embedding models.
+
+#### 9. Ignoring data persistence
+Some vector databases (especially embedded/local ones) need explicit persistence configuration. If you don't configure persistence, data might be lost on restart. Always configure persistence for production use cases. Test data persistence and recovery. Understand how each database handles persistence and backups.
+
+#### 10. Not monitoring and optimizing
+Vector databases need monitoring like any other system. Monitor query latency, error rates, index size, and costs. Optimize indexes, batch operations, and query patterns based on metrics. Don't set it and forget it. Regular monitoring and optimization improve performance and reduce costs over time.
 
 ## Exercise
 
-1. Set up accounts/try both Pinecone and Chroma
-2. Index the same documents in both
-3. Compare query performance and results
-4. Test metadata filtering capabilities
-5. Measure costs for your expected scale
-6. Choose the best fit for your use case
+Complete these exercises to master vector databases. These skills are essential for building production RAG systems.
+
+#### 1. Set up vector databases
+
+Get started with different databases:
+
+```python
+def setup_vector_databases():
+    """TODO: Set up Pinecone and Chroma"""
+    # TODO: Create Pinecone account and get API key
+    # TODO: Create a Pinecone index
+    # TODO: Set up Chroma locally
+    # TODO: Create a Chroma collection
+    # TODO: Verify both are working
+    pass
+```
+
+#### 2. Index documents in multiple databases
+
+Index the same documents in different databases:
+
+```python
+def index_in_multiple_dbs(documents: List[str]):
+    """TODO: Index documents in Pinecone and Chroma"""
+    # TODO: Generate embeddings for documents
+    # TODO: Index in Pinecone with metadata
+    # TODO: Index in Chroma with metadata
+    # TODO: Verify document counts match
+    pass
+```
+
+#### 3. Compare query performance
+
+Benchmark query performance:
+
+```python
+import time
+
+def compare_query_performance(query: str, databases: Dict[str, VectorDB]):
+    """TODO: Compare query performance across databases"""
+    # TODO: Convert query to embedding
+    # TODO: Query each database
+    # TODO: Measure query latency for each
+    # TODO: Compare results (are they similar?)
+    # TODO: Analyze performance differences
+    results = {}
+    for name, db in databases.items():
+        start = time.time()
+        results[name] = db.query(query_embedding, top_k=5)
+        latency = time.time() - start
+        print(f"{name}: {latency:.3f}s")
+    return results
+```
+
+#### 4. Test metadata filtering
+
+Test filtering capabilities:
+
+```python
+def test_metadata_filtering(db: VectorDB):
+    """TODO: Test metadata filtering"""
+    # TODO: Insert vectors with different metadata (category, date, source)
+    # TODO: Query without filters
+    # TODO: Query with category filter
+    # TODO: Query with date range filter
+    # TODO: Query with multiple filters
+    # TODO: Verify filtered results are correct
+    pass
+```
+
+#### 5. Measure costs
+
+Calculate costs for your scale:
+
+```python
+def calculate_costs(num_vectors: int, queries_per_month: int):
+    """TODO: Calculate costs for different databases"""
+    # TODO: Research pricing for Pinecone, Qdrant Cloud, etc.
+    # TODO: Calculate storage costs (based on num_vectors)
+    # TODO: Calculate query costs (based on queries_per_month)
+    # TODO: Compare total costs
+    # TODO: Consider self-hosted alternatives
+    costs = {
+        "pinecone": calculate_pinecone_cost(num_vectors, queries_per_month),
+        "qdrant_cloud": calculate_qdrant_cost(num_vectors, queries_per_month),
+        # ... more databases
+    }
+    return costs
+```
+
+#### 6. Build a database abstraction layer
+
+Create an abstraction for easy switching:
+
+```python
+class VectorDBWrapper:
+    """TODO: Build vector DB abstraction layer"""
+    def __init__(self, db_type: str):
+        """TODO: Initialize with database type"""
+        pass
+    
+    def upsert(self, vectors: List[Dict]):
+        """TODO: Abstract upsert"""
+        pass
+    
+    def query(self, query_vector: List[float], top_k: int, filter: Optional[Dict] = None):
+        """TODO: Abstract query"""
+        pass
+    
+    def switch_database(self, new_db_type: str):
+        """TODO: Switch underlying database"""
+        pass
+```
+
+#### 7. Optimize for your use case
+
+Optimize database configuration:
+
+```python
+def optimize_database_config(db: VectorDB, use_case: str):
+    """TODO: Optimize database for specific use case"""
+    # TODO: Research optimal index types for your use case
+    # TODO: Test different index configurations
+    # TODO: Measure performance with different configs
+    # TODO: Choose optimal configuration
+    # TODO: Document why this config works best
+    pass
+```
+
+#### 8. Test at scale
+
+Test with larger datasets:
+
+```python
+def test_at_scale(db: VectorDB, num_documents: int = 10000):
+    """TODO: Test database with larger dataset"""
+    # TODO: Generate or load larger dataset
+    # TODO: Index all documents
+    # TODO: Measure indexing time
+    # TODO: Run multiple queries
+    # TODO: Measure query latency at scale
+    # TODO: Monitor memory/CPU usage
+    # TODO: Identify bottlenecks
+    pass
+```
+
+#### 9. Reflection questions
+
+After completing the exercises, answer these questions:
+- What are the trade-offs between managed and self-hosted vector databases?
+- How do you choose the right distance metric for your use case?
+- What metadata should you include when indexing documents?
+- How do you balance cost, performance, and ease of use?
+- When should you use an abstraction layer vs direct database access?
+- How do you test and optimize vector database performance?
+- What are the scalability limits of different vector databases?
+- How do you handle database migrations if you need to switch?
 
 ## Tools & Resources
 

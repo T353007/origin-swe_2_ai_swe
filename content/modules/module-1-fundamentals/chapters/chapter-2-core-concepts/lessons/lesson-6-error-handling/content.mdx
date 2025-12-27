@@ -7,77 +7,196 @@ order: 6
 chapterId: "chapter-2-core-concepts"
 moduleId: "module-1-fundamentals"
 prerequisites: ["lesson-4-rate-limits"]
-estimatedMinutes: 9
+estimatedMinutes: 14
 tags: ["error-handling", "retries", "resilience", "production"]
 difficulty: "intermediate"
 ---
 
 # Error Handling and Retries
 
+> **💡** *Error handling in AI systems is like having a backup plan for your backup plan's backup plan. APIs fail, networks glitch, rate limits hit, and servers have bad days. The difference between a production system and a prototype is whether your code handles these failures gracefully or just crashes and leaves your users staring at error messages.*
+
 ## Overview
 
-LLM APIs can fail for many reasons: rate limits, network issues, server errors, timeouts. Robust error handling with retries is essential for production systems.
+LLM APIs can fail for many reasons: rate limits, network issues, server errors, timeouts, quota exhaustion, and more. Robust error handling with retries, exponential backoff, and graceful degradation is essential for production systems. Without proper error handling, your application will fail unpredictably, degrade user experience, and waste API calls.
+
+In 2024-2025, as AI applications scale to production, error handling has become critical. Modern APIs are more reliable than ever, but failures still happen. The key is handling them gracefully: retrying transient errors, failing fast on permanent errors, implementing fallbacks, and logging everything for debugging.
 
 ## Main Content
 
 ### Common Error Types
 
-**Rate Limit Errors:**
-- Too many requests
-- Need to wait before retrying
-- Often include retry-after header
+Understanding different error types helps you handle them appropriately. Some errors should be retried, others should fail fast.
 
-**Timeout Errors:**
-- Request took too long
-- Network issues
-- Model overloaded
+#### Rate Limit Errors (429)
 
-**API Errors:**
-- Invalid requests
-- Authentication failures
+**What they are:**
+- Too many requests in a time window
+- Token throughput limits exceeded
+- Concurrent request limits hit
+
+**Characteristics:**
+- Often include `retry-after` header indicating when to retry
+- Transient (will succeed after waiting)
+- Should retry with exponential backoff
+
+**OpenAI Example:**
+```python
+RateLimitError: Rate limit exceeded for requests
+```
+
+#### Timeout Errors
+
+**What they are:**
+- Request took longer than timeout duration
+- Network connectivity issues
+- Model is overloaded and slow to respond
+
+**Characteristics:**
+- Transient (may succeed on retry)
+- Can be caused by network or server issues
+- Should retry with backoff
+
+**Types:**
+- Connection timeout: Can't connect to API
+- Read timeout: Connection established but no response
+- Request timeout: Total request time exceeded
+
+#### API Errors (4xx Client Errors)
+
+**What they are:**
+- Invalid request parameters
+- Authentication/authorization failures
+- Bad request format
+- Request too large
+
+**Common codes:**
+- **400 Bad Request**: Invalid parameters, malformed request
+- **401 Unauthorized**: Missing or invalid API key
+- **403 Forbidden**: API key doesn't have permission
+- **404 Not Found**: Invalid endpoint or resource
+- **413 Payload Too Large**: Request exceeds size limits
+
+**Characteristics:**
+- Permanent (won't succeed without fixing the request)
+- Should NOT retry
+- Need to fix the request and try again
+
+#### Server Errors (5xx)
+
+**What they are:**
+- Internal server errors
 - Service unavailable
+- Gateway errors
+- Temporary server issues
 
-**Quota Exceeded:**
+**Common codes:**
+- **500 Internal Server Error**: Server-side error
+- **502 Bad Gateway**: Upstream server issues
+- **503 Service Unavailable**: Service temporarily down
+- **504 Gateway Timeout**: Upstream timeout
+
+**Characteristics:**
+- Transient (may succeed on retry)
+- Should retry with exponential backoff
+- May indicate system-wide issues
+
+#### Quota/Billing Errors
+
+**What they are:**
 - Out of tokens/credits
-- Billing issues
-- Requires different handling
+- Billing account issues
+- Spending limit exceeded
+- Account suspended
+
+**Characteristics:**
+- Permanent (requires account action)
+- Should NOT retry
+- Need to check account status, billing, or upgrade tier
+
+#### Network/Connection Errors
+
+**What they are:**
+- DNS resolution failures
+- Connection refused
+- Network unreachable
+- SSL/TLS errors
+
+**Characteristics:**
+- Transient (network issues are temporary)
+- Should retry with backoff
+- May need to handle differently than API errors
 
 ### Basic Error Handling
 
+Start with basic error handling to catch and classify errors:
+
 ```python
-from openai import OpenAI, RateLimitError, APIError
-import time
+from openai import OpenAI, RateLimitError, APIError, APITimeoutError, APIConnectionError
+import os
+import logging
 
-client = OpenAI()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def call_llm_with_error_handling(prompt: str):
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def call_llm_with_error_handling(prompt: str, model: str = "gpt-4o"):
     """Call LLM with basic error handling."""
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
-            timeout=30.0
+            timeout=30.0,
+            max_tokens=500
         )
         return response.choices[0].message.content
+        
     except RateLimitError as e:
-        print(f"Rate limit hit: {e}")
+        logger.warning(f"Rate limit hit: {e}")
         # Could implement retry logic here
         raise
-    except APIError as e:
-        print(f"API error: {e}")
+        
+    except APITimeoutError as e:
+        logger.error(f"Request timeout: {e}")
         raise
+        
+    except APIConnectionError as e:
+        logger.error(f"Connection error: {e}")
+        raise
+        
+    except APIError as e:
+        # Check if it's a client error (4xx) or server error (5xx)
+        if e.status_code and 400 <= e.status_code < 500:
+            logger.error(f"Client error {e.status_code}: {e}")
+            # Don't retry client errors
+        else:
+            logger.warning(f"Server error: {e}")
+            # Could retry server errors
+        raise
+        
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error: {e}", exc_info=True)
         raise
 ```
 
+**Key points:**
+- Always use try/except to catch errors
+- Log errors with appropriate levels (warning for retryable, error for permanent)
+- Distinguish between error types
+- Don't retry in basic handler (add retry logic separately)
+
 ### Retry with Exponential Backoff
+
+Exponential backoff is the standard retry strategy: wait 1s, then 2s, then 4s, etc., giving the system time to recover.
 
 ```python
 import time
 import random
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, Optional
+import logging
 
+logger = logging.getLogger(__name__)
 T = TypeVar('T')
 
 def retry_with_backoff(
@@ -85,126 +204,375 @@ def retry_with_backoff(
     max_retries: int = 3,
     initial_delay: float = 1.0,
     max_delay: float = 60.0,
-    exponential_base: float = 2.0
+    exponential_base: float = 2.0,
+    jitter: bool = True
 ) -> T:
-    """Retry function with exponential backoff."""
+    """
+    Retry function with exponential backoff.
+    
+    Args:
+        func: Function to retry (should raise exceptions on failure)
+        max_retries: Maximum number of retry attempts
+        initial_delay: Initial delay in seconds
+        max_delay: Maximum delay in seconds
+        exponential_base: Multiplier for each retry (2.0 = exponential)
+        jitter: Add random jitter to prevent synchronized retries
+    """
     delay = initial_delay
     
     for attempt in range(max_retries):
         try:
             return func()
+            
         except RateLimitError as e:
             if attempt == max_retries - 1:
+                logger.error(f"Rate limit error after {max_retries} attempts")
                 raise
             
             # Check for retry-after header
             retry_after = getattr(e, 'retry_after', None)
             if retry_after:
-                delay = retry_after
+                delay = float(retry_after)
+                logger.info(f"Rate limited. Server says wait {delay}s")
             else:
                 delay = min(delay * exponential_base, max_delay)
+                logger.info(f"Rate limited. Using backoff: {delay:.2f}s")
             
-            # Add jitter to avoid thundering herd
-            jitter = random.uniform(0, delay * 0.1)
-            time.sleep(delay + jitter)
+            # Add jitter to avoid thundering herd problem
+            if jitter:
+                jitter_amount = random.uniform(0, delay * 0.1)
+                delay += jitter_amount
             
-        except (APIError, TimeoutError) as e:
-            if attempt == max_retries - 1:
-                raise
+            logger.warning(f"Retrying after {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
             time.sleep(delay)
+            
+        except (APITimeoutError, APIConnectionError) as e:
+            if attempt == max_retries - 1:
+                logger.error(f"Timeout/connection error after {max_retries} attempts: {e}")
+                raise
+            
             delay = min(delay * exponential_base, max_delay)
+            if jitter:
+                delay += random.uniform(0, delay * 0.1)
+            
+            logger.warning(f"Timeout/connection error. Retrying after {delay:.2f}s")
+            time.sleep(delay)
+            
+        except APIError as e:
+            # Only retry server errors (5xx), not client errors (4xx)
+            if e.status_code and 400 <= e.status_code < 500:
+                logger.error(f"Client error {e.status_code}: {e}. Not retrying.")
+                raise
+            
+            # Server error (5xx) - retry
+            if attempt == max_retries - 1:
+                logger.error(f"Server error after {max_retries} attempts: {e}")
+                raise
+            
+            delay = min(delay * exponential_base, max_delay)
+            if jitter:
+                delay += random.uniform(0, delay * 0.1)
+            
+            logger.warning(f"Server error. Retrying after {delay:.2f}s")
+            time.sleep(delay)
     
     raise Exception("Max retries exceeded")
 
 # Usage
-def get_completion():
+def get_completion(prompt: str):
     return client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": "Hello"}]
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=500
     )
 
-result = retry_with_backoff(get_completion)
+try:
+    result = retry_with_backoff(lambda: get_completion("Hello"))
+    print(result.choices[0].message.content)
+except Exception as e:
+    print(f"Failed after retries: {e}")
 ```
 
 ### Using Tenacity Library
+
+Tenacity is a popular Python library that simplifies retry logic with decorators:
 
 ```python
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type
+    retry_if_exception_type,
+    retry_if_result,
+    before_sleep_log
 )
-from openai import RateLimitError, APIError
+from openai import RateLimitError, APIError, APITimeoutError, APIConnectionError
+import logging
+
+logger = logging.getLogger(__name__)
 
 @retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=60),
-    retry=retry_if_exception_type((RateLimitError, APIError, TimeoutError))
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=2, max=60),
+    retry=retry_if_exception_type((
+        RateLimitError,
+        APITimeoutError,
+        APIConnectionError,
+        APIError  # Will retry, but should filter for 5xx only
+    )),
+    before_sleep=before_sleep_log(logger, logging.WARNING)
 )
-def call_llm_robust(prompt: str):
-    """Call LLM with automatic retries."""
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        timeout=30.0
-    )
-    return response.choices[0].message.content
+def call_llm_robust(prompt: str, model: str = "gpt-4o"):
+    """Call LLM with automatic retries using Tenacity."""
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            timeout=30.0,
+            max_tokens=500
+        )
+        return response.choices[0].message.content
+    except APIError as e:
+        # Don't retry client errors (4xx)
+        if e.status_code and 400 <= e.status_code < 500:
+            logger.error(f"Client error {e.status_code}: {e}")
+            raise
+        # Retry server errors (5xx)
+        raise
+
+# Usage
+result = call_llm_robust("Explain machine learning")
 ```
+
+**Tenacity advantages:**
+- Clean decorator syntax
+- Many retry strategies built-in
+- Easy to configure and test
+- Good for simple retry needs
+
+**Note:** Tenacity retries all matching exceptions, so you may need additional logic to skip retries for 4xx client errors.
 
 ### Graceful Degradation
 
+Graceful degradation means having fallback options when the primary approach fails. This ensures your application continues to function even when preferred models or services are unavailable.
+
+#### Model Fallback Strategy
+
+Try multiple models in order of preference:
+
 ```python
-def call_llm_with_fallback(prompt: str):
-    """Try multiple models with fallback."""
-    models = ["gpt-4", "gpt-3.5-turbo", "gpt-3.5-turbo"]
+def call_llm_with_fallback(
+    prompt: str,
+    primary_model: str = "gpt-5.2",
+    fallback_models: list = None
+):
+    """
+    Try multiple models with fallback.
+    
+    Args:
+        prompt: User prompt
+        primary_model: Preferred model to use first
+        fallback_models: List of fallback models in order of preference
+    """
+    if fallback_models is None:
+        fallback_models = ["gpt-4o", "gpt-4o-mini"]
+    
+    models = [primary_model] + fallback_models
     
     for model in models:
+        try:
+            logger.info(f"Attempting with model: {model}")
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                timeout=30.0,
+                max_tokens=500
+            )
+            logger.info(f"Success with model: {model}")
+            return response.choices[0].message.content
+            
+        except (RateLimitError, APITimeoutError, APIConnectionError) as e:
+            logger.warning(f"Transient error with {model}: {e}. Trying next model...")
+            continue
+            
+        except APIError as e:
+            if e.status_code and 400 <= e.status_code < 500:
+                # Client error - don't try other models, it's the request that's wrong
+                logger.error(f"Client error with {model}: {e}")
+                raise
+            # Server error - try next model
+            logger.warning(f"Server error with {model}: {e}. Trying next model...")
+            continue
+            
+        except Exception as e:
+            logger.error(f"Unexpected error with {model}: {e}")
+            continue
+    
+    # All models failed
+    logger.error("All models failed. Using final fallback.")
+    return "I'm sorry, I'm having trouble processing your request right now. Please try again later."
+```
+
+#### Cached Fallback
+
+Use cached responses as fallback when API fails:
+
+```python
+import hashlib
+import json
+from typing import Optional
+
+class CachedFallbackClient:
+    """LLM client with caching as fallback."""
+    
+    def __init__(self):
+        self.cache = {}
+    
+    def _get_cache_key(self, prompt: str, model: str) -> str:
+        """Generate cache key from prompt and model."""
+        return hashlib.md5(f"{model}:{prompt}".encode()).hexdigest()
+    
+    def call_with_cache_fallback(self, prompt: str, model: str = "gpt-4o") -> str:
+        """Call API with cached response as fallback."""
+        cache_key = self._get_cache_key(prompt, model)
+        
+        # Try API first
         try:
             response = client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
-                timeout=10.0
+                max_tokens=500
             )
-            return response.choices[0].message.content
+            result = response.choices[0].message.content
+            
+            # Cache successful response
+            self.cache[cache_key] = result
+            return result
+            
         except Exception as e:
-            print(f"Failed with {model}: {e}")
-            continue
-    
-    # Final fallback
-    return "I'm sorry, I'm having trouble right now. Please try again later."
+            logger.warning(f"API call failed: {e}. Checking cache...")
+            
+            # Fallback to cache
+            if cache_key in self.cache:
+                logger.info("Using cached response as fallback")
+                return self.cache[cache_key]
+            
+            # No cache available, raise error
+            raise
+```
+
+#### Degraded Response Fallback
+
+Provide a simplified response when full processing fails:
+
+```python
+def call_with_degraded_fallback(prompt: str) -> str:
+    """Call API with degraded response as final fallback."""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500
+        )
+        return response.choices[0].message.content
+        
+    except Exception as e:
+        logger.error(f"All attempts failed: {e}")
+        
+        # Degraded fallback: Simple acknowledgment
+        if "explain" in prompt.lower() or "what is" in prompt.lower():
+            return "I'm currently unable to provide a detailed explanation. Please try again in a moment."
+        elif "translate" in prompt.lower():
+            return "Translation service is temporarily unavailable. Please try again later."
+        else:
+            return "I'm having trouble processing your request. Please try again."
 ```
 
 ## Code Examples
 
-Complete error handling class:
+### Production-Ready Error Handling Class
+
+Complete error handling system with retries, fallbacks, and logging:
 
 ```python
-from openai import OpenAI, RateLimitError, APIError, APITimeoutError
+from openai import OpenAI, RateLimitError, APIError, APITimeoutError, APIConnectionError
 import time
 import random
-from typing import Optional
+import logging
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+import os
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class RobustLLMClient:
+    """
+    Production-ready LLM client with comprehensive error handling.
+    
+    Features:
+    - Exponential backoff retries
+    - Model fallback
+    - Error classification
+    - Statistics tracking
+    - Logging
+    """
+    
     def __init__(
         self,
+        api_key: Optional[str] = None,
         max_retries: int = 3,
         initial_delay: float = 1.0,
-        max_delay: float = 60.0
+        max_delay: float = 60.0,
+        jitter: bool = True
     ):
-        self.client = OpenAI()
+        self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
         self.max_retries = max_retries
         self.initial_delay = initial_delay
         self.max_delay = max_delay
+        self.jitter = jitter
+        
+        # Statistics
+        self.stats = {
+            "total_requests": 0,
+            "successful_requests": 0,
+            "retries": 0,
+            "rate_limit_hits": 0,
+            "timeout_errors": 0,
+            "server_errors": 0,
+            "client_errors": 0,
+            "failures": 0,
+        }
     
     def call(
         self,
         prompt: str,
-        model: str = "gpt-4",
-        fallback_models: Optional[list] = None
+        model: str = "gpt-4o",
+        fallback_models: Optional[List[str]] = None,
+        max_tokens: int = 500,
+        timeout: float = 30.0
     ) -> str:
-        """Call LLM with comprehensive error handling."""
-        models = [model] + (fallback_models or [])
+        """
+        Call LLM with comprehensive error handling.
+        
+        Args:
+            prompt: User prompt
+            model: Primary model to use
+            fallback_models: List of fallback models
+            max_tokens: Maximum tokens in response
+            timeout: Request timeout in seconds
+            
+        Returns:
+            Model response text
+            
+        Raises:
+            Exception: If all retries and fallbacks exhausted
+        """
+        if fallback_models is None:
+            fallback_models = ["gpt-4o-mini"]
+        
+        models = [model] + fallback_models
+        self.stats["total_requests"] += 1
         
         for model_name in models:
             for attempt in range(self.max_retries):
@@ -212,70 +580,410 @@ class RobustLLMClient:
                     response = self.client.chat.completions.create(
                         model=model_name,
                         messages=[{"role": "user", "content": prompt}],
-                        timeout=30.0
+                        timeout=timeout,
+                        max_tokens=max_tokens
                     )
+                    
+                    self.stats["successful_requests"] += 1
                     return response.choices[0].message.content
                     
                 except RateLimitError as e:
+                    self.stats["rate_limit_hits"] += 1
                     if attempt < self.max_retries - 1:
+                        self.stats["retries"] += 1
                         delay = self._calculate_delay(e, attempt)
+                        logger.warning(
+                            f"Rate limit hit with {model_name} "
+                            f"(attempt {attempt + 1}/{self.max_retries}). "
+                            f"Waiting {delay:.2f}s..."
+                        )
                         time.sleep(delay)
                         continue
                     else:
                         if model_name != models[-1]:
+                            logger.info(f"Rate limit exceeded for {model_name}. Trying next model...")
                             break  # Try next model
+                        self.stats["failures"] += 1
                         raise
                 
-                except (APIError, APITimeoutError) as e:
+                except (APITimeoutError, APIConnectionError) as e:
+                    self.stats["timeout_errors"] += 1
                     if attempt < self.max_retries - 1:
-                        time.sleep(self._calculate_delay(None, attempt))
+                        self.stats["retries"] += 1
+                        delay = self._calculate_delay(None, attempt)
+                        logger.warning(
+                            f"Timeout/connection error with {model_name} "
+                            f"(attempt {attempt + 1}/{self.max_retries}). "
+                            f"Retrying after {delay:.2f}s..."
+                        )
+                        time.sleep(delay)
                         continue
                     else:
                         if model_name != models[-1]:
-                            break  # Try next model
+                            logger.info(f"Timeout for {model_name}. Trying next model...")
+                            break
+                        self.stats["failures"] += 1
+                        raise
+                
+                except APIError as e:
+                    # Client errors (4xx) - don't retry
+                    if e.status_code and 400 <= e.status_code < 500:
+                        self.stats["client_errors"] += 1
+                        logger.error(f"Client error {e.status_code} with {model_name}: {e}")
+                        self.stats["failures"] += 1
+                        raise
+                    
+                    # Server errors (5xx) - retry
+                    self.stats["server_errors"] += 1
+                    if attempt < self.max_retries - 1:
+                        self.stats["retries"] += 1
+                        delay = self._calculate_delay(None, attempt)
+                        logger.warning(
+                            f"Server error with {model_name} "
+                            f"(attempt {attempt + 1}/{self.max_retries}). "
+                            f"Retrying after {delay:.2f}s..."
+                        )
+                        time.sleep(delay)
+                        continue
+                    else:
+                        if model_name != models[-1]:
+                            logger.info(f"Server error for {model_name}. Trying next model...")
+                            break
+                        self.stats["failures"] += 1
                         raise
         
+        # All models and retries exhausted
+        self.stats["failures"] += 1
         raise Exception("All models and retries exhausted")
     
     def _calculate_delay(self, error: Optional[Exception], attempt: int) -> float:
-        """Calculate retry delay."""
-        if error and hasattr(error, 'retry_after'):
-            return error.retry_after
+        """Calculate retry delay with exponential backoff and jitter."""
+        # Check for retry-after header
+        if error and hasattr(error, 'retry_after') and error.retry_after:
+            delay = float(error.retry_after)
+        else:
+            # Exponential backoff
+            delay = self.initial_delay * (2 ** attempt)
+            delay = min(delay, self.max_delay)
         
-        delay = self.initial_delay * (2 ** attempt)
-        delay = min(delay, self.max_delay)
         # Add jitter
-        jitter = random.uniform(0, delay * 0.1)
-        return delay + jitter
+        if self.jitter:
+            jitter_amount = random.uniform(0, delay * 0.1)
+            delay += jitter_amount
+        
+        return delay
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get error handling statistics."""
+        stats = self.stats.copy()
+        if stats["total_requests"] > 0:
+            stats["success_rate"] = stats["successful_requests"] / stats["total_requests"]
+            stats["retry_rate"] = stats["retries"] / stats["total_requests"]
+        else:
+            stats["success_rate"] = 0.0
+            stats["retry_rate"] = 0.0
+        return stats
+    
+    def reset_stats(self):
+        """Reset statistics."""
+        self.stats = {
+            "total_requests": 0,
+            "successful_requests": 0,
+            "retries": 0,
+            "rate_limit_hits": 0,
+            "timeout_errors": 0,
+            "server_errors": 0,
+            "client_errors": 0,
+            "failures": 0,
+        }
 
 # Usage
 client = RobustLLMClient()
-response = client.call(
-    "Explain RAG",
-    model="gpt-4",
-    fallback_models=["gpt-3.5-turbo"]
-)
+
+try:
+    response = client.call(
+        "Explain RAG in simple terms",
+        model="gpt-5.2",
+        fallback_models=["gpt-4o", "gpt-4o-mini"]
+    )
+    print(response)
+except Exception as e:
+    logger.error(f"Request failed: {e}")
+
+# Check statistics
+stats = client.get_stats()
+print(f"Success rate: {stats['success_rate']:.2%}")
+print(f"Retry rate: {stats['retry_rate']:.2%}")
+```
+
+### Circuit Breaker Pattern
+
+Prevent cascading failures with a circuit breaker:
+
+```python
+from enum import Enum
+from datetime import datetime, timedelta
+
+class CircuitState(Enum):
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Failing, reject requests
+    HALF_OPEN = "half_open"  # Testing if service recovered
+
+class CircuitBreaker:
+    """Circuit breaker to prevent cascading failures."""
+    
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        timeout: float = 60.0,
+        expected_exception: type = Exception
+    ):
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self.expected_exception = expected_exception
+        self.failure_count = 0
+        self.last_failure_time: Optional[datetime] = None
+        self.state = CircuitState.CLOSED
+    
+    def call(self, func, *args, **kwargs):
+        """Execute function with circuit breaker protection."""
+        if self.state == CircuitState.OPEN:
+            if self._should_attempt_reset():
+                self.state = CircuitState.HALF_OPEN
+            else:
+                raise Exception("Circuit breaker is OPEN")
+        
+        try:
+            result = func(*args, **kwargs)
+            self._on_success()
+            return result
+        except self.expected_exception as e:
+            self._on_failure()
+            raise
+    
+    def _on_success(self):
+        """Handle successful call."""
+        self.failure_count = 0
+        self.state = CircuitState.CLOSED
+    
+    def _on_failure(self):
+        """Handle failed call."""
+        self.failure_count += 1
+        self.last_failure_time = datetime.now()
+        
+        if self.failure_count >= self.failure_threshold:
+            self.state = CircuitState.OPEN
+    
+    def _should_attempt_reset(self) -> bool:
+        """Check if enough time has passed to attempt reset."""
+        if not self.last_failure_time:
+            return True
+        return datetime.now() - self.last_failure_time > timedelta(seconds=self.timeout)
+
+# Usage
+breaker = CircuitBreaker(failure_threshold=5, timeout=60.0)
+
+def call_with_circuit_breaker(prompt: str):
+    def api_call():
+        return client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500
+        )
+    
+    return breaker.call(api_call)
 ```
 
 ## Common Mistakes
 
-1. **No retries**: Single failure breaks the system
-2. **No backoff**: Retries too quickly, still rate limited
-3. **No jitter**: All clients retry simultaneously
-4. **Ignoring retry-after**: Not respecting API headers
-5. **No fallbacks**: Single model failure breaks system
-6. **Infinite retries**: Can cause cost explosions
-7. **Not logging errors**: Can't debug production issues
+#### 1. No retries implemented
+A single failure breaks your entire system. APIs fail transiently all the time (rate limits, network glitches, server hiccups). Without retries, one failure means a failed user request. Always implement retry logic for transient errors.
+
+#### 2. No exponential backoff
+Retrying immediately or with fixed delays doesn't work. If you're rate-limited, retrying immediately means you'll hit the rate limit again. Use exponential backoff: wait 1s, then 2s, then 4s, giving the system time to recover.
+
+#### 3. No jitter in backoff
+Without jitter, all retrying clients wait the same time and retry simultaneously. This creates a "thundering herd" problem where everyone retries at once, causing cascading failures. Add random jitter to spread out retries.
+
+#### 4. Ignoring retry-after headers
+APIs often provide `retry-after` headers telling you exactly when to retry. Ignoring this and using your own backoff means you might wait too long (slow) or not long enough (still rate-limited). Always check for and respect `retry-after` headers.
+
+#### 5. Retrying non-retryable errors
+Client errors (4xx) like 400 Bad Request or 401 Unauthorized should never be retried. They indicate your request is invalid, not a temporary failure. Retrying wastes time and API calls. Only retry transient errors (rate limits, timeouts, server errors).
+
+#### 6. No fallback strategies
+Using a single model means any failure breaks your system. Implement fallbacks: try primary model, then fallback models, then cached responses, then degraded responses. Fallbacks ensure your system continues functioning even when preferred options fail.
+
+#### 7. Infinite retries
+Retrying forever can hang your application, waste resources, and rack up API costs. Always set a maximum number of retries (typically 3-5). After max retries, fail gracefully, log the error, and return an appropriate response to the user.
+
+#### 8. Not logging errors
+Without logging, you can't debug production issues, understand failure patterns, or identify when you need to upgrade your tier. Log all errors with appropriate levels, include context (model, prompt length, error type), and track retry attempts.
+
+#### 9. Not distinguishing error types
+Treating all errors the same leads to wrong retry behavior. Rate limits should retry with backoff, client errors should fail fast, server errors should retry, quota errors should fail fast. Classify errors and handle each type appropriately.
+
+#### 10. Not using timeouts
+Requests can hang indefinitely without timeouts. A single hanging request can tie up resources, prevent other requests from processing, and degrade user experience. Always set reasonable timeouts (e.g., 30 seconds) on all API calls.
 
 ## Exercise
 
-1. Implement basic error handling for LLM calls
-2. Add exponential backoff retry logic
-3. Handle rate limit errors with retry-after
-4. Implement graceful degradation with fallback models
-5. Add logging for all error cases
-6. Test error scenarios (rate limits, timeouts, failures)
-7. Measure retry success rates
+Complete these exercises to build robust error handling. These skills are essential for production systems that need to handle failures gracefully.
+
+#### 1. Implement basic error handling
+
+Create a function with comprehensive error handling:
+
+```python
+def call_llm_basic(prompt: str, model: str = "gpt-4o"):
+    """TODO: Implement basic error handling"""
+    # TODO: Catch different error types
+    # TODO: Log errors appropriately
+    # TODO: Raise or return based on error type
+    pass
+```
+
+#### 2. Add exponential backoff retry logic
+
+Implement retry logic with exponential backoff:
+
+```python
+def call_with_retry(prompt: str, max_retries: int = 3):
+    """TODO: Implement retry with exponential backoff"""
+    # TODO: Try API call
+    # TODO: Catch retryable errors
+    # TODO: Calculate delay: initial * (2 ** attempt)
+    # TODO: Sleep and retry
+    # TODO: Raise after max retries
+    pass
+```
+
+#### 3. Handle rate limit errors with retry-after
+
+Respect retry-after headers:
+
+```python
+def call_with_retry_after(prompt: str):
+    """TODO: Check retry-after header and use it"""
+    # TODO: Catch RateLimitError
+    # TODO: Check e.response.headers.get('retry-after')
+    # TODO: Use header value if present, otherwise use backoff
+    pass
+```
+
+#### 4. Implement graceful degradation with fallback models
+
+Create a system that tries multiple models:
+
+```python
+def call_with_fallback(prompt: str):
+    """TODO: Try multiple models with fallback"""
+    models = ["gpt-5.2", "gpt-4o", "gpt-4o-mini"]
+    # TODO: Try each model in order
+    # TODO: Move to next model on failure
+    # TODO: Return result from first successful model
+    # TODO: Provide final fallback message if all fail
+    pass
+```
+
+#### 5. Add comprehensive logging
+
+Enhance your error handling with logging:
+
+```python
+import logging
+
+def call_with_logging(prompt: str):
+    """TODO: Add logging to error handling"""
+    # TODO: Log each retry attempt
+    # TODO: Log error types and details
+    # TODO: Log success/failure rates
+    # TODO: Use appropriate log levels (INFO, WARNING, ERROR)
+    pass
+```
+
+#### 6. Build an error handling class
+
+Create a production-ready error handling class:
+
+```python
+class LLMErrorHandler:
+    def __init__(self):
+        """TODO: Initialize handler with configuration"""
+        self.stats = {}
+        pass
+    
+    def call(self, prompt: str, model: str = "gpt-4o"):
+        """TODO: Call with comprehensive error handling"""
+        # TODO: Implement retries
+        # TODO: Track statistics
+        # TODO: Log errors
+        # TODO: Return result or raise exception
+        pass
+    
+    def get_stats(self):
+        """TODO: Return error handling statistics"""
+        pass
+```
+
+#### 7. Implement circuit breaker pattern
+
+Add circuit breaker to prevent cascading failures:
+
+```python
+class CircuitBreaker:
+    def __init__(self, failure_threshold: int = 5):
+        """TODO: Initialize circuit breaker"""
+        pass
+    
+    def call(self, func):
+        """TODO: Execute function with circuit breaker"""
+        # TODO: Check circuit state
+        # TODO: Track failures
+        # TODO: Open circuit after threshold
+        # TODO: Attempt reset after timeout
+        pass
+```
+
+#### 8. Test error scenarios
+
+Create tests for different error scenarios:
+
+```python
+# Test 1: Rate limit handling
+# TODO: Simulate rate limit errors
+# TODO: Verify retries happen
+# TODO: Verify backoff increases
+
+# Test 2: Timeout handling
+# TODO: Simulate timeout errors
+# TODO: Verify retries with backoff
+
+# Test 3: Client error handling
+# TODO: Simulate 400 Bad Request
+# TODO: Verify it's NOT retried
+
+# Test 4: Fallback behavior
+# TODO: Simulate primary model failure
+# TODO: Verify fallback models are tried
+
+# Test 5: Circuit breaker
+# TODO: Simulate repeated failures
+# TODO: Verify circuit opens
+# TODO: Verify reset after timeout
+```
+
+#### 9. Reflection questions
+
+After completing the exercises, answer these questions:
+- What's the difference between retryable and non-retryable errors? How do you decide?
+- Why is exponential backoff better than fixed delays?
+- What's the purpose of jitter in backoff? What happens without it?
+- How do you determine the right number of retries for your use case?
+- When should you use model fallback vs retrying the same model?
+- What's a circuit breaker and when is it useful?
+- How do you monitor error rates in production?
+- What's the difference between graceful degradation and just retrying?
 
 ## Tools & Resources
 

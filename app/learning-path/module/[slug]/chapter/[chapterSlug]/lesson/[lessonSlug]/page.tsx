@@ -7,6 +7,7 @@ import {
   getLessonBySlug,
   getNextLesson,
   getPrevLesson,
+  getAllModules,
 } from "@/lib/content/loaders";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,11 @@ const mdxComponents = {
   h3: (props: any) => <h3 className="text-2xl font-semibold mt-4 mb-2" {...props} />,
   p: (props: any) => <p className="mb-4 leading-7" {...props} />,
   ul: (props: any) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
-  ol: (props: any) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
+  ol: (props: any) => <ol className="mb-4" {...props} />,
+  li: (props: any) => <li className="mb-2 leading-7" {...props} />,
+  blockquote: (props: any) => (
+    <blockquote className="bg-blue-50 dark:bg-blue-950/30 border-l-4 border-blue-500 dark:border-blue-400 pl-4 pr-4 py-3 my-6 italic text-gray-800 dark:text-gray-200 rounded-r" {...props} />
+  ),
   code: (props: any) => (
     <code className="bg-gray-100 dark:bg-muted text-gray-900 dark:text-foreground px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
   ),
@@ -65,10 +70,11 @@ export default async function LessonPage({ params }: PageProps) {
   const prevLesson = getPrevLesson(lesson);
   const nextLesson = getNextLesson(lesson);
   
-  // Find chapter for navigation
-  const allChapters = getChaptersByModule(mod.id);
-  const prevChapter = prevLesson ? allChapters.find(c => c.id === prevLesson.chapterId) : null;
-  const nextChapter = nextLesson ? allChapters.find(c => c.id === nextLesson.chapterId) : null;
+  // Find module and chapter for prev/next lessons (may be in different modules)
+  const prevModule = prevLesson ? getAllModules().find(m => m.id === prevLesson.moduleId) : null;
+  const nextModule = nextLesson ? getAllModules().find(m => m.id === nextLesson.moduleId) : null;
+  const prevChapter = prevLesson && prevModule ? getChaptersByModule(prevModule.id).find(c => c.id === prevLesson.chapterId) : null;
+  const nextChapter = nextLesson && nextModule ? getChaptersByModule(nextModule.id).find(c => c.id === nextLesson.chapterId) : null;
 
   return (
     <div className="container py-12">
@@ -105,7 +111,9 @@ export default async function LessonPage({ params }: PageProps) {
             nextLesson={nextLesson}
             module={mod}
             currentChapter={chapter}
+            prevModule={prevModule || mod}
             prevChapter={prevChapter || chapter}
+            nextModule={nextModule || mod}
             nextChapter={nextChapter || chapter}
           />
         </article>
