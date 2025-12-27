@@ -1,0 +1,90 @@
+---
+id: "lesson-1-introduction"
+slug: "introduction"
+title: "Introduction to AI Engineering"
+description: "What is AI engineering? Understand the role, responsibilities, and skills needed to build production AI systems."
+order: 1
+chapterId: "chapter-1-getting-started"
+moduleId: "module-1-fundamentals"
+prerequisites: []
+estimatedMinutes: 15
+tags: ["introduction", "ai-engineering", "overview"]
+difficulty: "beginner"
+---
+
+# Introduction to AI Engineering
+
+## Overview
+
+AI engineering is the discipline of building, deploying, and maintaining production-ready AI systems. Unlike traditional software engineering, AI engineering requires understanding probabilistic systems, managing model APIs, handling token costs, and building robust evaluation frameworks.
+
+## Main Content
+
+### What Makes AI Engineering Different?
+
+**Traditional Software Engineering:**
+- Deterministic behavior
+- Test with unit tests
+- Debug with logs
+- Predictable performance
+
+**AI Engineering:**
+- Probabilistic outputs
+- Requires evaluation frameworks
+- Debug with traces and evals
+- Variable performance and costs
+
+### Key Responsibilities of an AI Engineer
+
+1. **System Design**: Architect AI applications that integrate LLMs, vector databases, and other AI tools
+2. **Prompt Engineering**: Craft effective prompts that produce reliable outputs
+3. **Evaluation**: Build and run evaluation frameworks to ensure quality
+4. **Cost Management**: Optimize token usage and API costs
+5. **Reliability**: Handle failures, rate limits, and edge cases
+6. **Deployment**: Deploy AI systems to production with proper monitoring
+
+### The Modern AI Stack
+
+- **LLM Providers**: OpenAI, Anthropic, Google, etc.
+- **Vector Databases**: Pinecone, Weaviate, Qdrant, Chroma
+- **Frameworks**: LangChain, LlamaIndex, Haystack
+- **Evaluation Tools**: LangSmith, Phoenix, custom frameworks
+- **Observability**: Tracing, logging, monitoring for AI systems
+
+## Code Examples
+
+Here's a simple example of calling an LLM API:
+
+```python
+import openai
+
+def get_completion(prompt: str) -> str:
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+    )
+    return response.choices[0].message.content
+```
+
+## Common Mistakes
+
+1. **Ignoring token costs**: Not tracking token usage can lead to unexpected bills
+2. **No error handling**: LLM APIs can fail or rate limit; always handle errors gracefully
+3. **Hardcoding prompts**: Prompts should be versioned and testable
+4. **No evaluation**: Deploying without evaluation frameworks leads to quality issues
+
+## Exercise
+
+1. Sign up for an OpenAI or Anthropic API account
+2. Make your first API call to an LLM
+3. Count the tokens used in your request
+4. Calculate the cost of your API call
+
+## Tools & Resources
+
+- [OpenAI Platform](https://platform.openai.com/)
+- [Anthropic Console](https://console.anthropic.com/)
+- [tiktoken (Token Counter)](https://github.com/openai/tiktoken)
+- [OpenAI Pricing](https://openai.com/pricing)
+

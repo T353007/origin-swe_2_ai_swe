@@ -1,0 +1,125 @@
+---
+id: "lesson-2-prompt-engineering"
+slug: "prompt-engineering"
+title: "Prompt Engineering Fundamentals"
+description: "Learn the art and science of writing effective prompts that produce reliable, high-quality outputs."
+order: 2
+chapterId: "chapter-2-core-concepts"
+moduleId: "module-1-fundamentals"
+prerequisites: ["lesson-1-introduction"]
+estimatedMinutes: 30
+tags: ["prompt-engineering", "prompts", "best-practices"]
+difficulty: "intermediate"
+---
+
+# Prompt Engineering Fundamentals
+
+## Overview
+
+Prompt engineering is the practice of designing inputs (prompts) to get desired outputs from LLMs. Good prompts are clear, specific, and include examples when needed.
+
+## Main Content
+
+### Prompt Structure
+
+A good prompt typically includes:
+
+1. **Role/Context**: Set the AI's role
+2. **Task**: Clear description of what to do
+3. **Format**: Specify output format
+4. **Examples**: Few-shot examples (optional)
+5. **Constraints**: Rules and limitations
+
+### Basic Prompt Patterns
+
+**Simple Instruction:**
+```
+Translate the following text to French: "Hello, how are you?"
+```
+
+**With Context:**
+```
+You are a helpful coding assistant. Explain what this Python code does:
+[code here]
+```
+
+**Few-Shot Learning:**
+```
+Classify the sentiment of these reviews:
+Review: "Great product!" → Sentiment: Positive
+Review: "Not worth the money" → Sentiment: Negative
+Review: "It's okay" → Sentiment: Neutral
+Review: "Amazing service!" → Sentiment: ?
+```
+
+### Advanced Techniques
+
+**Chain-of-Thought:**
+```
+Solve this math problem step by step:
+Problem: If a train travels 60 mph for 2 hours, how far does it go?
+Solution: Let me think through this step by step...
+```
+
+**Output Formatting:**
+```
+Extract information from this text and return as JSON:
+Text: [text]
+Format: {"name": "...", "age": ..., "location": "..."}
+```
+
+## Code Examples
+
+Systematic prompt building:
+
+```python
+def build_prompt(role: str, task: str, context: str = "", examples: list = None, format: str = ""):
+    prompt = f"You are {role}.\n\n"
+    
+    if context:
+        prompt += f"Context: {context}\n\n"
+    
+    prompt += f"Task: {task}\n"
+    
+    if examples:
+        prompt += "\nExamples:\n"
+        for ex in examples:
+            prompt += f"{ex}\n"
+    
+    if format:
+        prompt += f"\nOutput format: {format}"
+    
+    return prompt
+
+# Usage
+prompt = build_prompt(
+    role="an expert Python developer",
+    task="Review this code for bugs",
+    context="Focus on security vulnerabilities",
+    format="Return a JSON array of issues"
+)
+```
+
+## Common Mistakes
+
+1. **Vague instructions**: "Fix this code" vs "Review this code and identify syntax errors"
+2. **Too much context**: Including irrelevant information confuses the model
+3. **Inconsistent formatting**: Varying formats make parsing difficult
+4. **No examples for complex tasks**: Models need examples for nuanced tasks
+5. **Ignoring token limits**: Very long prompts cost more and may exceed limits
+
+## Exercise
+
+1. Write prompts for: code review, summarization, data extraction
+2. Compare outputs with and without few-shot examples
+3. Experiment with different prompt structures for the same task
+4. Measure token usage for different prompt lengths
+5. Create a prompt template system for reusable patterns
+
+## Tools & Resources
+
+- [OpenAI Prompt Engineering Guide](https://platform.openai.com/docs/guides/prompt-engineering)
+- [Anthropic Prompt Engineering](https://docs.anthropic.com/claude/docs/prompt-engineering)
+- [Prompt Engineering Patterns](https://www.promptingguide.ai/)
+- [LangChain Prompt Templates](https://python.langchain.com/docs/modules/model_io/prompts/)
+

@@ -1,0 +1,96 @@
+---
+id: "lesson-2-ai-stack"
+slug: "ai-stack"
+title: "The Modern AI Stack"
+description: "Understand the tools and technologies that make up the modern AI engineering stack."
+order: 2
+chapterId: "chapter-1-getting-started"
+moduleId: "module-1-fundamentals"
+prerequisites: ["lesson-1-introduction"]
+estimatedMinutes: 20
+tags: ["ai-stack", "tools", "overview"]
+difficulty: "beginner"
+---
+
+# The Modern AI Stack
+
+## Overview
+
+The AI engineering stack consists of LLM providers, vector databases, frameworks, evaluation tools, and observability platforms. Understanding this stack helps you choose the right tools for your projects.
+
+## Main Content
+
+### Core Components
+
+#### 1. LLM Providers
+- **OpenAI**: GPT-4, GPT-3.5, embeddings
+- **Anthropic**: Claude models with longer context windows
+- **Google**: Gemini, PaLM
+- **Open Source**: Llama, Mistral, etc.
+
+#### 2. Vector Databases
+Store and search embeddings efficiently:
+- Pinecone (managed)
+- Weaviate (self-hosted or managed)
+- Qdrant (self-hosted)
+- Chroma (lightweight, Python-first)
+
+#### 3. Frameworks & Orchestration
+- **LangChain**: Popular framework for building LLM applications
+- **LlamaIndex**: Focus on data ingestion and retrieval
+- **Haystack**: Open-source NLP framework
+- **Semantic Kernel**: Microsoft's framework
+
+#### 4. Evaluation & Testing
+- LangSmith: Evaluation and debugging
+- Phoenix: Open-source observability
+- Custom eval frameworks
+
+#### 5. Observability & Monitoring
+- Tracing: LangSmith, OpenTelemetry
+- Logging: Structured logging for prompts/responses
+- Metrics: Latency, cost, quality scores
+
+## Code Examples
+
+Basic stack integration example:
+
+```python
+from langchain.llms import OpenAI
+from langchain.vectorstores import Pinecone
+from langchain.embeddings import OpenAIEmbeddings
+
+# Initialize components
+llm = OpenAI(temperature=0)
+embeddings = OpenAIEmbeddings()
+vectorstore = Pinecone.from_existing_index("my-index", embeddings)
+
+# Simple RAG chain
+def answer_question(question: str) -> str:
+    docs = vectorstore.similarity_search(question, k=3)
+    context = "\n".join([doc.page_content for doc in docs])
+    prompt = f"Context: {context}\n\nQuestion: {question}\n\nAnswer:"
+    return llm(prompt)
+```
+
+## Common Mistakes
+
+1. **Tool overload**: Don't use every framework; choose based on needs
+2. **Vendor lock-in**: Consider abstraction layers for LLM providers
+3. **Ignoring costs**: Vector DBs and LLM APIs can get expensive
+4. **No observability**: Deploying without tracing makes debugging impossible
+
+## Exercise
+
+1. Research three LLM providers and compare their pricing
+2. Set up a free vector database (Chroma or Pinecone free tier)
+3. Install LangChain and make a simple LLM call
+4. Log your first API request with metadata
+
+## Tools & Resources
+
+- [LangChain Documentation](https://python.langchain.com/)
+- [Pinecone Documentation](https://www.pinecone.io/learn/)
+- [LangSmith](https://www.langchain.com/langsmith)
+- [AI Tool Comparison Guide](/toolbox)
+

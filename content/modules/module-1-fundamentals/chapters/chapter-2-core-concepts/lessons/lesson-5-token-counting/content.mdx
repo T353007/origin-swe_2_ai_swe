@@ -1,0 +1,111 @@
+---
+id: "lesson-5-token-counting"
+slug: "token-counting"
+title: "Token Counting and Context Windows"
+description: "Count tokens accurately, manage context windows, and optimize token usage for cost and performance."
+order: 5
+chapterId: "chapter-2-core-concepts"
+moduleId: "module-1-fundamentals"
+prerequisites: ["lesson-4-tokens-costs"]
+estimatedMinutes: 20
+tags: ["tokens", "context-window", "optimization"]
+difficulty: "intermediate"
+---
+
+# Token Counting and Context Windows
+
+## Overview
+
+Every model has a maximum context window (total input + output tokens). Managing context effectively is crucial for working with long documents and conversations.
+
+## Main Content
+
+### Context Windows
+
+Different models have different limits:
+- GPT-3.5-turbo: 16K tokens
+- GPT-4: 8K tokens (32K available)
+- GPT-4-turbo: 128K tokens
+- Claude 3: 200K tokens
+
+### Token Counting Before Sending
+
+```python
+import tiktoken
+
+def count_tokens(text: str, model: str = "gpt-4") -> int:
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))
+
+def truncate_to_fit(text: str, max_tokens: int, model: str = "gpt-4") -> str:
+    encoding = tiktoken.encoding_for_model(model)
+    tokens = encoding.encode(text)
+    
+    if len(tokens) <= max_tokens:
+        return text
+    
+    truncated = tokens[:max_tokens]
+    return encoding.decode(truncated)
+```
+
+### Managing Long Contexts
+
+Strategies:
+1. **Truncation**: Cut to fit
+2. **Summarization**: Summarize old content
+3. **Chunking**: Split into smaller pieces
+4. **Sliding window**: Keep recent + summary
+
+## Code Examples
+
+Context window management:
+
+```python
+def prepare_messages(
+    system_prompt: str,
+    conversation_history: list,
+    max_context_tokens: int = 8000,
+    reserved_for_response: int = 500
+) -> list:
+    """Prepare messages that fit within context window."""
+    
+    available_tokens = max_context_tokens - reserved_for_response
+    system_tokens = count_tokens(system_prompt)
+    available_for_history = available_tokens - system_tokens
+    
+    messages = [{"role": "system", "content": system_prompt}]
+    total_tokens = system_tokens
+    
+    # Add messages from most recent backwards
+    for msg in reversed(conversation_history):
+        msg_tokens = count_tokens(msg["content"])
+        if total_tokens + msg_tokens > available_for_history:
+            break
+        messages.insert(1, msg)
+        total_tokens += msg_tokens
+    
+    return messages
+```
+
+## Common Mistakes
+
+1. **Not counting tokens**: Exceeds context window
+2. **Ignoring system prompts**: Counts against limit
+3. **No buffer for responses**: Leaves no room for output
+4. **Inefficient truncation**: Cuts important information
+5. **Not handling edge cases**: Empty or very long inputs
+
+## Exercise
+
+1. Implement accurate token counting
+2. Build a context window manager
+3. Implement smart truncation that preserves important content
+4. Create a conversation history manager that fits within limits
+5. Test with various context sizes
+
+## Tools & Resources
+
+- [tiktoken](https://github.com/openai/tiktoken)
+- [Context Window Limits](https://platform.openai.com/docs/models)
+- [Token Counting Best Practices](https://platform.openai.com/docs/guides/text-generation/managing-tokens)
+

@@ -1,0 +1,8 @@
+{
+  "id": "chapter-1-monitoring",
+  "slug": "monitoring",
+  "title": "Monitoring and Observability",
+  "description": "Monitoring and Observability fundamentals",
+  "order": 1,
+  "moduleId": "module-7-monitoring"
+}

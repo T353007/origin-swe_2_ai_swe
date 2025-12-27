@@ -1,0 +1,74 @@
+---
+id: "lesson-1-how-llms-work"
+slug: "how-llms-work"
+title: "How LLMs Work (High-Level)"
+description: "Understand the fundamental architecture and behavior of large language models at a high level."
+order: 1
+chapterId: "chapter-1-llm-basics"
+moduleId: "module-2-llms"
+prerequisites: []
+estimatedMinutes: 25
+tags: ["llms", "architecture", "fundamentals"]
+difficulty: "beginner"
+---
+
+# How LLMs Work (High-Level)
+
+## Overview
+
+Understanding how LLMs work at a high level helps you use them effectively. You don't need deep ML knowledge, but understanding the basics improves your engineering decisions.
+
+## Main Content
+
+### What Are LLMs?
+
+Large Language Models are neural networks trained on massive text corpora to predict the next token in a sequence. They learn patterns, grammar, facts, and reasoning from training data.
+
+### Key Concepts
+
+**Tokens**: LLMs process text as tokens (words or sub-words)
+
+**Context Window**: Maximum tokens the model can consider at once
+
+**Attention Mechanism**: Allows models to focus on relevant parts of input
+
+**Temperature**: Controls randomness in output (covered in Module 1)
+
+**Probabilistic Outputs**: Same input can produce different outputs
+
+## Code Examples
+
+Understanding tokenization:
+
+```python
+import tiktoken
+
+encoding = tiktoken.encoding_for_model("gpt-4")
+text = "Hello, world!"
+tokens = encoding.encode(text)
+
+print(f"Text: {text}")
+print(f"Tokens: {tokens}")
+print(f"Decoded: {encoding.decode(tokens)}")
+```
+
+## Common Mistakes
+
+1. **Expecting deterministic outputs**: LLMs are probabilistic
+2. **Ignoring context limits**: Models have token limits
+3. **Not understanding tokenization**: Leads to unexpected costs
+4. **Assuming factual accuracy**: LLMs can hallucinate
+
+## Exercise
+
+1. Tokenize various text samples and observe tokenization patterns
+2. Experiment with different models and compare outputs
+3. Test context window limits with long inputs
+4. Observe how same prompts produce different outputs
+
+## Tools & Resources
+
+- [OpenAI Models Overview](https://platform.openai.com/docs/models)
+- [How GPT Works](https://jalammar.github.io/illustrated-gpt2/)
+- [Transformer Architecture](https://en.wikipedia.org/wiki/Transformer_(machine_learning_model))
+

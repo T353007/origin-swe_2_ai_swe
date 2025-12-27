@@ -1,0 +1,138 @@
+---
+id: "lesson-5-api-keys-security"
+slug: "api-keys-security"
+title: "API Keys and Security Best Practices"
+description: "Secure API key management, prevent key leaks, and implement proper authentication patterns."
+order: 5
+chapterId: "chapter-1-getting-started"
+moduleId: "module-1-fundamentals"
+prerequisites: ["lesson-3-dev-environment"]
+estimatedMinutes: 20
+tags: ["security", "api-keys", "best-practices"]
+difficulty: "beginner"
+---
+
+# API Keys and Security Best Practices
+
+## Overview
+
+API keys are sensitive credentials that grant access to paid AI services. Proper key management is critical to prevent unauthorized access and unexpected charges.
+
+## Main Content
+
+### API Key Security Principles
+
+1. **Never commit keys to version control**
+2. **Use environment variables**
+3. **Rotate keys regularly**
+4. **Use least-privilege access**
+5. **Monitor key usage**
+
+### Environment Variables
+
+```python
+# ❌ BAD - Hardcoded
+api_key = "sk-proj-abc123..."
+
+# ✅ GOOD - Environment variable
+import os
+api_key = os.getenv("OPENAI_API_KEY")
+```
+
+### Secrets Management
+
+For production, use proper secrets management:
+
+**Local Development:**
+- `.env` files with `.gitignore`
+
+**Cloud/Production:**
+- AWS Secrets Manager
+- Google Secret Manager
+- Azure Key Vault
+- HashiCorp Vault
+- Vercel Environment Variables
+
+### Key Rotation
+
+Regularly rotate API keys:
+
+1. Generate new key in provider dashboard
+2. Update environment variables
+3. Deploy with new key
+4. Revoke old key after verification
+
+### Rate Limiting and Quotas
+
+Set spending limits:
+
+```python
+# OpenAI allows setting soft/hard limits in dashboard
+# Monitor usage programmatically:
+
+from openai import OpenAI
+client = OpenAI()
+
+# Check usage
+usage = client.usage.retrieve()
+print(f"Current usage: ${usage.total_cost}")
+```
+
+## Code Examples
+
+Secure key loading with validation:
+
+```python
+import os
+from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def get_api_key(key_name: str, required: bool = True) -> Optional[str]:
+    """Safely retrieve API key from environment."""
+    key = os.getenv(key_name)
+    
+    if required and not key:
+        raise ValueError(f"{key_name} is required but not set")
+    
+    if key and key.startswith("sk-"):
+        # Basic validation - OpenAI keys start with sk-
+        return key
+    
+    return key
+
+# Usage
+try:
+    openai_key = get_api_key("OPENAI_API_KEY")
+    anthropic_key = get_api_key("ANTHROPIC_API_KEY", required=False)
+except ValueError as e:
+    print(f"Configuration error: {e}")
+    exit(1)
+```
+
+## Common Mistakes
+
+1. **Committing keys to git**: Use `.gitignore` and pre-commit hooks
+2. **Sharing keys in screenshots**: Be careful with demos
+3. **Using same key everywhere**: Separate keys for dev/staging/prod
+4. **No spending limits**: Set limits in provider dashboard
+5. **Logging keys**: Don't log full API keys
+6. **Client-side exposure**: Never use API keys in frontend code
+
+## Exercise
+
+1. Set up `.env` file with API keys
+2. Verify `.env` is in `.gitignore`
+3. Write a function that safely loads API keys
+4. Set up spending alerts in your API provider dashboard
+5. Create a script that validates all required environment variables on startup
+
+## Tools & Resources
+
+- [python-dotenv](https://github.com/theskumar/python-dotenv)
+- [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/)
+- [12-Factor App: Config](https://12factor.net/config)
+- [GitGuardian](https://www.gitguardian.com/) - Detect secrets in git
+- [TruffleHog](https://github.com/trufflesecurity/trufflehog) - Secret scanning
+

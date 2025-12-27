@@ -1,0 +1,8 @@
+{
+  "id": "chapter-1-production",
+  "slug": "production",
+  "title": "Security and Production Best Practices",
+  "description": "Security and Production Best Practices fundamentals",
+  "order": 1,
+  "moduleId": "module-8-production"
+}

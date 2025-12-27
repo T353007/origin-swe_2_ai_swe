@@ -1,0 +1,16 @@
+{
+  "id": "module-7-monitoring",
+  "slug": "monitoring",
+  "title": "Monitoring and Observability",
+  "description": "Monitor AI systems, track performance, debug issues, and ensure reliability.",
+  "order": 7,
+  "estimatedHours": 11,
+  "prerequisites": ["module-6-deployment"],
+  "learningObjectives": [
+    "Monitor AI system performance",
+    "Track costs and latency",
+    "Debug production issues",
+    "Use observability tools",
+    "Build monitoring dashboards"
+  ]
+}

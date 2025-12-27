@@ -1,0 +1,8 @@
+{
+  "id": "chapter-2-advanced-usage",
+  "slug": "advanced",
+  "title": "Advanced LLM Usage",
+  "description": "Advanced LLM Usage chapter",
+  "order": 2,
+  "moduleId": "module-2-llms"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "chapter-1-llm-basics",
+  "slug": "basics",
+  "title": "LLM Basics",
+  "description": "Understanding how LLMs work, choosing models, and basic usage patterns.",
+  "order": 1,
+  "moduleId": "module-2-llms"
+}
+

@@ -1,0 +1,9 @@
+{
+  "id": "chapter-2-core-concepts",
+  "slug": "core-concepts",
+  "title": "Core Concepts",
+  "description": "Deep dive into embeddings, prompt engineering, model parameters, and API management.",
+  "order": 2,
+  "moduleId": "module-1-fundamentals"
+}
+

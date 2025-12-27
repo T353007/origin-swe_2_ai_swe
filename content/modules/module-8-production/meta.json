@@ -1,0 +1,16 @@
+{
+  "id": "module-8-production",
+  "slug": "production",
+  "title": "Security and Production Best Practices",
+  "description": "Secure AI applications, handle errors gracefully, and follow production best practices.",
+  "order": 8,
+  "estimatedHours": 9,
+  "prerequisites": ["module-7-monitoring"],
+  "learningObjectives": [
+    "Secure AI applications",
+    "Prevent prompt injection",
+    "Handle errors gracefully",
+    "Implement rate limiting",
+    "Follow production best practices"
+  ]
+}

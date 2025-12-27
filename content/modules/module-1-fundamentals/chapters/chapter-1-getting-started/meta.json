@@ -1,0 +1,9 @@
+{
+  "id": "chapter-1-getting-started",
+  "slug": "getting-started",
+  "title": "Getting Started",
+  "description": "Introduction to AI engineering, setting up your environment, and understanding the basics of working with AI APIs.",
+  "order": 1,
+  "moduleId": "module-1-fundamentals"
+}
+

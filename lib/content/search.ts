@@ -1,0 +1,68 @@
+import { getAllModules, getAllLessons } from "./loaders";
+import { getModuleBySlug, getChaptersByModule } from "./loaders";
+import { SearchResult } from "@/types/content";
+import MiniSearch from "minisearch";
+
+let searchIndex: MiniSearch<SearchResult> | null = null;
+
+export function buildSearchIndex(): MiniSearch<SearchResult> {
+  const results: SearchResult[] = [];
+
+  // Add modules
+  const modules = getAllModules();
+  for (const module of modules) {
+    results.push({
+      type: "module",
+      id: module.id,
+      title: module.title,
+      description: module.description,
+      url: `/learning-path/module/${module.slug}`,
+      moduleId: module.id,
+    });
+  }
+
+  // Add lessons
+  const lessons = getAllLessons();
+  for (const lesson of lessons) {
+    const module = modules.find((m) => m.id === lesson.moduleId);
+    if (!module) continue;
+
+    const chapters = getChaptersByModule(module.id);
+    const chapter = chapters.find((c) => c.id === lesson.chapterId);
+    if (!chapter) continue;
+
+    results.push({
+      type: "lesson",
+      id: lesson.id,
+      title: lesson.title,
+      description: lesson.description,
+      url: `/learning-path/module/${module.slug}/chapter/${chapter.slug}/lesson/${lesson.slug}`,
+      moduleId: module.id,
+      chapterId: chapter.id,
+    });
+  }
+
+  const index = new MiniSearch<SearchResult>({
+    fields: ["title", "description"],
+    storeFields: ["type", "id", "title", "description", "url", "moduleId", "chapterId"],
+  });
+
+  index.addAll(results);
+  return index;
+}
+
+export function getSearchIndex(): MiniSearch<SearchResult> {
+  if (!searchIndex) {
+    searchIndex = buildSearchIndex();
+  }
+  return searchIndex;
+}
+
+export function search(query: string): SearchResult[] {
+  const index = getSearchIndex();
+  if (!query.trim()) {
+    return [];
+  }
+  return index.search(query, { fuzzy: 0.2, prefix: true });
+}
+

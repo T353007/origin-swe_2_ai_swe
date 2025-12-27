@@ -1,0 +1,87 @@
+---
+id: "lesson-2-model-selection"
+slug: "model-selection"
+title: "Choosing the Right Model"
+description: "Select appropriate models based on task requirements, cost, latency, and quality needs."
+order: 2
+chapterId: "chapter-1-llm-basics"
+moduleId: "module-2-llms"
+prerequisites: ["lesson-1-how-llms-work"]
+estimatedMinutes: 20
+tags: ["model-selection", "comparison", "decision-making"]
+difficulty: "beginner"
+---
+
+# Choosing the Right Model
+
+## Overview
+
+Model selection is a critical engineering decision. Balance cost, quality, latency, and capabilities for your use case.
+
+## Main Content
+
+### Model Comparison Factors
+
+**Capability**: Task complexity the model can handle
+- GPT-4: Highest capability, best for complex reasoning
+- GPT-3.5: Good for most tasks, 10x cheaper
+- GPT-3.5-turbo: Fast, efficient for simple tasks
+
+**Cost**: Token pricing varies significantly
+- GPT-4: ~$0.03/$0.06 per 1K tokens (in/out)
+- GPT-3.5-turbo: ~$0.0015/$0.002 per 1K tokens
+
+**Latency**: Response time
+- Turbo models: Faster
+- Base models: Slower but more capable
+
+**Context Window**: Maximum input size
+- GPT-4-turbo: 128K tokens
+- GPT-3.5-turbo: 16K tokens
+
+### Selection Guidelines
+
+- **Simple tasks**: GPT-3.5-turbo (cost-effective)
+- **Complex reasoning**: GPT-4 (quality matters)
+- **High volume**: GPT-3.5-turbo (cost)
+- **Long context**: GPT-4-turbo or Claude
+- **Fast responses**: Turbo models
+
+## Code Examples
+
+Model selection helper:
+
+```python
+def select_model(task_complexity: str, cost_sensitive: bool, needs_long_context: bool):
+    """Select model based on requirements."""
+    if needs_long_context:
+        return "gpt-4-turbo-preview"
+    
+    if task_complexity == "high":
+        return "gpt-4"
+    elif task_complexity == "medium":
+        return "gpt-3.5-turbo"
+    else:
+        return "gpt-3.5-turbo"  # Default for simple tasks
+```
+
+## Common Mistakes
+
+1. **Always using GPT-4**: Overkill for simple tasks
+2. **Ignoring costs**: GPT-4 is 10x more expensive
+3. **Not testing alternatives**: Other models may work better
+4. **Forgetting latency**: Turbo models are faster
+
+## Exercise
+
+1. Compare GPT-3.5 and GPT-4 on the same tasks
+2. Measure latency differences
+3. Calculate cost differences for 1000 requests
+4. Test different models for your specific use cases
+
+## Tools & Resources
+
+- [OpenAI Model Comparison](https://platform.openai.com/docs/models)
+- [Model Pricing](https://openai.com/pricing)
+- [Anthropic Claude Models](https://www.anthropic.com/index/claude-3-family)
+

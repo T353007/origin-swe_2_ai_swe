@@ -1,0 +1,16 @@
+{
+  "id": "module-6-deployment",
+  "slug": "deployment",
+  "title": "Deployment and Infrastructure",
+  "description": "Deploy AI applications to production with proper infrastructure, scaling, and DevOps practices.",
+  "order": 6,
+  "estimatedHours": 13,
+  "prerequisites": ["module-4-agents"],
+  "learningObjectives": [
+    "Deploy AI applications to production",
+    "Set up proper infrastructure",
+    "Implement scaling strategies",
+    "Use CI/CD for AI systems",
+    "Handle production challenges"
+  ]
+}

@@ -1,0 +1,96 @@
+---
+id: "lesson-3-model-parameters"
+slug: "model-parameters"
+title: "Model Parameters and Temperature"
+description: "Understand temperature, top_p, max_tokens, and other model parameters that control LLM behavior."
+order: 3
+chapterId: "chapter-2-core-concepts"
+moduleId: "module-1-fundamentals"
+prerequisites: ["lesson-2-prompt-engineering"]
+estimatedMinutes: 20
+tags: ["parameters", "temperature", "configuration"]
+difficulty: "intermediate"
+---
+
+# Model Parameters and Temperature
+
+## Overview
+
+Model parameters control how LLMs generate text. Understanding temperature, top_p, and max_tokens is crucial for getting consistent, high-quality outputs.
+
+## Main Content
+
+### Key Parameters
+
+**Temperature** (0.0 - 2.0):
+- Controls randomness/creativity
+- Lower (0.0-0.3): More deterministic, focused
+- Higher (0.7-2.0): More creative, varied
+- Default: 1.0
+
+**Top_p** (Nucleus Sampling) (0.0 - 1.0):
+- Controls diversity via probability threshold
+- Lower: More focused vocabulary
+- Higher: More diverse vocabulary
+- Often used instead of temperature
+
+**Max Tokens**:
+- Maximum tokens in response
+- Prevents runaway generation
+- Set based on expected output length
+
+**Stop Sequences**:
+- Text that stops generation
+- Useful for structured outputs
+
+## Code Examples
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Low temperature - deterministic
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "What is 2+2?"}],
+    temperature=0.0,  # Always same answer
+    max_tokens=50
+)
+
+# High temperature - creative
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Write a creative story"}],
+    temperature=0.9,  # More varied
+    max_tokens=200
+)
+
+# With stop sequence
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "List items:"}],
+    stop=["\n\n"],  # Stop at double newline
+    max_tokens=100
+)
+```
+
+## Common Mistakes
+
+1. **Temperature too high for factual tasks**: Use low temp for facts
+2. **No max_tokens**: Can generate very long outputs
+3. **Not using stop sequences**: Hard to parse structured outputs
+4. **Same params for all tasks**: Adjust per use case
+
+## Exercise
+
+1. Generate text with temperature 0.0, 0.7, and 1.5 - compare outputs
+2. Set max_tokens to limit response length
+3. Use stop sequences to control output format
+4. Experiment with top_p vs temperature
+
+## Tools & Resources
+
+- [OpenAI API Parameters](https://platform.openai.com/docs/api-reference/chat/create)
+- [Temperature and Sampling Guide](https://platform.openai.com/docs/guides/text-generation)
+

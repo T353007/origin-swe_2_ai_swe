@@ -1,0 +1,122 @@
+---
+id: "lesson-4-rate-limits"
+slug: "rate-limits"
+title: "Rate Limits and Error Handling"
+description: "Handle API rate limits, errors, and implement robust retry logic for production AI applications."
+order: 4
+chapterId: "chapter-2-core-concepts"
+moduleId: "module-1-fundamentals"
+prerequisites: ["lesson-5-api-keys-security"]
+estimatedMinutes: 25
+tags: ["rate-limits", "error-handling", "retries"]
+difficulty: "intermediate"
+---
+
+# Rate Limits and Error Handling
+
+## Overview
+
+API providers enforce rate limits to manage load. Production applications must handle rate limits, errors, and implement proper retry logic.
+
+## Main Content
+
+### Understanding Rate Limits
+
+Common rate limit types:
+- **Requests per minute (RPM)**: Number of requests
+- **Tokens per minute (TPM)**: Token throughput
+- **Requests per day (RPD)**: Daily quota
+
+### Error Handling
+
+```python
+from openai import OpenAI, RateLimitError, APIError
+import time
+from typing import Optional
+
+client = OpenAI()
+
+def call_with_retry(
+    prompt: str, 
+    max_retries: int = 3,
+    backoff_factor: float = 2.0
+) -> Optional[str]:
+    """Call API with exponential backoff retry logic."""
+    
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.choices[0].message.content
+            
+        except RateLimitError as e:
+            if attempt < max_retries - 1:
+                wait_time = backoff_factor ** attempt
+                print(f"Rate limited. Waiting {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                raise
+                
+        except APIError as e:
+            print(f"API error: {e}")
+            raise
+            
+    return None
+```
+
+## Code Examples
+
+Robust error handling with rate limit detection:
+
+```python
+import time
+from openai import OpenAI, RateLimitError, APIError
+
+def safe_api_call(func, *args, **kwargs):
+    """Wrapper for API calls with retry logic."""
+    max_retries = 3
+    backoff = 1
+    
+    for attempt in range(max_retries):
+        try:
+            return func(*args, **kwargs)
+        except RateLimitError as e:
+            if attempt < max_retries - 1:
+                wait = backoff * (2 ** attempt)
+                time.sleep(wait)
+            else:
+                raise
+        except APIError as e:
+            if e.status_code >= 500:  # Server errors - retry
+                if attempt < max_retries - 1:
+                    time.sleep(backoff * (2 ** attempt))
+                else:
+                    raise
+            else:  # Client errors - don't retry
+                raise
+```
+
+## Common Mistakes
+
+1. **No retry logic**: Fails on first rate limit
+2. **Fixed delays**: Doesn't scale with backoff
+3. **Infinite retries**: Can hang forever
+4. **Not distinguishing errors**: Client errors shouldn't retry
+5. **No logging**: Hard to debug rate limit issues
+
+## Exercise
+
+1. Implement exponential backoff retry logic
+2. Handle different error types appropriately
+3. Add logging for rate limit events
+4. Test with intentional rate limiting
+5. Implement a request queue for high-volume scenarios
+
+## Tools & Resources
+
+- [OpenAI Rate Limits](https://platform.openai.com/docs/guides/rate-limits)
+- [Exponential Backoff](https://en.wikipedia.org/wiki/Exponential_backoff)
+- [Tenacity](https://github.com/jd/tenacity) - Python retry library
+

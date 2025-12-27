@@ -1,0 +1,130 @@
+---
+id: "lesson-3-dev-environment"
+slug: "dev-environment"
+title: "Setting Up Your Development Environment"
+description: "Configure your development environment with Python, API keys, and essential AI engineering tools."
+order: 3
+chapterId: "chapter-1-getting-started"
+moduleId: "module-1-fundamentals"
+prerequisites: ["lesson-1-introduction"]
+estimatedMinutes: 25
+tags: ["setup", "environment", "tools"]
+difficulty: "beginner"
+---
+
+# Setting Up Your Development Environment
+
+## Overview
+
+A proper development environment is crucial for AI engineering. This lesson covers setting up Python, virtual environments, API keys, and essential tools.
+
+## Main Content
+
+### Python Setup
+
+Use Python 3.9+ for best compatibility with AI libraries:
+
+```bash
+# Check Python version
+python --version
+
+# Create virtual environment
+python -m venv venv
+
+# Activate (macOS/Linux)
+source venv/bin/activate
+
+# Activate (Windows)
+venv\Scripts\activate
+```
+
+### Essential Packages
+
+```bash
+pip install openai anthropic langchain langsmith
+pip install tiktoken  # Token counting
+pip install python-dotenv  # Environment variables
+```
+
+### API Key Management
+
+**Never commit API keys to git!**
+
+1. Create a `.env` file:
+```bash
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+2. Use `python-dotenv`:
+```python
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY")
+```
+
+3. Add `.env` to `.gitignore`:
+```
+.env
+.env.local
+*.env
+```
+
+### Recommended Tools
+
+- **IDE**: VS Code with Python extension
+- **Version Control**: Git
+- **Package Manager**: pip or poetry
+- **Testing**: pytest
+- **Linting**: black, ruff, mypy
+
+## Code Examples
+
+Complete setup example:
+
+```python
+# requirements.txt
+openai>=1.0.0
+python-dotenv>=1.0.0
+tiktoken>=0.5.0
+
+# main.py
+import os
+from dotenv import load_dotenv
+import openai
+
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# Test connection
+response = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)
+```
+
+## Common Mistakes
+
+1. **Committing API keys**: Always use `.env` files and `.gitignore`
+2. **Not using virtual environments**: Leads to dependency conflicts
+3. **Outdated packages**: AI libraries change rapidly; keep updated
+4. **Hardcoding secrets**: Use environment variables or secrets management
+
+## Exercise
+
+1. Set up a Python virtual environment
+2. Install OpenAI SDK and test a simple API call
+3. Create a `.env` file with your API key
+4. Write a simple script that uses the API key from environment variables
+5. Verify `.env` is in your `.gitignore`
+
+## Tools & Resources
+
+- [Python.org](https://www.python.org/)
+- [python-dotenv](https://github.com/theskumar/python-dotenv)
+- [OpenAI Python SDK](https://github.com/openai/openai-python)
+- [12-Factor App: Config](https://12factor.net/config)
+

@@ -1,0 +1,18 @@
+{
+  "id": "module-1-fundamentals",
+  "slug": "fundamentals",
+  "title": "Fundamentals of AI Engineering",
+  "description": "Learn the foundational concepts, tools, and practices for building AI applications. Understand tokens, API costs, embeddings, and prompt engineering basics.",
+  "order": 1,
+  "estimatedHours": 10,
+  "prerequisites": [],
+  "learningObjectives": [
+    "Understand the modern AI stack and development environment",
+    "Master token counting and API cost management",
+    "Learn prompt engineering fundamentals",
+    "Understand embeddings and their applications",
+    "Set up secure API key management",
+    "Handle rate limits and errors effectively"
+  ]
+}
+

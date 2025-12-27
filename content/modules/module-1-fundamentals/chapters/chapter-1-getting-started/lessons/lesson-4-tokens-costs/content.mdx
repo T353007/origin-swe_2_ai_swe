@@ -1,0 +1,132 @@
+---
+id: "lesson-4-tokens-costs"
+slug: "tokens-costs"
+title: "Understanding Tokens and API Costs"
+description: "Learn how tokens work, how to count them, and how to manage API costs effectively."
+order: 4
+chapterId: "chapter-1-getting-started"
+moduleId: "module-1-fundamentals"
+prerequisites: ["lesson-1-introduction"]
+estimatedMinutes: 30
+tags: ["tokens", "costs", "pricing"]
+difficulty: "beginner"
+---
+
+# Understanding Tokens and API Costs
+
+## Overview
+
+Tokens are the currency of LLM APIs. Understanding token counting and costs is essential for building cost-effective AI applications and avoiding unexpected bills.
+
+## Main Content
+
+### What Are Tokens?
+
+Tokens are pieces of text that models process. Roughly:
+- 1 token ≈ 4 characters (English)
+- 1 token ≈ 0.75 words
+- 1000 tokens ≈ 750 words
+
+Tokens include:
+- **Input tokens**: Your prompt
+- **Output tokens**: Model's response
+
+### Token Counting
+
+Different models use different tokenizers:
+
+```python
+import tiktoken
+
+# GPT-3.5 and GPT-4 use cl100k_base
+encoding = tiktoken.encoding_for_model("gpt-4")
+
+text = "Hello, how are you?"
+tokens = encoding.encode(text)
+token_count = len(tokens)
+print(f"Token count: {token_count}")
+```
+
+### API Pricing Models
+
+Most providers charge per token:
+- **Input tokens**: Usually cheaper (e.g., $0.03/1K for GPT-4)
+- **Output tokens**: Usually more expensive (e.g., $0.06/1K for GPT-4)
+
+### Cost Calculation
+
+```python
+def calculate_cost(input_tokens: int, output_tokens: int) -> float:
+    input_cost_per_1k = 0.03  # $0.03 per 1K input tokens
+    output_cost_per_1k = 0.06  # $0.06 per 1K output tokens
+    
+    input_cost = (input_tokens / 1000) * input_cost_per_1k
+    output_cost = (output_tokens / 1000) * output_cost_per_1k
+    
+    return input_cost + output_cost
+```
+
+### Cost Optimization Strategies
+
+1. **Use cheaper models** for simple tasks (GPT-3.5 vs GPT-4)
+2. **Shorter prompts**: Remove unnecessary context
+3. **Set max_tokens**: Limit output length
+4. **Cache responses**: Don't regenerate identical prompts
+5. **Batch requests**: Process multiple items efficiently
+
+## Code Examples
+
+Complete token counting and cost tracking:
+
+```python
+import tiktoken
+from openai import OpenAI
+
+client = OpenAI()
+
+def count_tokens(text: str, model: str = "gpt-4") -> int:
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))
+
+def get_completion_with_tracking(prompt: str, model: str = "gpt-4"):
+    input_tokens = count_tokens(prompt, model)
+    
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    
+    output_text = response.choices[0].message.content
+    output_tokens = count_tokens(output_text, model)
+    
+    total_tokens = input_tokens + output_tokens
+    print(f"Input tokens: {input_tokens}")
+    print(f"Output tokens: {output_tokens}")
+    print(f"Total tokens: {total_tokens}")
+    
+    return output_text
+```
+
+## Common Mistakes
+
+1. **Not tracking token usage**: Leads to surprise bills
+2. **Overestimating context needs**: Shorter prompts save money
+3. **Not setting max_tokens**: Unbounded outputs can be expensive
+4. **Ignoring model differences**: GPT-3.5 is 10x cheaper than GPT-4
+5. **Token blowups**: Large context windows in loops multiply costs
+
+## Exercise
+
+1. Write a function to count tokens in a text string
+2. Make an API call and track input/output tokens
+3. Calculate the cost of 100 API calls with your prompt
+4. Implement a simple caching mechanism to avoid duplicate API calls
+5. Compare costs between GPT-3.5 and GPT-4 for the same task
+
+## Tools & Resources
+
+- [tiktoken](https://github.com/openai/tiktoken)
+- [OpenAI Tokenizer](https://platform.openai.com/tokenizer)
+- [OpenAI Pricing](https://openai.com/pricing)
+- [Anthropic Pricing](https://www.anthropic.com/pricing)
+

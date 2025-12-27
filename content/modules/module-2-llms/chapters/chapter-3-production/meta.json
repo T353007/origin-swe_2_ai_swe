@@ -1,0 +1,8 @@
+{
+  "id": "chapter-3-production",
+  "slug": "production",
+  "title": "Production Considerations",
+  "description": "Production Considerations chapter",
+  "order": 3,
+  "moduleId": "module-2-llms"
+}

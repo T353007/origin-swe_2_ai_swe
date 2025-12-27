@@ -1,0 +1,16 @@
+{
+  "id": "module-4-agents",
+  "slug": "agents",
+  "title": "AI Agents",
+  "description": "Build AI agents with tool calling, workflows, error handling, and production patterns.",
+  "order": 4,
+  "estimatedHours": 19,
+  "prerequisites": ["module-3-rag"],
+  "learningObjectives": [
+    "Understand agent architectures",
+    "Build agents with tool integration",
+    "Handle agent workflows and state",
+    "Implement error handling and retries",
+    "Deploy agents to production"
+  ]
+}
