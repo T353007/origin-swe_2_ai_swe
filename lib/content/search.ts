@@ -10,24 +10,24 @@ export function buildSearchIndex(): MiniSearch<SearchResult> {
 
   // Add modules
   const modules = getAllModules();
-  for (const module of modules) {
+  for (const mod of modules) {
     results.push({
       type: "module",
-      id: module.id,
-      title: module.title,
-      description: module.description,
-      url: `/learning-path/module/${module.slug}`,
-      moduleId: module.id,
+      id: mod.id,
+      title: mod.title,
+      description: mod.description,
+      url: `/learning-path/module/${mod.slug}`,
+      moduleId: mod.id,
     });
   }
 
   // Add lessons
   const lessons = getAllLessons();
   for (const lesson of lessons) {
-    const module = modules.find((m) => m.id === lesson.moduleId);
-    if (!module) continue;
+    const mod = modules.find((m) => m.id === lesson.moduleId);
+    if (!mod) continue;
 
-    const chapters = getChaptersByModule(module.id);
+    const chapters = getChaptersByModule(mod.id);
     const chapter = chapters.find((c) => c.id === lesson.chapterId);
     if (!chapter) continue;
 
@@ -36,8 +36,8 @@ export function buildSearchIndex(): MiniSearch<SearchResult> {
       id: lesson.id,
       title: lesson.title,
       description: lesson.description,
-      url: `/learning-path/module/${module.slug}/chapter/${chapter.slug}/lesson/${lesson.slug}`,
-      moduleId: module.id,
+      url: `/learning-path/module/${mod.slug}/chapter/${chapter.slug}/lesson/${lesson.slug}`,
+      moduleId: mod.id,
       chapterId: chapter.id,
     });
   }

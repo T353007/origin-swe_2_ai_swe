@@ -18,7 +18,7 @@ export function LessonNavigation({
   currentLesson,
   prevLesson,
   nextLesson,
-  module,
+  module: mod,
   currentChapter,
   prevChapter,
   nextChapter,
@@ -28,7 +28,7 @@ export function LessonNavigation({
     <nav className="flex items-center justify-between border-t pt-6 mt-8">
       <div>
         {prevLesson ? (
-          <Link href={getLessonPath(module, prevChapter, prevLesson)}>
+          <Link href={getLessonPath(mod, prevChapter, prevLesson)}>
             <Button variant="outline" size="sm">
               <ChevronLeft className="mr-2 h-4 w-4" />
               Previous
@@ -41,7 +41,7 @@ export function LessonNavigation({
 
       <div>
         {nextLesson ? (
-          <Link href={getLessonPath(module, nextChapter, nextLesson)}>
+          <Link href={getLessonPath(mod, nextChapter, nextLesson)}>
             <Button variant="default" size="sm">
               Next
               <ChevronRight className="ml-2 h-4 w-4" />

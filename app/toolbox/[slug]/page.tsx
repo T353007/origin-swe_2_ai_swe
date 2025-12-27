@@ -3,9 +3,6 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { MDXRemote } from "next-mdx-remote/rsc";
-import { serialize } from "next-mdx-remote/serialize";
-import remarkGfm from "remark-gfm";
-import rehypeSlug from "rehype-slug";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,13 +54,6 @@ export default async function ToolboxItemPage({ params }: PageProps) {
     notFound();
   }
 
-  const mdxSource = await serialize(item.content, {
-    mdxOptions: {
-      remarkPlugins: [remarkGfm],
-      rehypePlugins: [rehypeSlug],
-    },
-  });
-
   return (
     <div className="container py-12">
       <Link href="/toolbox">
@@ -99,7 +89,7 @@ export default async function ToolboxItemPage({ params }: PageProps) {
           </div>
 
           <div className="prose prose-lg dark:prose-invert max-w-none">
-            <MDXRemote {...mdxSource} components={mdxComponents} />
+            <MDXRemote source={item.content} components={mdxComponents} />
           </div>
 
           {item.whenToUse && item.whenToUse.length > 0 && (

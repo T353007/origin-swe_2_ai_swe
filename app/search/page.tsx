@@ -14,12 +14,41 @@ export default function SearchPage() {
   const router = useRouter();
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
-    // Search would be implemented with an API route or client-side index
-    // For now, show empty results
-    setResults([]);
+    const performSearch = async () => {
+      if (!query.trim()) {
+        setResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        setResults(data.results || []);
+      } catch (error) {
+        console.error("Search error:", error);
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    // Debounce search
+    const timeoutId = setTimeout(performSearch, 300);
+    return () => clearTimeout(timeoutId);
   }, [query]);
+
+  // Update query when URL params change
+  useEffect(() => {
+    const urlQuery = searchParams.get("q") || "";
+    if (urlQuery !== query) {
+      setQuery(urlQuery);
+    }
+  }, [searchParams, query]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,9 +75,13 @@ export default function SearchPage() {
 
         {query && (
           <div className="space-y-4">
-            <p className="text-muted-foreground">
-              {results.length} result{results.length !== 1 ? "s" : ""} for "{query}"
-            </p>
+            {isSearching ? (
+              <p className="text-muted-foreground">Searching...</p>
+            ) : (
+              <p className="text-muted-foreground">
+                {results.length} result{results.length !== 1 ? "s" : ""} for &quot;{query}&quot;
+              </p>
+            )}
             {results.length > 0 ? (
               <div className="space-y-4">
                 {results.map((result) => (

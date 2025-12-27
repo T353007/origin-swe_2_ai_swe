@@ -16,7 +16,8 @@ export function LessonCompleteCheckbox({ lessonId }: LessonCompleteCheckboxProps
     setIsComplete(checkComplete(lessonId));
   }, [lessonId, checkComplete]);
 
-  const handleChange = (checked: boolean) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
     if (checked) {
       completeLesson(lessonId);
     } else {
@@ -27,7 +28,7 @@ export function LessonCompleteCheckbox({ lessonId }: LessonCompleteCheckboxProps
 
   return (
     <label className="flex items-center gap-2 cursor-pointer">
-      <Checkbox checked={isComplete} onCheckedChange={handleChange} />
+      <Checkbox checked={isComplete} onChange={handleChange} />
       <span className="text-sm">Mark as complete</span>
     </label>
   );

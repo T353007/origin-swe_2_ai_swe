@@ -4,8 +4,8 @@ import { isLessonComplete } from "./tracker";
 
 export function getModuleProgress(moduleId: string): ModuleProgress {
   const modules = getAllModules();
-  const module = modules.find((m) => m.id === moduleId);
-  if (!module) {
+  const mod = modules.find((m) => m.id === moduleId);
+  if (!mod) {
     return { moduleId, completedLessons: 0, totalLessons: 0, percentage: 0 };
   }
 
@@ -39,8 +39,8 @@ export function getOverallProgress(): number {
   let totalLessons = 0;
   let completedLessons = 0;
 
-  for (const module of modules) {
-    const chapters = getChaptersByModule(module.id);
+  for (const mod of modules) {
+    const chapters = getChaptersByModule(mod.id);
     for (const chapter of chapters) {
       const lessons = getLessonsByChapter(chapter.id);
       totalLessons += lessons.length;

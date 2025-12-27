@@ -45,12 +45,12 @@ const mdxComponents = {
 export default async function LessonPage({ params }: PageProps) {
   const { slug, chapterSlug, lessonSlug } = await params;
 
-  const module = getModuleBySlug(slug);
-  if (!module) {
+  const mod = getModuleBySlug(slug);
+  if (!mod) {
     notFound();
   }
 
-  const chapters = getChaptersByModule(module.id);
+  const chapters = getChaptersByModule(mod.id);
   const chapter = chapters.find((c) => c.slug === chapterSlug);
   if (!chapter) {
     notFound();
@@ -66,13 +66,13 @@ export default async function LessonPage({ params }: PageProps) {
   const nextLesson = getNextLesson(lesson);
   
   // Find chapter for navigation
-  const allChapters = getChaptersByModule(module.id);
+  const allChapters = getChaptersByModule(mod.id);
   const prevChapter = prevLesson ? allChapters.find(c => c.id === prevLesson.chapterId) : null;
   const nextChapter = nextLesson ? allChapters.find(c => c.id === nextLesson.chapterId) : null;
 
   return (
     <div className="container py-12">
-      <Link href={`/learning-path/module/${module.slug}`}>
+      <Link href={`/learning-path/module/${mod.slug}`}>
         <Button variant="ghost" className="mb-6">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Module
@@ -83,7 +83,7 @@ export default async function LessonPage({ params }: PageProps) {
         <article className="prose prose-lg dark:prose-invert max-w-none">
           <div className="mb-8">
             <div className="flex items-center gap-4 mb-4">
-              <Badge variant="outline">Module {module.order}</Badge>
+              <Badge variant="outline">Module {mod.order}</Badge>
               <Badge variant="outline">Chapter {chapter.order}</Badge>
               <Badge>{lesson.difficulty}</Badge>
             </div>
@@ -103,7 +103,7 @@ export default async function LessonPage({ params }: PageProps) {
             currentLesson={lesson}
             prevLesson={prevLesson}
             nextLesson={nextLesson}
-            module={module}
+            module={mod}
             currentChapter={chapter}
             prevChapter={prevChapter || chapter}
             nextChapter={nextChapter || chapter}

@@ -17,14 +17,14 @@ interface PageProps {
 
 export default async function ModulePage({ params }: PageProps) {
   const { slug } = await params;
-  const module = getModuleBySlug(slug);
+  const mod = getModuleBySlug(slug);
 
-  if (!module) {
+  if (!mod) {
     notFound();
   }
 
-  const chapters = getChaptersByModule(module.id);
-  const progress = getModuleProgress(module.id);
+  const chapters = getChaptersByModule(mod.id);
+  const progress = getModuleProgress(mod.id);
 
   return (
     <div className="container py-12">
@@ -37,13 +37,13 @@ export default async function ModulePage({ params }: PageProps) {
 
       <div className="max-w-4xl mx-auto space-y-8">
         <div>
-          <Badge className="mb-4">Module {module.order}</Badge>
-          <h1 className="text-4xl font-bold mb-4">{module.title}</h1>
-          <p className="text-xl text-muted-foreground mb-6">{module.description}</p>
+          <Badge className="mb-4">Module {mod.order}</Badge>
+          <h1 className="text-4xl font-bold mb-4">{mod.title}</h1>
+          <p className="text-xl text-muted-foreground mb-6">{mod.description}</p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
-              <div className="text-2xl font-bold">{formatTime(module.estimatedHours * 60)}</div>
+              <div className="text-2xl font-bold">{formatTime(mod.estimatedHours * 60)}</div>
               <div className="text-sm text-muted-foreground">Estimated Time</div>
             </div>
             <div>
@@ -59,14 +59,14 @@ export default async function ModulePage({ params }: PageProps) {
           <ProgressIndicator value={progress.percentage} label="Module Progress" />
         </div>
 
-        {module.learningObjectives.length > 0 && (
+        {mod.learningObjectives.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Learning Objectives</CardTitle>
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {module.learningObjectives.map((objective, idx) => (
+                {mod.learningObjectives.map((objective, idx) => (
                   <li key={idx} className="flex items-start">
                     <span className="mr-2">•</span>
                     <span>{objective}</span>
@@ -77,7 +77,7 @@ export default async function ModulePage({ params }: PageProps) {
           </Card>
         )}
 
-        {module.prerequisites.length > 0 && (
+        {mod.prerequisites.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Prerequisites</CardTitle>
@@ -87,7 +87,7 @@ export default async function ModulePage({ params }: PageProps) {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {module.prerequisites.map((prereqId) => {
+                {mod.prerequisites.map((prereqId) => {
                   // In a real implementation, you'd look up the prerequisite module
                   return (
                     <Badge key={prereqId} variant="outline">
@@ -115,7 +115,7 @@ export default async function ModulePage({ params }: PageProps) {
                     <LessonCard
                       key={lesson.id}
                       lesson={lesson}
-                      module={module}
+                      module={mod}
                       chapter={chapter}
                     />
                   ))}

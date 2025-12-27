@@ -37,8 +37,8 @@ export function getModuleBySlug(slug: string): ModuleMetadata | null {
 
 export function getChaptersByModule(moduleId: string): ChapterMetadata[] {
   const modules = getAllModules();
-  const module = modules.find((m) => m.id === moduleId);
-  if (!module) {
+  const mod = modules.find((m) => m.id === moduleId);
+  if (!mod) {
     return [];
   }
 
@@ -49,7 +49,7 @@ export function getChaptersByModule(moduleId: string): ChapterMetadata[] {
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name);
   
-  const moduleDir = moduleDirs.find((dir) => dir.includes(module.slug));
+  const moduleDir = moduleDirs.find((dir) => dir.includes(mod.slug));
   if (!moduleDir) {
     return [];
   }
@@ -81,8 +81,8 @@ export function getChaptersByModule(moduleId: string): ChapterMetadata[] {
 
 export function getLessonsByChapter(chapterId: string): LessonMetadata[] {
   const modules = getAllModules();
-  for (const module of modules) {
-    const chapters = getChaptersByModule(module.id);
+  for (const mod of modules) {
+    const chapters = getChaptersByModule(mod.id);
     const chapter = chapters.find((c) => c.id === chapterId);
     if (chapter) {
       // Find the chapter directory
@@ -92,7 +92,7 @@ export function getLessonsByChapter(chapterId: string): LessonMetadata[] {
         .filter((dirent) => dirent.isDirectory())
         .map((dirent) => dirent.name);
       
-      const moduleDir = moduleDirs.find((dir) => dir.includes(module.slug));
+      const moduleDir = moduleDirs.find((dir) => dir.includes(mod.slug));
       if (!moduleDir) {
         return [];
       }
@@ -141,8 +141,8 @@ export function getAllLessons(): LessonMetadata[] {
   const modules = getAllModules();
   const allLessons: LessonMetadata[] = [];
 
-  for (const module of modules) {
-    const chapters = getChaptersByModule(module.id);
+  for (const mod of modules) {
+    const chapters = getChaptersByModule(mod.id);
     for (const chapter of chapters) {
       const lessons = getLessonsByChapter(chapter.id);
       allLessons.push(...lessons);
@@ -157,12 +157,12 @@ export function getLessonBySlug(
   chapterSlug: string,
   lessonSlug: string
 ): LessonContent | null {
-  const module = getModuleBySlug(moduleSlug);
-  if (!module) {
+  const mod = getModuleBySlug(moduleSlug);
+  if (!mod) {
     return null;
   }
 
-  const chapters = getChaptersByModule(module.id);
+  const chapters = getChaptersByModule(mod.id);
   const chapter = chapters.find((c) => c.slug === chapterSlug);
   if (!chapter) {
     return null;
@@ -181,7 +181,7 @@ export function getLessonBySlug(
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name);
   
-  const moduleDir = moduleDirs.find((dir) => dir.includes(module.slug));
+  const moduleDir = moduleDirs.find((dir) => dir.includes(mod.slug));
   if (!moduleDir) {
     return null;
   }
