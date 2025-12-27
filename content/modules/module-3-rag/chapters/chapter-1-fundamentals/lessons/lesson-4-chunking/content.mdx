@@ -1,0 +1,206 @@
+---
+id: "lesson-4-chunking"
+slug: "chunking"
+title: "Chunking Strategies"
+description: "Learn effective document chunking techniques, common pitfalls, and how chunk size affects retrieval quality."
+order: 4
+chapterId: "chapter-1-rag-fundamentals"
+moduleId: "module-3-rag"
+prerequisites: ["lesson-3-embeddings-practice"]
+estimatedMinutes: 11
+tags: ["chunking", "text-splitting", "document-processing"]
+difficulty: "intermediate"
+---
+
+# Chunking Strategies
+
+## Overview
+
+Document chunking is critical for RAG quality. Poor chunking leads to incomplete context, irrelevant retrieval, or missing information. This lesson covers effective chunking strategies and common mistakes.
+
+## Main Content
+
+### Why Chunking Matters
+
+Documents are too large to fit in LLM context windows or use as single embedding vectors. Chunking breaks documents into smaller pieces that:
+- Fit within context limits
+- Can be precisely retrieved
+- Contain complete semantic units
+
+### Chunking Strategies
+
+#### 1. Fixed-Size Chunking
+Simple approach: split by character count with overlap.
+
+```python
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200,
+    length_function=len
+)
+chunks = splitter.split_text(text)
+```
+
+**Pros**: Simple, predictable
+**Cons**: May split sentences/paragraphs, loses structure
+
+#### 2. Semantic Chunking
+Split at natural semantic boundaries (sentences, paragraphs).
+
+```python
+from langchain.text_splitter import SentenceTransformersTokenTextSplitter
+
+splitter = SentenceTransformersTokenTextSplitter(
+    model_name="sentence-transformers/all-MiniLM-L6-v2",
+    chunk_size=500,
+    chunk_overlap=50
+)
+chunks = splitter.split_text(text)
+```
+
+**Pros**: Preserves semantic meaning
+**Cons**: More complex, may create uneven chunk sizes
+
+#### 3. Document-Aware Chunking
+Respect document structure (headers, sections, code blocks).
+
+```python
+from langchain.text_splitter import MarkdownHeaderTextSplitter
+
+headers_to_split_on = [
+    ("#", "Header 1"),
+    ("##", "Header 2"),
+    ("###", "Header 3"),
+]
+
+splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+chunks = splitter.split_text(markdown_text)
+```
+
+**Pros**: Preserves document structure
+**Cons**: Only works for structured formats
+
+### Chunk Size Guidelines
+
+**Small chunks (200-500 tokens):**
+- Precise retrieval
+- Good for fact extraction
+- More chunks to manage
+- May lose context
+
+**Medium chunks (500-1000 tokens):**
+- Balance of precision and context
+- Good default choice
+- Works for most use cases
+
+**Large chunks (1000-2000 tokens):**
+- More context per chunk
+- Good for complex reasoning
+- Less precise retrieval
+- Higher token costs
+
+### Overlap Strategy
+
+Overlap prevents information loss at chunk boundaries:
+
+```python
+# Good overlap: 10-20% of chunk size
+chunk_size = 1000
+chunk_overlap = 150  # 15% overlap
+
+# Too little overlap: information loss at boundaries
+# Too much overlap: duplicate content, wasted tokens
+```
+
+## Code Examples
+
+Advanced chunking with metadata:
+
+```python
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from typing import List, Dict
+
+class MetadataTextSplitter:
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+        self.splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap
+        )
+    
+    def split_with_metadata(
+        self, 
+        text: str, 
+        metadata: Dict,
+        doc_id: str
+    ) -> List[Dict]:
+        """Split text and preserve metadata for each chunk."""
+        chunks = self.splitter.split_text(text)
+        
+        chunk_docs = []
+        for i, chunk in enumerate(chunks):
+            chunk_docs.append({
+                "id": f"{doc_id}-chunk-{i}",
+                "text": chunk,
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                **metadata  # Preserve original metadata
+            })
+        
+        return chunk_docs
+
+# Usage
+splitter = MetadataTextSplitter()
+chunks = splitter.split_with_metadata(
+    text="Your document text...",
+    metadata={"source": "document.pdf", "page": 1},
+    doc_id="doc-123"
+)
+```
+
+Handling code documents:
+
+```python
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+# Code-aware splitting
+code_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=800,
+    chunk_overlap=100,
+    separators=[
+        "\n\n\n",  # Major sections
+        "\n\n",    # Functions/classes
+        "\n",      # Lines
+        " ",       # Words
+        ""         # Characters
+    ]
+)
+```
+
+## Common Mistakes
+
+1. **Chunks too large**: Exceeds context window, imprecise retrieval
+2. **Chunks too small**: Loses context, fragments information
+3. **No overlap**: Information lost at boundaries
+4. **Too much overlap**: Wasted tokens, duplicate content
+5. **Ignoring structure**: Splitting in middle of sentences/paragraphs
+6. **Not preserving metadata**: Makes it hard to trace sources
+7. **Same chunk size for all docs**: Different documents need different strategies
+8. **Overlapping chunks incorrectly**: Creates duplicates in vector DB
+
+## Exercise
+
+1. Test different chunk sizes (200, 500, 1000, 2000 tokens)
+2. Measure retrieval quality with each size
+3. Experiment with overlap percentages (0%, 10%, 20%)
+4. Implement structure-aware chunking for your document types
+5. Compare fixed vs semantic chunking quality
+6. Measure token costs for different chunking strategies
+
+## Tools & Resources
+
+- [LangChain Text Splitters](https://python.langchain.com/docs/modules/data_connection/document_transformers/)
+- [LlamaIndex Node Parsers](https://docs.llamaindex.ai/en/stable/module_guides/loading/node_parsers/)
+- [Chunking Best Practices](https://www.pinecone.io/learn/chunking-strategies/)
+

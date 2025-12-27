@@ -1,0 +1,237 @@
+---
+id: "lesson-2-eval-frameworks"
+slug: "eval-frameworks"
+title: "Building Evaluation Frameworks"
+description: "Create comprehensive evaluation frameworks: test datasets, metrics, and evaluation pipelines for AI systems."
+order: 2
+chapterId: "chapter-1-evaluations"
+moduleId: "module-5-evaluations"
+prerequisites: ["lesson-1-eval-fundamentals"]
+estimatedMinutes: 8
+tags: ["evaluation", "frameworks", "testing", "metrics"]
+difficulty: "intermediate"
+---
+
+# Building Evaluation Frameworks
+
+## Overview
+
+A good evaluation framework provides systematic, repeatable testing of your AI system. This lesson covers building comprehensive eval frameworks with test datasets and metrics.
+
+## Main Content
+
+### Test Dataset Creation
+
+**Sources for test cases:**
+- Real user queries (anonymized)
+- Edge cases and failures
+- Domain-specific scenarios
+- Synthetic generated cases
+
+**Dataset structure:**
+```python
+test_dataset = [
+    {
+        "query": "What is RAG?",
+        "expected_answer": "RAG is Retrieval-Augmented Generation...",
+        "context": "optional context",
+        "metadata": {
+            "difficulty": "easy",
+            "category": "definitions"
+        }
+    },
+    # More test cases
+]
+```
+
+### Evaluation Metrics
+
+**Accuracy metrics:**
+- Exact match
+- Semantic similarity (embedding-based)
+- BLEU/ROUGE scores
+- LLM-as-judge
+
+**Quality metrics:**
+- Relevance
+- Completeness
+- Factuality
+- Coherence
+
+### Building the Framework
+
+```python
+from typing import List, Dict, Callable
+import numpy as np
+from openai import OpenAI
+
+class EvalFramework:
+    def __init__(self):
+        self.client = OpenAI()
+        self.test_cases = []
+        self.metrics = {}
+    
+    def add_test_case(self, query: str, expected: str, metadata: Dict = None):
+        """Add a test case."""
+        self.test_cases.append({
+            "query": query,
+            "expected": expected,
+            "metadata": metadata or {}
+        })
+    
+    def evaluate(
+        self, 
+        system_func: Callable,
+        metrics: List[str] = ["exact_match", "semantic_similarity"]
+    ) -> Dict:
+        """Evaluate system on all test cases."""
+        results = []
+        
+        for test_case in self.test_cases:
+            try:
+                actual = system_func(test_case["query"])
+                
+                scores = {}
+                for metric_name in metrics:
+                    scores[metric_name] = self._compute_metric(
+                        metric_name,
+                        test_case["expected"],
+                        actual
+                    )
+                
+                results.append({
+                    "query": test_case["query"],
+                    "expected": test_case["expected"],
+                    "actual": actual,
+                    "scores": scores,
+                    "passed": all(s > 0.7 for s in scores.values())
+                })
+            except Exception as e:
+                results.append({
+                    "query": test_case["query"],
+                    "error": str(e),
+                    "passed": False
+                })
+        
+        return self._aggregate_results(results)
+    
+    def _compute_metric(self, metric_name: str, expected: str, actual: str) -> float:
+        """Compute a metric."""
+        if metric_name == "exact_match":
+            return 1.0 if expected.lower() == actual.lower() else 0.0
+        
+        elif metric_name == "semantic_similarity":
+            # Use embeddings
+            return self._semantic_similarity(expected, actual)
+        
+        elif metric_name == "llm_judge":
+            return self._llm_as_judge(expected, actual)
+        
+        return 0.0
+    
+    def _semantic_similarity(self, text1: str, text2: str) -> float:
+        """Compute semantic similarity using embeddings."""
+        # Implementation with embeddings
+        return 0.0  # Placeholder
+    
+    def _llm_as_judge(self, expected: str, actual: str) -> float:
+        """Use LLM to judge if answer is correct."""
+        prompt = f"""Evaluate if the actual answer correctly addresses the expected answer.
+
+Expected: {expected}
+Actual: {actual}
+
+Respond with "CORRECT" or "INCORRECT"."""
+        
+        response = self.client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
+        )
+        
+        result = response.choices[0].message.content
+        return 1.0 if "CORRECT" in result.upper() else 0.0
+    
+    def _aggregate_results(self, results: List[Dict]) -> Dict:
+        """Aggregate evaluation results."""
+        total = len(results)
+        passed = sum(1 for r in results if r.get("passed", False))
+        
+        # Average scores
+        all_scores = {}
+        for result in results:
+            if "scores" in result:
+                for metric, score in result["scores"].items():
+                    if metric not in all_scores:
+                        all_scores[metric] = []
+                    all_scores[metric].append(score)
+        
+        avg_scores = {
+            metric: np.mean(scores)
+            for metric, scores in all_scores.items()
+        }
+        
+        return {
+            "total": total,
+            "passed": passed,
+            "pass_rate": passed / total if total > 0 else 0,
+            "average_scores": avg_scores,
+            "results": results
+        }
+```
+
+## Code Examples
+
+Using LangSmith for evaluation:
+
+```python
+from langsmith import Client
+from langchain.evaluation import evaluate
+
+client = Client()
+
+# Create dataset
+dataset = client.create_dataset(
+    dataset_name="rag-evaluation",
+    description="RAG system evaluation dataset"
+)
+
+# Add examples
+client.create_example(
+    inputs={"query": "What is RAG?"},
+    outputs={"expected": "RAG is Retrieval-Augmented Generation..."},
+    dataset_id=dataset.id
+)
+
+# Run evaluation
+results = evaluate(
+    lambda inputs: rag_system.query(inputs["query"]),
+    data=dataset,
+    evaluators=[...]  # Your evaluators
+)
+```
+
+## Common Mistakes
+
+1. **Small test set**: Not enough coverage
+2. **Biased test cases**: Don't reflect real usage
+3. **Wrong metrics**: Metrics don't reflect user value
+4. **No baseline**: Can't measure improvements
+5. **Flaky tests**: Non-deterministic evals
+6. **Not updating tests**: Tests become outdated
+
+## Exercise
+
+1. Create evaluation dataset (20+ test cases)
+2. Implement multiple metrics
+3. Run evaluations on your system
+4. Analyze failure cases
+5. Set up continuous evaluation
+6. Track metrics over time
+
+## Tools & Resources
+
+- [LangSmith Evaluation](https://docs.smith.langchain.com/evaluation)
+- [RAGAS](https://docs.ragas.io/)
+- [Evaluation Metrics Guide](https://www.pinecone.io/learn/llm-evaluation/)
+

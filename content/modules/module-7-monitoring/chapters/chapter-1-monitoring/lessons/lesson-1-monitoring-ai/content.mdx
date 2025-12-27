@@ -1,0 +1,191 @@
+---
+id: "lesson-1-monitoring-ai"
+slug: "monitoring-ai"
+title: "Monitoring AI Systems"
+description: "Learn what to monitor in AI systems: latency, cost, quality metrics, and how to set up effective monitoring."
+order: 1
+chapterId: "chapter-1-monitoring"
+moduleId: "module-7-monitoring"
+prerequisites: ["lesson-1-deployment-strategies"]
+estimatedMinutes: 8
+tags: ["monitoring", "observability", "metrics", "latency"]
+difficulty: "intermediate"
+---
+
+# Monitoring AI Systems
+
+## Overview
+
+AI systems require specialized monitoring beyond traditional application metrics. You need to track quality, costs, latency, and token usage to ensure reliable production operation.
+
+## Main Content
+
+### What to Monitor
+
+#### 1. Quality Metrics
+- **Answer relevance**: Does the answer address the question?
+- **Answer accuracy**: Is the answer factually correct?
+- **Hallucination rate**: How often does the system invent facts?
+- **User satisfaction**: User ratings, feedback
+
+#### 2. Cost Metrics
+- **Token usage**: Input/output tokens per request
+- **API costs**: Cost per request, daily/monthly totals
+- **Cost per user**: Track costs by user/tenant
+- **Cost trends**: Detect cost anomalies
+
+#### 3. Latency Metrics
+- **Response time**: End-to-end latency
+- **Time to first token**: Streaming latency
+- **Retrieval time**: Vector search latency
+- **LLM call time**: API response time
+
+#### 4. Operational Metrics
+- **Request rate**: Requests per second
+- **Error rate**: Failed requests percentage
+- **Success rate**: Successful completions
+- **Queue depth**: Pending requests
+
+### Monitoring Implementation
+
+```python
+import time
+from functools import wraps
+from typing import Dict, Any
+import logging
+
+class AIMonitor:
+    def __init__(self):
+        self.metrics = {
+            "requests": 0,
+            "errors": 0,
+            "total_tokens": 0,
+            "total_cost": 0.0,
+            "total_latency": 0.0
+        }
+    
+    def track_request(self, func):
+        """Decorator to track AI system requests."""
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            self.metrics["requests"] += 1
+            
+            try:
+                result = func(*args, **kwargs)
+                
+                # Track tokens if available
+                if hasattr(result, "usage"):
+                    tokens = result.usage.total_tokens
+                    self.metrics["total_tokens"] += tokens
+                    self.metrics["total_cost"] += self._calculate_cost(tokens)
+                
+                latency = time.time() - start_time
+                self.metrics["total_latency"] += latency
+                
+                logging.info(f"Request completed: {latency:.2f}s, tokens: {tokens}")
+                return result
+                
+            except Exception as e:
+                self.metrics["errors"] += 1
+                logging.error(f"Request failed: {e}")
+                raise
+        
+        return wrapper
+    
+    def _calculate_cost(self, tokens: int) -> float:
+        """Calculate cost based on tokens."""
+        # Simplified: adjust for your pricing
+        return (tokens / 1000) * 0.002
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get monitoring statistics."""
+        requests = self.metrics["requests"]
+        if requests == 0:
+            return self.metrics
+        
+        return {
+            **self.metrics,
+            "avg_latency": self.metrics["total_latency"] / requests,
+            "error_rate": self.metrics["errors"] / requests,
+            "avg_tokens_per_request": self.metrics["total_tokens"] / requests,
+            "avg_cost_per_request": self.metrics["total_cost"] / requests
+        }
+
+# Usage
+monitor = AIMonitor()
+
+@monitor.track_request
+def query_rag(question: str):
+    # Your RAG implementation
+    return rag_system.query(question)
+```
+
+## Code Examples
+
+Structured logging for AI systems:
+
+```python
+import json
+import logging
+from datetime import datetime
+
+class AILogger:
+    def __init__(self):
+        self.logger = logging.getLogger("ai_system")
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+    
+    def log_request(self, request_id: str, query: str, **kwargs):
+        """Log request details."""
+        log_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "request_id": request_id,
+            "type": "request",
+            "query": query,
+            **kwargs
+        }
+        self.logger.info(json.dumps(log_entry))
+    
+    def log_response(self, request_id: str, answer: str, tokens: int, latency: float):
+        """Log response details."""
+        log_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "request_id": request_id,
+            "type": "response",
+            "answer": answer,
+            "tokens": tokens,
+            "latency_ms": latency * 1000
+        }
+        self.logger.info(json.dumps(log_entry))
+```
+
+## Common Mistakes
+
+1. **Only monitoring errors**: Missing quality and cost issues
+2. **No token tracking**: Costs spiral out of control
+3. **No latency monitoring**: Slow responses hurt UX
+4. **No alerting**: Issues go undetected
+5. **Logging everything**: Too much noise, hard to debug
+6. **Not correlating metrics**: Can't understand root causes
+
+## Exercise
+
+1. Add monitoring to your AI system
+2. Track tokens, costs, and latency
+3. Set up structured logging
+4. Create monitoring dashboard
+5. Set up alerts for anomalies
+6. Analyze metrics to identify issues
+
+## Tools & Resources
+
+- [LangSmith Monitoring](https://www.langchain.com/langsmith)
+- [OpenTelemetry](https://opentelemetry.io/)
+- [Prometheus](https://prometheus.io/)
+- [Grafana](https://grafana.com/)
+

@@ -1,0 +1,64 @@
+---
+title: "LlamaIndex"
+category: "rag"
+description: "Data framework for LLM applications, focusing on data ingestion and retrieval"
+officialUrl: "https://www.llamaindex.ai/"
+tags: ["rag", "data-ingestion", "framework", "python"]
+whenToUse: [
+  "Data-heavy RAG applications",
+  "Complex data ingestion pipelines",
+  "Structured data integration",
+  "Building knowledge bases"
+]
+alternatives: ["LangChain", "Haystack"]
+---
+
+# LlamaIndex
+
+LlamaIndex is a data framework for LLM applications. It focuses on data ingestion, indexing, and retrieval for building RAG systems.
+
+## Overview
+
+LlamaIndex provides:
+- **Data Connectors**: Connect to various data sources
+- **Indexing**: Efficient indexing of documents
+- **Retrieval**: Advanced retrieval strategies
+- **Query Interface**: Simple query interface
+
+## When to Use
+
+- Data-heavy RAG applications
+- Complex data ingestion needs
+- Building knowledge bases
+- Structured data integration
+
+## Key Features
+
+- **Data Connectors**: Connect to many data sources
+- **Advanced Indexing**: Multiple indexing strategies
+- **Query Interface**: Simple query API
+- **Retrieval Strategies**: Multiple retrieval approaches
+
+## Basic Example
+
+```python
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.llms.openai import OpenAI
+
+# Load documents
+documents = SimpleDirectoryReader("data").load_data()
+
+# Create index with LLM
+llm = OpenAI(model="gpt-4", temperature=0)
+index = VectorStoreIndex.from_documents(documents)
+
+# Query
+query_engine = index.as_query_engine(llm=llm)
+response = query_engine.query("What is RAG?")
+```
+
+## Resources
+
+- [LlamaIndex Documentation](https://docs.llamaindex.ai/)
+- [LlamaIndex GitHub](https://github.com/run-llama/llama_index)
+

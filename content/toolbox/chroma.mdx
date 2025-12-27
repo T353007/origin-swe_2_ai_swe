@@ -1,0 +1,68 @@
+---
+title: "Chroma"
+category: "vector-db"
+description: "Lightweight, Python-first vector database for embeddings"
+officialUrl: "https://www.trychroma.com/"
+tags: ["vector-database", "python", "lightweight", "local"]
+whenToUse: [
+  "Development and prototyping",
+  "Small to medium-scale applications",
+  "Local-first development",
+  "Python-focused projects"
+]
+alternatives: ["Pinecone", "Weaviate", "Qdrant"]
+---
+
+# Chroma
+
+Chroma is a lightweight, Python-first vector database designed for simplicity and ease of use. It's great for development and smaller applications.
+
+## Overview
+
+Chroma provides:
+- **Python-First**: Designed for Python developers
+- **Simple API**: Easy to get started
+- **Local-First**: Runs locally by default
+- **Lightweight**: Minimal dependencies
+
+## When to Use
+
+- Development and prototyping
+- Small to medium-scale applications
+- Local-first development workflows
+- Python-focused projects
+
+## Key Features
+
+- **Simple API**: Easy to use Python interface
+- **Local-First**: Works out of the box locally
+- **Embedded Mode**: Can run as embedded database
+- **Client-Server**: Also supports client-server mode
+
+## Basic Example
+
+```python
+import chromadb
+
+client = chromadb.Client()
+collection = client.get_or_create_collection(name="documents")
+
+# Add documents
+collection.add(
+    embeddings=embeddings_list,
+    documents=texts,
+    ids=[f"doc-{i}" for i in range(len(texts))]
+)
+
+# Query
+results = collection.query(
+    query_embeddings=[query_embedding],
+    n_results=5
+)
+```
+
+## Resources
+
+- [Chroma Documentation](https://docs.trychroma.com/)
+- [Chroma GitHub](https://github.com/chroma-core/chroma)
+

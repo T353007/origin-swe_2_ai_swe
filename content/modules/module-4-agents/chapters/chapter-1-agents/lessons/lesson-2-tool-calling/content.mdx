@@ -1,0 +1,194 @@
+---
+id: "lesson-2-tool-calling"
+slug: "tool-calling"
+title: "Tool Integration Patterns"
+description: "Learn how to enable LLMs to call functions and tools, implement tool definitions, and handle tool execution in agent systems."
+order: 2
+chapterId: "chapter-1-agents"
+moduleId: "module-4-agents"
+prerequisites: ["lesson-1-agent-architectures"]
+estimatedMinutes: 8
+tags: ["tool-calling", "function-calling", "tools", "agents"]
+difficulty: "intermediate"
+---
+
+# Tool Integration Patterns
+
+## Overview
+
+Tool calling (function calling) allows LLMs to interact with external systems by defining functions they can invoke. This enables agents to perform actions beyond text generation.
+
+## Main Content
+
+### How Tool Calling Works
+
+1. **Define tools**: Describe available functions to the LLM
+2. **LLM decides**: Model chooses which tool(s) to call
+3. **Execute tool**: Run the function with provided parameters
+4. **Return result**: Pass tool output back to LLM
+5. **Generate response**: LLM uses tool results to answer
+
+### Tool Definition
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a location",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA"
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "Temperature unit"
+                    }
+                },
+                "required": ["location"]
+            }
+        }
+    }
+]
+```
+
+### Tool Execution
+
+```python
+def get_weather(location: str, unit: str = "fahrenheit") -> str:
+    """Actual implementation of weather function."""
+    # Your weather API call
+    return f"Weather in {location}: 72°{unit[0].upper()}"
+
+def execute_tool(tool_name: str, arguments: dict) -> str:
+    """Execute a tool by name."""
+    tool_functions = {
+        "get_weather": get_weather,
+        # Add more tools
+    }
+    
+    if tool_name not in tool_functions:
+        return f"Unknown tool: {tool_name}"
+    
+    try:
+        result = tool_functions[tool_name](**arguments)
+        return str(result)
+    except Exception as e:
+        return f"Error executing {tool_name}: {e}"
+
+# Use tool calling
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "What's the weather in San Francisco?"}],
+    tools=tools,
+    tool_choice="auto"
+)
+
+# Check if tool was called
+message = response.choices[0].message
+if message.tool_calls:
+    for tool_call in message.tool_calls:
+        function_name = tool_call.function.name
+        function_args = json.loads(tool_call.function.arguments)
+        
+        # Execute tool
+        tool_result = execute_tool(function_name, function_args)
+        
+        # Add tool result to conversation
+        messages.append({
+            "role": "tool",
+            "tool_call_id": tool_call.id,
+            "content": tool_result
+        })
+    
+    # Get final response
+    final_response = client.chat.completions.create(
+        model="gpt-4",
+        messages=messages
+    )
+```
+
+## Code Examples
+
+Complete tool calling system:
+
+```python
+from typing import Callable, Dict, Any
+import json
+
+class ToolRegistry:
+    def __init__(self):
+        self.tools: Dict[str, Callable] = {}
+        self.tool_definitions = []
+    
+    def register(self, name: str, func: Callable, description: str, schema: dict):
+        """Register a tool."""
+        self.tools[name] = func
+        self.tool_definitions.append({
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": description,
+                "parameters": schema
+            }
+        })
+    
+    def execute(self, name: str, arguments: dict) -> Any:
+        """Execute a registered tool."""
+        if name not in self.tools:
+            raise ValueError(f"Tool {name} not found")
+        return self.tools[name](**arguments)
+
+# Usage
+registry = ToolRegistry()
+
+@registry.register(
+    name="search_database",
+    func=lambda query: f"Results for: {query}",
+    description="Search the knowledge database",
+    schema={
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "Search query"}
+        },
+        "required": ["query"]
+    }
+)
+def search_db(query: str):
+    # Implementation
+    pass
+```
+
+## Common Mistakes
+
+1. **Poor tool descriptions**: LLM can't choose correct tools
+2. **No error handling**: Tool failures crash the system
+3. **Incorrect schemas**: JSON schema errors prevent tool calls
+4. **Too many tools**: Overwhelms the LLM
+5. **No validation**: Invalid arguments cause errors
+6. **Not handling parallel calls**: Multiple tools called simultaneously
+
+## Exercise
+
+1. Define 3-5 tools for an agent
+2. Implement tool execution logic
+3. Test tool calling with various queries
+4. Add error handling and validation
+5. Handle multiple tool calls
+6. Measure tool call success rate
+
+## Tools & Resources
+
+- [OpenAI Function Calling](https://platform.openai.com/docs/guides/function-calling)
+- [Anthropic Tool Use](https://docs.anthropic.com/claude/docs/tool-use)
+- [LangChain Tools](https://python.langchain.com/docs/modules/tools/)
+

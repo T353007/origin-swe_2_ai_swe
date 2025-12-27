@@ -1,0 +1,166 @@
+---
+id: "lesson-3-embeddings-practice"
+slug: "embeddings-practice"
+title: "Embeddings in Practice"
+description: "Deep dive into using embeddings effectively in RAG: choosing models, generating embeddings, and understanding semantic similarity."
+order: 3
+chapterId: "chapter-1-rag-fundamentals"
+moduleId: "module-3-rag"
+prerequisites: ["lesson-2-vector-dbs"]
+estimatedMinutes: 9
+tags: ["embeddings", "semantic-search", "models"]
+difficulty: "intermediate"
+---
+
+# Embeddings in Practice
+
+## Overview
+
+Embeddings are the foundation of semantic search in RAG. Choosing the right embedding model and using embeddings effectively significantly impacts retrieval quality.
+
+## Main Content
+
+### Embedding Model Selection
+
+**OpenAI Embeddings:**
+- `text-embedding-3-small`: 1536 dims, fast, cost-effective
+- `text-embedding-3-large`: 3072 dims, better quality
+- `text-embedding-ada-002`: Older, but still good
+
+**Other Providers:**
+- **Cohere**: `embed-english-v3.0` - excellent for English
+- **Sentence Transformers**: Open-source, domain-specific models
+- **Voyage AI**: High quality, competitive pricing
+
+**Choosing a model:**
+- **Language**: English-only vs multilingual
+- **Domain**: General vs domain-specific (code, medical, etc.)
+- **Cost**: API costs vs self-hosting
+- **Latency**: Speed requirements
+- **Dimensions**: Affects storage and compute costs
+
+### Generating Embeddings
+
+```python
+from openai import OpenAI
+import numpy as np
+
+client = OpenAI()
+
+def get_embeddings(texts: list[str], model: str = "text-embedding-3-small"):
+    """Generate embeddings for multiple texts."""
+    response = client.embeddings.create(
+        input=texts,
+        model=model
+    )
+    return [item.embedding for item in response.data]
+
+# Batch processing for efficiency
+documents = ["doc 1", "doc 2", "doc 3"]
+embeddings = get_embeddings(documents)
+```
+
+### Semantic Similarity
+
+Understanding similarity metrics:
+
+```python
+import numpy as np
+
+def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
+    """Calculate cosine similarity between two vectors."""
+    dot_product = np.dot(vec1, vec2)
+    norm1 = np.linalg.norm(vec1)
+    norm2 = np.linalg.norm(vec2)
+    return dot_product / (norm1 * norm2)
+
+# Example: Comparing query to documents
+query_embedding = np.array(get_embeddings(["What is RAG?"])[0])
+doc_embeddings = get_embeddings(documents)
+
+similarities = [
+    cosine_similarity(query_embedding, doc_emb)
+    for doc_emb in doc_embeddings
+]
+```
+
+### Embedding Best Practices
+
+1. **Normalize embeddings**: Some operations work better with normalized vectors
+2. **Batch processing**: Generate embeddings in batches for efficiency
+3. **Cache embeddings**: Don't regenerate embeddings for unchanged documents
+4. **Domain-specific models**: Use specialized models for technical/domain content
+5. **Monitor quality**: Track embedding quality affects retrieval performance
+
+## Code Examples
+
+Complete embedding pipeline:
+
+```python
+from openai import OpenAI
+import hashlib
+import json
+import os
+
+client = OpenAI()
+CACHE_DIR = "./embedding_cache"
+
+def get_cached_embedding(text: str, model: str) -> list[float] | None:
+    """Check cache for existing embedding."""
+    cache_key = hashlib.md5(f"{text}:{model}".encode()).hexdigest()
+    cache_path = os.path.join(CACHE_DIR, f"{cache_key}.json")
+    
+    if os.path.exists(cache_path):
+        with open(cache_path) as f:
+            return json.load(f)
+    return None
+
+def save_embedding_cache(text: str, model: str, embedding: list[float]):
+    """Save embedding to cache."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    cache_key = hashlib.md5(f"{text}:{model}".encode()).hexdigest()
+    cache_path = os.path.join(CACHE_DIR, f"{cache_key}.json")
+    
+    with open(cache_path, 'w') as f:
+        json.dump(embedding, f)
+
+def get_embedding_with_cache(text: str, model: str = "text-embedding-3-small"):
+    """Get embedding with caching."""
+    cached = get_cached_embedding(text, model)
+    if cached:
+        return cached
+    
+    response = client.embeddings.create(
+        input=text,
+        model=model
+    )
+    embedding = response.data[0].embedding
+    save_embedding_cache(text, model, embedding)
+    return embedding
+```
+
+## Common Mistakes
+
+1. **Wrong model for domain**: General models may not work well for technical content
+2. **Not batching**: Generating embeddings one-by-one is slow and expensive
+3. **No caching**: Regenerating same embeddings wastes money
+4. **Ignoring normalization**: Some similarity calculations need normalized vectors
+5. **Too many dimensions**: Larger embeddings increase storage/compute costs
+6. **Not monitoring quality**: Embedding quality directly affects retrieval
+
+## Exercise
+
+1. Compare embeddings from different models on same text
+2. Measure semantic similarity between related and unrelated texts
+3. Test domain-specific vs general embedding models
+4. Implement embedding caching
+5. Benchmark embedding generation speed and costs
+6. Evaluate which model works best for your use case
+
+## Tools & Resources
+
+- [OpenAI Embeddings Guide](https://platform.openai.com/docs/guides/embeddings)
+- [Sentence Transformers](https://www.sbert.net/)
+- [Embedding Model Comparison](https://platform.openai.com/docs/guides/embeddings/embedding-models)
+- [Cohere Embeddings](https://cohere.com/blog/introducing-embed-v3)
+

@@ -4,8 +4,10 @@
   "title": "Large Language Models (LLMs)",
   "description": "Deep dive into LLMs: model selection, function calling, structured outputs, and production considerations.",
   "order": 2,
-  "estimatedHours": 14,
-  "prerequisites": ["module-1-fundamentals"],
+  "estimatedHours": 0.8,
+  "prerequisites": [
+    "module-1-fundamentals"
+  ],
   "learningObjectives": [
     "Understand how LLMs work at a high level",
     "Choose the right model for each task",

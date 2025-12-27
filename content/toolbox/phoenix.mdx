@@ -1,0 +1,62 @@
+---
+title: "Phoenix"
+category: "observability"
+description: "Open-source observability platform for LLM applications"
+officialUrl: "https://www.arize.com/phoenix"
+tags: ["observability", "open-source", "tracing", "debugging"]
+whenToUse: [
+  "Open-source observability",
+  "Debugging LLM applications",
+  "Tracing and monitoring",
+  "On-premises deployment"
+]
+alternatives: ["LangSmith", "Weights & Biases", "Custom logging"]
+---
+
+# Phoenix
+
+Phoenix is an open-source observability platform for LLM applications. It provides tracing, monitoring, and debugging capabilities for production AI systems.
+
+## Overview
+
+Phoenix helps you:
+- **Trace** LLM calls and chains
+- **Monitor** production performance
+- **Debug** issues with detailed traces
+- **Evaluate** model performance
+
+## When to Use
+
+- Open-source observability solution
+- On-premises deployment requirements
+- Debugging LLM applications
+- Monitoring production systems
+
+## Key Features
+
+- **Open Source**: Free and open-source
+- **Tracing**: Detailed traces of LLM operations
+- **Evaluation**: Built-in evaluation tools
+- **Visualizations**: Interactive dashboards
+
+## Basic Example
+
+```python
+from openai import OpenAI
+from phoenix.trace import openai
+
+# Wrap OpenAI client for automatic tracing
+client = openai.OpenAI()
+
+# Traced client automatically captures traces
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+## Resources
+
+- [Phoenix Documentation](https://docs.arize.com/phoenix)
+- [Phoenix GitHub](https://github.com/Arize-ai/phoenix)
+

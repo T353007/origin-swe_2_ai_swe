@@ -1,0 +1,207 @@
+---
+id: "lesson-1-agent-architectures"
+slug: "agent-architectures"
+title: "AI Agent Architectures"
+description: "Understand different agent architectures: ReAct, Plan-and-Execute, and when to use each pattern for building AI agents."
+order: 1
+chapterId: "chapter-1-agents"
+moduleId: "module-4-agents"
+prerequisites: ["lesson-2-function-calling"]
+estimatedMinutes: 9
+tags: ["agents", "architectures", "react", "planning"]
+difficulty: "intermediate"
+---
+
+# AI Agent Architectures
+
+## Overview
+
+AI agents are systems that can reason, plan, and use tools to accomplish complex tasks. Understanding different agent architectures helps you build effective agents for your use cases.
+
+## Main Content
+
+### What Are AI Agents?
+
+Agents are LLM-powered systems that:
+- **Reason** about tasks and break them into steps
+- **Plan** their approach to solving problems
+- **Use tools** to interact with external systems
+- **Iterate** based on tool outputs until the task is complete
+
+### Agent Architectures
+
+#### 1. ReAct (Reasoning + Acting)
+
+ReAct agents alternate between reasoning and taking actions:
+
+```
+Thought: I need to search for information about RAG
+Action: search
+Action Input: "What is RAG in AI?"
+Observation: RAG is Retrieval-Augmented Generation...
+Thought: Now I have the information, I can answer the question
+Action: final_answer
+Action Input: "RAG is Retrieval-Augmented Generation..."
+```
+
+**Pros**: Simple, works well for many tasks
+**Cons**: Can get stuck in loops, limited planning
+
+#### 2. Plan-and-Execute
+
+Agent first creates a plan, then executes it:
+
+```
+Plan:
+1. Search for information about RAG
+2. Extract key concepts
+3. Format answer
+
+Execution:
+Step 1: search("RAG")
+Step 2: extract_concepts(...)
+Step 3: format_answer(...)
+```
+
+**Pros**: Better for complex multi-step tasks
+**Cons**: Plan may become outdated, more complex
+
+#### 3. ReWOO (Relevant Object)
+
+Advanced architecture that uses object decomposition for better planning.
+
+### Building a Simple Agent
+
+```python
+from langchain_openai import ChatOpenAI
+from langchain.agents import create_openai_tools_agent, AgentExecutor
+from langchain_core.tools import Tool
+from langchain_core.prompts import ChatPromptTemplate
+
+llm = ChatOpenAI(model="gpt-4", temperature=0)
+
+# Define tools
+def search(query: str) -> str:
+    # Your search implementation
+    return "Search results..."
+
+def calculator(expression: str) -> str:
+    try:
+        result = eval(expression)
+        return str(result)
+    except:
+        return "Invalid expression"
+
+tools = [
+    Tool(
+        name="Search",
+        func=search,
+        description="Search for information"
+    ),
+    Tool(
+        name="Calculator",
+        func=calculator,
+        description="Perform calculations"
+    )
+]
+
+# Create agent
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful assistant"),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}")
+])
+
+agent = create_openai_tools_agent(llm, tools, prompt)
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
+# Use agent
+result = agent_executor.invoke({"input": "What is 25 * 4? Then search for information about RAG."})
+```
+
+## Code Examples
+
+Custom ReAct agent:
+
+```python
+from openai import OpenAI
+import json
+
+class SimpleAgent:
+    def __init__(self):
+        self.client = OpenAI()
+        self.tools = {
+            "search": self._search_tool,
+            "calculator": self._calculator_tool
+        }
+    
+    def _search_tool(self, query: str) -> str:
+        # Implementation
+        return f"Results for: {query}"
+    
+    def _calculator_tool(self, expression: str) -> str:
+        try:
+            return str(eval(expression))
+        except:
+            return "Error"
+    
+    def run(self, task: str, max_iterations: int = 10) -> str:
+        """Run agent with ReAct pattern."""
+        prompt = f"""You are a helpful assistant. Use available tools to complete the task.
+
+Available tools:
+- search(query): Search for information
+- calculator(expression): Perform calculations
+
+Task: {task}
+
+Think step by step. Use format:
+Thought: [your reasoning]
+Action: [tool_name]
+Action Input: [tool_input]
+"""
+        
+        for i in range(max_iterations):
+            response = self.client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0
+            )
+            
+            text = response.choices[0].message.content
+            
+            # Parse action (simplified)
+            if "Action:" in text and "Action Input:" in text:
+                # Extract and execute tool
+                # Simplified parsing
+                pass
+            elif "Final Answer:" in text:
+                return text.split("Final Answer:")[-1].strip()
+        
+        return "Max iterations reached"
+```
+
+## Common Mistakes
+
+1. **Infinite loops**: No max iterations or loop detection
+2. **Wrong tool descriptions**: Agent can't choose correct tools
+3. **No error handling**: Tool failures crash the agent
+4. **Too many tools**: Agent gets confused with too many options
+5. **No planning**: Complex tasks need planning, not just ReAct
+6. **Token blowups**: Long agent runs consume many tokens
+
+## Exercise
+
+1. Build a simple ReAct agent with 2-3 tools
+2. Test with various tasks (simple, complex, ambiguous)
+3. Add loop detection and max iterations
+4. Compare ReAct vs Plan-and-Execute for same task
+5. Measure token usage and costs
+6. Add error handling for tool failures
+
+## Tools & Resources
+
+- [LangChain Agents](https://python.langchain.com/docs/modules/agents/)
+- [ReAct Paper](https://arxiv.org/abs/2210.03629)
+- [AutoGPT Architecture](https://github.com/Significant-Gravitas/AutoGPT)
+

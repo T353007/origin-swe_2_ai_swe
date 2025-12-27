@@ -4,8 +4,10 @@
   "title": "Monitoring and Observability",
   "description": "Monitor AI systems, track performance, debug issues, and ensure reliability.",
   "order": 7,
-  "estimatedHours": 11,
-  "prerequisites": ["module-6-deployment"],
+  "estimatedHours": 0.1,
+  "prerequisites": [
+    "module-6-deployment"
+  ],
   "learningObjectives": [
     "Monitor AI system performance",
     "Track costs and latency",

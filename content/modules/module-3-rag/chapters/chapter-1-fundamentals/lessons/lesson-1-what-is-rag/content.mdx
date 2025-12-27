@@ -1,0 +1,126 @@
+---
+id: "lesson-1-what-is-rag"
+slug: "what-is-rag"
+title: "What is RAG and Why It Matters"
+description: "Introduction to Retrieval-Augmented Generation: understand how RAG works, when to use it, and why it's essential for production AI applications."
+order: 1
+chapterId: "chapter-1-rag-fundamentals"
+moduleId: "module-3-rag"
+prerequisites: ["lesson-1-embeddings"]
+estimatedMinutes: 9
+tags: ["rag", "retrieval", "augmented-generation", "fundamentals"]
+difficulty: "beginner"
+---
+
+# What is RAG and Why It Matters
+
+## Overview
+
+Retrieval-Augmented Generation (RAG) combines information retrieval with language generation to create AI systems that can answer questions using external knowledge. RAG addresses the key limitation of LLMs: they only know what they were trained on, and that training data has a cutoff date.
+
+## Main Content
+
+### The Problem RAG Solves
+
+**LLM Limitations:**
+- **Training cutoff**: Models don't know information after their training date
+- **No private data**: Can't access your company's documents or databases
+- **Hallucinations**: May invent facts when unsure
+- **Token limits**: Can't include all relevant context in prompts
+
+**RAG Solution:**
+- Retrieves relevant documents from your knowledge base
+- Includes retrieved context in the prompt
+- Generates answers based on retrieved information
+- Reduces hallucinations by grounding responses in retrieved content
+
+### How RAG Works
+
+The RAG pipeline has three main steps:
+
+1. **Indexing** (offline):
+   - Documents are chunked into smaller pieces
+   - Each chunk is converted to embeddings
+   - Embeddings stored in a vector database
+
+2. **Retrieval** (at query time):
+   - Query is converted to an embedding
+   - Vector search finds similar document chunks
+   - Top-k most relevant chunks retrieved
+
+3. **Generation**:
+   - Retrieved chunks added as context to the prompt
+   - LLM generates answer using provided context
+   - Answer is grounded in retrieved documents
+
+### When to Use RAG
+
+**Good use cases:**
+- **Question answering over documents**: Internal docs, knowledge bases
+- **Chatbots with domain knowledge**: Support bots, internal assistants
+- **Research assistants**: Searching and summarizing papers/articles
+- **Code search**: Finding relevant code examples or documentation
+
+**When NOT to use RAG:**
+- Simple tasks requiring no external knowledge
+- Real-time data (use function calling instead)
+- Tasks that fit entirely in context window
+- General knowledge questions (LLM alone may suffice)
+
+## Code Examples
+
+Simple RAG implementation:
+
+```python
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+# Step 1: Split documents into chunks
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200
+)
+chunks = text_splitter.split_text(document_text)
+
+# Step 2: Create embeddings and store in vector DB
+embeddings = OpenAIEmbeddings()
+vectorstore = Chroma.from_texts(chunks, embeddings)
+
+# Step 3: Retrieve relevant chunks
+query = "What is RAG?"
+relevant_docs = vectorstore.similarity_search(query, k=3)
+
+# Step 4: Generate answer with context
+context = "\n".join([doc.page_content for doc in relevant_docs])
+prompt = f"Context: {context}\n\nQuestion: {query}\n\nAnswer:"
+
+llm = ChatOpenAI(model="gpt-4", temperature=0)
+response = llm.invoke(prompt)
+answer = response.content
+```
+
+## Common Mistakes
+
+1. **Not chunking properly**: Chunks too large lose precision, too small lose context
+2. **Ignoring metadata**: Missing metadata makes filtering and organization hard
+3. **No re-ranking**: Vector similarity alone may not rank best results first
+4. **Wrong embedding model**: Using wrong model for your domain reduces quality
+5. **No evaluation**: Deploying RAG without measuring retrieval quality
+6. **Token limits**: Not managing context window size leads to truncation
+
+## Exercise
+
+1. Set up a simple RAG system with LangChain
+2. Index a small set of documents (5-10)
+3. Test retrieval quality with different queries
+4. Compare answers with and without retrieved context
+5. Measure how retrieval affects answer quality
+
+## Tools & Resources
+
+- [LangChain RAG Tutorial](https://python.langchain.com/docs/use_cases/question_answering/)
+- [LlamaIndex RAG Guide](https://docs.llamaindex.ai/en/stable/getting_started/concepts/)
+- [RAG Paper (Lewis et al.)](https://arxiv.org/abs/2005.11401)
+- [Vector Database Comparison](/toolbox/vector-dbs)
+

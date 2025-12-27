@@ -1,0 +1,75 @@
+---
+title: "LangChain"
+category: "agents"
+description: "Framework for building LLM-powered applications with agents, chains, and tools"
+officialUrl: "https://python.langchain.com/"
+tags: ["agents", "framework", "python", "llm"]
+whenToUse: [
+  "Building agent-based applications",
+  "Creating chains of LLM calls",
+  "Integrating multiple tools and data sources",
+  "Rapid prototyping of AI applications"
+]
+alternatives: ["LlamaIndex", "Haystack", "Semantic Kernel"]
+---
+
+# LangChain
+
+LangChain is a framework for developing applications powered by language models. It provides tools and abstractions for building agent-based applications, chains, and integrating various data sources.
+
+## Overview
+
+LangChain simplifies the process of building complex LLM applications by providing:
+- **Agents**: Autonomous systems that can use tools
+- **Chains**: Composable sequences of operations
+- **Memory**: State management for conversations
+- **Tools**: Integration with external systems
+
+## When to Use
+
+- Building agent-based applications
+- Creating complex chains of LLM operations
+- Integrating multiple data sources
+- Rapid prototyping
+
+## Key Features
+
+- **Agent Framework**: Build autonomous agents that can use tools
+- **Memory Management**: Maintain conversation state
+- **Vector Store Integration**: Built-in support for vector databases
+- **Tool Integration**: Easy integration with external APIs and tools
+
+## Basic Example
+
+```python
+from langchain_openai import ChatOpenAI
+from langchain.agents import create_openai_tools_agent, AgentExecutor
+from langchain_core.tools import Tool
+from langchain_core.prompts import ChatPromptTemplate
+
+llm = ChatOpenAI(model="gpt-4", temperature=0)
+tools = [
+    Tool(
+        name="Search",
+        func=search_function,
+        description="Search for information"
+    )
+]
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful assistant"),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}")
+])
+
+agent = create_openai_tools_agent(llm, tools, prompt)
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+result = agent_executor.invoke({"input": "Search for information about RAG"})
+```
+
+## Resources
+
+- [LangChain Documentation](https://python.langchain.com/)
+- [LangChain GitHub](https://github.com/langchain-ai/langchain)
+- [LangChain Cookbook](https://github.com/langchain-ai/langchain-cookbook)
+

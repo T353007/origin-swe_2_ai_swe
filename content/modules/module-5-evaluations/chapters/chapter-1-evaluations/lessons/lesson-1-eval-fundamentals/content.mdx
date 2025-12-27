@@ -1,0 +1,171 @@
+---
+id: "lesson-1-eval-fundamentals"
+slug: "eval-fundamentals"
+title: "Evaluation Fundamentals"
+description: "Understand why evaluations matter for AI systems, types of evaluations, and key metrics for measuring AI system quality."
+order: 1
+chapterId: "chapter-1-evaluations"
+moduleId: "module-5-evaluations"
+prerequisites: ["lesson-5-basic-rag"]
+estimatedMinutes: 9
+tags: ["evaluation", "testing", "metrics", "quality"]
+difficulty: "intermediate"
+---
+
+# Evaluation Fundamentals
+
+## Overview
+
+Evaluations are crucial for AI systems because outputs are probabilistic and non-deterministic. Without systematic evaluation, you can't know if your system is improving or breaking.
+
+## Main Content
+
+### Why Evaluations Matter
+
+**Without evaluations:**
+- Can't measure if changes improve quality
+- Breaking changes go undetected
+- No confidence in system reliability
+- Can't compare different approaches
+
+**With evaluations:**
+- Catch regressions before deployment
+- Measure improvements objectively
+- Build confidence in system quality
+- Make data-driven decisions
+
+### Types of Evaluations
+
+#### 1. Unit Tests (Component-Level)
+Test individual components in isolation:
+- Embedding quality
+- Chunking correctness
+- Retrieval precision
+- Individual prompt outputs
+
+#### 2. Integration Tests (System-Level)
+Test complete workflows:
+- End-to-end RAG pipeline
+- Agent task completion
+- Multi-step processes
+
+#### 3. End-to-End Tests (User-Level)
+Test from user perspective:
+- Complete user queries
+- Real-world scenarios
+- Expected outputs
+
+### Evaluation Metrics
+
+**Accuracy Metrics:**
+- **Exact match**: Output exactly matches expected
+- **Semantic similarity**: Meaning matches (using embeddings)
+- **LLM-as-judge**: LLM evaluates if answer is correct
+
+**Quality Metrics:**
+- **Relevance**: Answer addresses the question
+- **Completeness**: Answer covers all aspects
+- **Coherence**: Answer is well-structured
+- **Factuality**: Answer is factually correct
+
+**Operational Metrics:**
+- **Latency**: Response time
+- **Cost**: Token usage and API costs
+- **Success rate**: Percentage of successful queries
+
+## Code Examples
+
+Simple evaluation framework:
+
+```python
+from typing import List, Dict
+import json
+
+class EvalFramework:
+    def __init__(self):
+        self.test_cases = []
+    
+    def add_test_case(self, query: str, expected: str, metadata: Dict = None):
+        """Add a test case."""
+        self.test_cases.append({
+            "query": query,
+            "expected": expected,
+            "metadata": metadata or {}
+        })
+    
+    def evaluate(self, system_func) -> Dict:
+        """Evaluate system on all test cases."""
+        results = []
+        
+        for test_case in self.test_cases:
+            try:
+                actual = system_func(test_case["query"])
+                score = self._score(test_case["expected"], actual)
+                results.append({
+                    "query": test_case["query"],
+                    "expected": test_case["expected"],
+                    "actual": actual,
+                    "score": score,
+                    "passed": score > 0.8
+                })
+            except Exception as e:
+                results.append({
+                    "query": test_case["query"],
+                    "error": str(e),
+                    "passed": False
+                })
+        
+        return {
+            "total": len(self.test_cases),
+            "passed": sum(1 for r in results if r.get("passed", False)),
+            "results": results
+        }
+    
+    def _score(self, expected: str, actual: str) -> float:
+        """Simple scoring (can be improved with semantic similarity)."""
+        if expected.lower() == actual.lower():
+            return 1.0
+        # Simple word overlap
+        expected_words = set(expected.lower().split())
+        actual_words = set(actual.lower().split())
+        overlap = len(expected_words & actual_words)
+        total = len(expected_words | actual_words)
+        return overlap / total if total > 0 else 0.0
+
+# Usage
+eval_framework = EvalFramework()
+eval_framework.add_test_case(
+    query="What is RAG?",
+    expected="RAG is Retrieval-Augmented Generation"
+)
+
+results = eval_framework.evaluate(my_rag_system.query)
+print(f"Passed: {results['passed']}/{results['total']}")
+```
+
+## Common Mistakes
+
+1. **No evaluation**: Deploying without testing
+2. **Only manual testing**: Can't scale, inconsistent
+3. **Wrong metrics**: Metrics that don't reflect user value
+4. **Flaky tests**: Non-deterministic evaluations fail randomly
+5. **No baseline**: Can't measure improvements
+6. **Testing on training data**: Biased results
+7. **Ignoring edge cases**: System fails on unexpected inputs
+
+## Exercise
+
+1. Create evaluation framework with test cases
+2. Implement multiple scoring methods (exact match, semantic similarity)
+3. Run evaluations on your RAG system
+4. Identify failure cases and improve system
+5. Set up continuous evaluation pipeline
+6. Track evaluation metrics over time
+
+## Tools & Resources
+
+- [LangSmith](https://www.langchain.com/langsmith)
+- [Phoenix](https://github.com/Arize-ai/phoenix)
+- [RAGAS](https://docs.ragas.io/) - RAG evaluation framework
+- [Evaluation Best Practices](https://www.pinecone.io/learn/llm-evaluation/)
+

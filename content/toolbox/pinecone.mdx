@@ -1,0 +1,68 @@
+---
+title: "Pinecone"
+category: "vector-db"
+description: "Managed vector database for semantic search and RAG applications"
+officialUrl: "https://www.pinecone.io/"
+tags: ["vector-database", "rag", "semantic-search", "managed"]
+whenToUse: [
+  "Production RAG applications",
+  "Semantic search at scale",
+  "When you need managed infrastructure",
+  "High-performance vector search"
+]
+alternatives: ["Weaviate", "Qdrant", "Chroma", "Milvus"]
+---
+
+# Pinecone
+
+Pinecone is a managed vector database that makes it easy to add semantic search to applications. It's designed for production use with high performance and reliability.
+
+## Overview
+
+Pinecone provides:
+- **Managed Infrastructure**: No need to manage servers
+- **High Performance**: Optimized for fast vector search
+- **Scalability**: Automatically scales with your needs
+- **Metadata Filtering**: Filter by metadata alongside vector search
+
+## When to Use
+
+- Production RAG applications requiring reliability
+- Applications needing high-performance vector search
+- When you want managed infrastructure (no DevOps)
+- Large-scale semantic search
+
+## Key Features
+
+- **Fully Managed**: No infrastructure to manage
+- **Fast Search**: Optimized for low latency
+- **Metadata Filtering**: Combine vector and metadata queries
+- **Automatic Scaling**: Handles traffic spikes automatically
+
+## Basic Example
+
+```python
+from pinecone import Pinecone
+from openai import OpenAI
+
+pc = Pinecone(api_key="your-api-key")
+index = pc.Index("my-index")
+
+# Insert vectors
+index.upsert(vectors=[
+    ("id1", embedding1, {"metadata": "value"})
+])
+
+# Query
+results = index.query(
+    vector=query_embedding,
+    top_k=5,
+    include_metadata=True
+)
+```
+
+## Resources
+
+- [Pinecone Documentation](https://docs.pinecone.io/)
+- [Pinecone Python Client](https://github.com/pinecone-io/pinecone-python-client)
+

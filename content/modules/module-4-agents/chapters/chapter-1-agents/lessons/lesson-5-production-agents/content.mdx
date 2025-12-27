@@ -1,0 +1,186 @@
+---
+id: "lesson-5-production-agents"
+slug: "production-agents"
+title: "Agent Production Challenges"
+description: "Handle common production challenges: infinite loops, cost management, tool failures, and monitoring agent behavior."
+order: 5
+chapterId: "chapter-1-agents"
+moduleId: "module-4-agents"
+prerequisites: ["lesson-4-error-handling"]
+estimatedMinutes: 8
+tags: ["agents", "production", "loops", "cost-management"]
+difficulty: "advanced"
+---
+
+# Agent Production Challenges
+
+## Overview
+
+Agents face unique production challenges: infinite loops, token blowups, tool failures, and unpredictable behavior. This lesson covers strategies to handle these challenges.
+
+## Main Content
+
+### Preventing Infinite Loops
+
+Agents can get stuck in loops trying to solve impossible tasks:
+
+```python
+class LoopPrevention:
+    def __init__(self, max_iterations: int = 10, max_tokens: int = 10000):
+        self.max_iterations = max_iterations
+        self.max_tokens = max_tokens
+        self.iteration_count = 0
+        self.total_tokens = 0
+        self.previous_actions = []
+    
+    def check_loop(self, current_action: str) -> tuple[bool, str]:
+        """Check if agent is in a loop."""
+        self.iteration_count += 1
+        
+        # Check iteration limit
+        if self.iteration_count > self.max_iterations:
+            return True, "Max iterations reached"
+        
+        # Check token limit
+        if self.total_tokens > self.max_tokens:
+            return True, "Token limit exceeded"
+        
+        # Check for repeated actions
+        if len(self.previous_actions) >= 3:
+            last_three = self.previous_actions[-3:]
+            if len(set(last_three)) == 1:  # Same action 3 times
+                return True, "Repeated actions detected"
+        
+        # Check for circular patterns
+        if len(self.previous_actions) >= 5:
+            pattern = self.previous_actions[-3:]
+            if pattern == self.previous_actions[-6:-3]:
+                return True, "Circular pattern detected"
+        
+        self.previous_actions.append(current_action)
+        return False, ""
+```
+
+### Cost Management
+
+Agents can consume huge amounts of tokens:
+
+```python
+class CostTracker:
+    def __init__(self, budget: float = 10.0):
+        self.budget = budget
+        self.spent = 0.0
+        self.request_count = 0
+    
+    def track_request(self, tokens: int, cost_per_1k: float = 0.03):
+        """Track token usage and cost."""
+        cost = (tokens / 1000) * cost_per_1k
+        self.spent += cost
+        self.request_count += 1
+    
+    def can_proceed(self) -> tuple[bool, str]:
+        """Check if agent can continue."""
+        if self.spent >= self.budget:
+            return False, f"Budget exceeded: ${self.spent:.2f}"
+        
+        remaining = self.budget - self.spent
+        if remaining < 0.10:  # Less than 10 cents
+            return False, f"Low budget remaining: ${remaining:.2f}"
+        
+        return True, f"Budget OK: ${remaining:.2f} remaining"
+```
+
+### Handling Tool Failures
+
+```python
+class RobustAgent:
+    def __init__(self):
+        self.tools = {}
+        self.max_retries = 3
+    
+    def execute_tool_safely(self, tool_name: str, args: dict):
+        """Execute tool with retries and error handling."""
+        for attempt in range(self.max_retries):
+            try:
+                result = self.tools[tool_name](**args)
+                return {"success": True, "result": result}
+            except Exception as e:
+                if attempt == self.max_retries - 1:
+                    return {
+                        "success": False,
+                        "error": str(e),
+                        "tool": tool_name
+                    }
+                time.sleep(0.5 * (attempt + 1))  # Exponential backoff
+        
+        return {"success": False, "error": "Max retries exceeded"}
+```
+
+## Code Examples
+
+Complete production-ready agent:
+
+```python
+class ProductionAgent:
+    def __init__(self, max_iterations=10, budget=10.0):
+        self.loop_prevention = LoopPrevention(max_iterations)
+        self.cost_tracker = CostTracker(budget)
+        self.tools = {}
+    
+    def run(self, task: str) -> dict:
+        """Run agent with production safeguards."""
+        iterations = 0
+        
+        while iterations < self.loop_prevention.max_iterations:
+            # Check loop prevention
+            in_loop, reason = self.loop_prevention.check_loop("current_action")
+            if in_loop:
+                return {"error": f"Loop detected: {reason}"}
+            
+            # Check budget
+            can_proceed, budget_msg = self.cost_tracker.can_proceed()
+            if not can_proceed:
+                return {"error": budget_msg}
+            
+            # Execute agent step
+            try:
+                result = self._agent_step(task)
+                
+                # Track tokens
+                if "tokens" in result:
+                    self.cost_tracker.track_request(result["tokens"])
+                
+                # Check if complete
+                if result.get("complete", False):
+                    return {"success": True, "result": result["output"]}
+                
+                iterations += 1
+            except Exception as e:
+                return {"error": f"Agent error: {e}"}
+        
+        return {"error": "Max iterations reached"}
+```
+
+## Common Mistakes
+
+1. **No loop prevention**: Agents run forever
+2. **No budget limits**: Costs spiral out of control
+3. **No tool error handling**: Single failure crashes agent
+4. **No monitoring**: Can't debug production issues
+5. **No timeout**: Agents hang indefinitely
+6. **Token blowups**: Long runs consume too many tokens
+
+## Exercise
+
+1. Implement loop detection
+2. Add cost tracking and budgets
+3. Add tool error handling with retries
+4. Set up monitoring and logging
+5. Test with edge cases (impossible tasks, failing tools)
+6. Measure costs and optimize
+
+## Tools & Resources
+
+- [LangChain Agents](https://python.langchain.com/docs/modules/agents/)
+- [Cost Optimization](https://platform.openai.com/docs/guides/rate-limits/usage-policies)
+

@@ -1,0 +1,63 @@
+---
+title: "Weaviate"
+category: "vector-db"
+description: "Open-source vector database with GraphQL API and hybrid search"
+officialUrl: "https://weaviate.io/"
+tags: ["vector-database", "open-source", "graphql", "hybrid-search"]
+whenToUse: [
+  "Self-hosted vector database",
+  "Need GraphQL API",
+  "Hybrid search requirements",
+  "Complex filtering needs"
+]
+alternatives: ["Pinecone", "Qdrant", "Chroma", "Milvus"]
+---
+
+# Weaviate
+
+Weaviate is an open-source vector database with a GraphQL API. It supports vector search, hybrid search, and complex filtering capabilities.
+
+## Overview
+
+Weaviate provides:
+- **GraphQL API**: Query using GraphQL
+- **Hybrid Search**: Combine vector and keyword search
+- **Self-Hosted**: Run on your own infrastructure
+- **Cloud Option**: Managed Weaviate Cloud available
+
+## When to Use
+
+- Self-hosted vector database
+- Need GraphQL interface
+- Complex hybrid search requirements
+- Advanced filtering capabilities
+
+## Key Features
+
+- **GraphQL API**: Type-safe queries
+- **Hybrid Search**: Vector + keyword search
+- **Self-Hosted**: Full control over infrastructure
+- **Schema-Based**: Define data schemas
+
+## Basic Example
+
+```python
+import weaviate
+
+client = weaviate.Client(url="http://localhost:8080")
+
+# Query
+result = (
+    client.query
+    .get("Document", ["text", "metadata"])
+    .with_near_text({"concepts": ["RAG"]})
+    .with_limit(5)
+    .do()
+)
+```
+
+## Resources
+
+- [Weaviate Documentation](https://weaviate.io/developers/weaviate)
+- [Weaviate Python Client](https://weaviate.io/developers/weaviate/client-libraries/python)
+

@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { ToolboxItem } from "@/types/content";
+import { ExternalLink } from "@/components/toolbox/ExternalLink";
 
 const categories = [
   { id: "agents", label: "Agents", description: "AI agent frameworks and patterns" },
@@ -83,15 +84,12 @@ export default function ToolboxPage() {
                               </Badge>
                             ))}
                           </div>
-                          <a
+                          <ExternalLink
                             href={item.officialUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
                             className="text-sm text-primary hover:underline"
-                            onClick={(e) => e.stopPropagation()}
                           >
                             Official Site →
-                          </a>
+                          </ExternalLink>
                         </CardContent>
                       </Card>
                     </Link>

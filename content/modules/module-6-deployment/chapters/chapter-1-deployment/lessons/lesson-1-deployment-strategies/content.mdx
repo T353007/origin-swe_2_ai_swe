@@ -1,0 +1,167 @@
+---
+id: "lesson-1-deployment-strategies"
+slug: "deployment-strategies"
+title: "Deployment Strategies for AI Applications"
+description: "Learn deployment patterns for AI applications: serverless, containers, API gateways, and scaling strategies."
+order: 1
+chapterId: "chapter-1-deployment"
+moduleId: "module-6-deployment"
+prerequisites: ["lesson-5-production-agents"]
+estimatedMinutes: 9
+tags: ["deployment", "serverless", "containers", "scaling"]
+difficulty: "intermediate"
+---
+
+# Deployment Strategies for AI Applications
+
+## Overview
+
+AI applications have unique deployment requirements: variable latency, high token costs, and need for scalability. This lesson covers deployment strategies and patterns.
+
+## Main Content
+
+### Deployment Options
+
+#### 1. Serverless (AWS Lambda, Vercel, etc.)
+**Pros:**
+- Auto-scaling
+- Pay per use
+- No infrastructure management
+- Fast to deploy
+
+**Cons:**
+- Cold starts (latency spikes)
+- Timeout limits
+- Limited control
+- Can be expensive at scale
+
+**Best for:** Simple APIs, low-medium traffic
+
+#### 2. Containers (Docker + Kubernetes/ECS)
+**Pros:**
+- Full control
+- Consistent environment
+- Good for complex apps
+- Better for high traffic
+
+**Cons:**
+- Infrastructure management
+- Scaling configuration needed
+- More complex setup
+
+**Best for:** Production systems, high traffic, complex architectures
+
+#### 3. Edge Deployments (Cloudflare Workers, etc.)
+**Pros:**
+- Very low latency
+- Global distribution
+- Good for simple functions
+
+**Cons:**
+- Limited runtime
+- Not for complex workloads
+
+**Best for:** Simple transformations, caching layers
+
+### API Gateway Patterns
+
+Use API gateways for:
+- Rate limiting
+- Authentication
+- Request routing
+- Monitoring
+- Cost control
+
+```python
+# Example: FastAPI deployment
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class QueryRequest(BaseModel):
+    question: str
+
+@app.post("/query")
+async def query_rag(request: QueryRequest):
+    try:
+        result = rag_system.query(request.question)
+        return {"answer": result["answer"], "sources": result["sources"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+```
+
+## Code Examples
+
+Docker deployment:
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+Kubernetes deployment:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rag-service
+  template:
+    metadata:
+      labels:
+        app: rag-service
+    spec:
+      containers:
+      - name: rag-service
+        image: rag-service:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+```
+
+## Common Mistakes
+
+1. **No rate limiting**: Users can rack up huge costs
+2. **Ignoring cold starts**: Serverless latency spikes
+3. **Wrong resource limits**: Containers crash or waste money
+4. **No health checks**: Can't detect failures
+5. **No monitoring**: Can't debug production issues
+6. **Token limits**: Not handling context window limits
+
+## Exercise
+
+1. Deploy RAG service to serverless platform
+2. Measure cold start latency
+3. Deploy same service in container
+4. Compare costs and performance
+5. Add rate limiting and monitoring
+6. Set up auto-scaling
+
+## Tools & Resources
+
+- [FastAPI Deployment](https://fastapi.tiangolo.com/deployment/)
+- [Docker Documentation](https://docs.docker.com/)
+- [Kubernetes Basics](https://kubernetes.io/docs/tutorials/)
+

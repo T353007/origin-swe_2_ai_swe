@@ -4,8 +4,10 @@
   "title": "Retrieval-Augmented Generation (RAG)",
   "description": "Build RAG systems: vector databases, chunking strategies, hybrid search, and production patterns.",
   "order": 3,
-  "estimatedHours": 16,
-  "prerequisites": ["module-2-llms"],
+  "estimatedHours": 0.9,
+  "prerequisites": [
+    "module-2-llms"
+  ],
   "learningObjectives": [
     "Understand RAG architecture and use cases",
     "Work with vector databases",

@@ -6,11 +6,14 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatTime(minutes: number): string {
-  if (minutes < 60) {
-    return `${minutes} min`;
+  // Round to nearest integer to avoid floating point precision issues
+  const roundedMinutes = Math.round(minutes);
+  
+  if (roundedMinutes < 60) {
+    return `${roundedMinutes} min`;
   }
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+  const hours = Math.floor(roundedMinutes / 60);
+  const mins = Math.round(roundedMinutes % 60);
   return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
 }
 

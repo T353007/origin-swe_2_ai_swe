@@ -63,6 +63,16 @@ export function search(query: string): SearchResult[] {
   if (!query.trim()) {
     return [];
   }
-  return index.search(query, { fuzzy: 0.2, prefix: true });
+  const searchResults = index.search(query, { fuzzy: 0.2, prefix: true });
+  // Map MiniSearch results to our SearchResult type
+  return searchResults.map((result) => ({
+    type: result.type as "lesson" | "module" | "toolbox",
+    id: result.id,
+    title: result.title,
+    description: result.description,
+    url: result.url,
+    moduleId: result.moduleId,
+    chapterId: result.chapterId,
+  }));
 }
 

@@ -1,0 +1,157 @@
+---
+id: "lesson-2-vector-dbs"
+slug: "vector-dbs"
+title: "Vector Databases Overview"
+description: "Understand vector databases, how they work, and how to choose the right one for your RAG application."
+order: 2
+chapterId: "chapter-1-rag-fundamentals"
+moduleId: "module-3-rag"
+prerequisites: ["lesson-1-what-is-rag"]
+estimatedMinutes: 9
+tags: ["vector-database", "embeddings", "storage", "pinecone", "chroma"]
+difficulty: "beginner"
+---
+
+# Vector Databases Overview
+
+## Overview
+
+Vector databases are specialized databases designed to store and query high-dimensional vectors efficiently. They're essential for RAG because they enable fast similarity search over millions of document embeddings.
+
+## Main Content
+
+### What Are Vector Databases?
+
+Traditional databases store scalar values (numbers, strings). Vector databases store vectors (arrays of numbers) and can quickly find similar vectors using distance metrics like cosine similarity.
+
+**Key operations:**
+- **Insert**: Store vectors with optional metadata
+- **Search**: Find most similar vectors to a query vector
+- **Update/Delete**: Modify or remove stored vectors
+- **Filter**: Combine vector search with metadata filtering
+
+### Popular Vector Databases
+
+#### Pinecone
+- **Type**: Managed cloud service
+- **Pros**: Easy setup, automatic scaling, fast performance
+- **Cons**: Cost at scale, vendor lock-in
+- **Best for**: Production apps needing reliability
+
+#### Weaviate
+- **Type**: Open-source, self-hosted or managed
+- **Pros**: Full-featured, GraphQL API, hybrid search
+- **Cons**: More complex setup
+- **Best for**: Complex applications needing flexibility
+
+#### Qdrant
+- **Type**: Open-source, self-hosted or cloud
+- **Pros**: Fast, Rust-based, good filtering
+- **Cons**: Smaller community
+- **Best for**: Performance-critical applications
+
+#### Chroma
+- **Type**: Open-source, embedded or client-server
+- **Pros**: Python-first, simple API, local-first
+- **Cons**: Less mature, smaller scale
+- **Best for**: Development and small-scale production
+
+### Choosing a Vector Database
+
+**Considerations:**
+- **Scale**: How many vectors will you store?
+- **Latency**: How fast do searches need to be?
+- **Budget**: Managed vs self-hosted costs
+- **Features**: Need filtering, hybrid search, etc.?
+- **Team expertise**: Easier setup vs more control
+
+## Code Examples
+
+Basic vector database operations with Pinecone:
+
+```python
+import pinecone
+from openai import OpenAI
+
+# Initialize Pinecone
+pinecone.init(api_key="your-api-key", environment="us-west1-gcp")
+index = pinecone.Index("my-index")
+
+# Create embeddings
+client = OpenAI()
+def get_embedding(text):
+    response = client.embeddings.create(
+        input=text,
+        model="text-embedding-3-small"
+    )
+    return response.data[0].embedding
+
+# Insert vectors
+documents = ["Document 1 text...", "Document 2 text..."]
+for i, doc in enumerate(documents):
+    embedding = get_embedding(doc)
+    index.upsert([(f"doc-{i}", embedding, {"text": doc})])
+
+# Query
+query_embedding = get_embedding("What is RAG?")
+results = index.query(
+    vector=query_embedding,
+    top_k=5,
+    include_metadata=True
+)
+```
+
+Using Chroma (local):
+
+```python
+import chromadb
+from chromadb.config import Settings
+
+# Create/connect to database
+client = chromadb.Client(Settings(
+    chroma_db_impl="duckdb+parquet",
+    persist_directory="./chroma_db"
+))
+
+collection = client.get_or_create_collection("documents")
+
+# Add documents
+collection.add(
+    embeddings=embeddings_list,
+    documents=texts,
+    ids=[f"doc-{i}" for i in range(len(texts))]
+)
+
+# Query
+results = collection.query(
+    query_embeddings=[query_embedding],
+    n_results=5
+)
+```
+
+## Common Mistakes
+
+1. **Not indexing metadata**: Makes filtering and debugging harder
+2. **Wrong distance metric**: Cosine similarity vs Euclidean matters
+3. **No indexing strategy**: Large datasets need proper indexing
+4. **Ignoring costs**: Managed services can get expensive at scale
+5. **Not testing performance**: Vector DB performance varies by use case
+6. **Over-engineering**: Simple use cases don't need complex solutions
+
+## Exercise
+
+1. Set up accounts/try both Pinecone and Chroma
+2. Index the same documents in both
+3. Compare query performance and results
+4. Test metadata filtering capabilities
+5. Measure costs for your expected scale
+6. Choose the best fit for your use case
+
+## Tools & Resources
+
+- [Pinecone Documentation](https://docs.pinecone.io/)
+- [Chroma Documentation](https://docs.trychroma.com/)
+- [Weaviate Documentation](https://weaviate.io/developers/weaviate)
+- [Vector Database Comparison](/toolbox/vector-dbs)
+- [Qdrant Documentation](https://qdrant.tech/documentation/)
+

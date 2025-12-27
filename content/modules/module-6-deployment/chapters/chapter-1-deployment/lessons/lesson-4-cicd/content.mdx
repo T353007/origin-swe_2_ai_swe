@@ -1,0 +1,166 @@
+---
+id: "lesson-4-cicd"
+slug: "cicd"
+title: "CI/CD for AI Systems"
+description: "Set up continuous integration and deployment for AI applications: testing prompts, versioning models, and automated deployments."
+order: 4
+chapterId: "chapter-1-deployment"
+moduleId: "module-6-deployment"
+prerequisites: ["lesson-1-deployment-strategies"]
+estimatedMinutes: 8
+tags: ["cicd", "continuous-integration", "deployment", "testing"]
+difficulty: "intermediate"
+---
+
+# CI/CD for AI Systems
+
+## Overview
+
+CI/CD for AI systems requires testing non-deterministic outputs, versioning prompts and models, and deploying safely. This lesson covers CI/CD patterns for AI applications.
+
+## Main Content
+
+### Testing in CI/CD
+
+**Challenge**: AI outputs are non-deterministic
+
+**Solutions**:
+- Use evaluation frameworks instead of exact match
+- Test with confidence thresholds
+- Run evaluations, not unit tests
+- Use deterministic seeds where possible
+
+### Prompt Testing
+
+```yaml
+# .github/workflows/test-prompts.yml
+name: Test Prompts
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Run evaluations
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python scripts/run_evaluations.py
+      
+      - name: Check evaluation scores
+        run: |
+          python scripts/check_scores.py --min-score 0.8
+```
+
+### Versioning Prompts and Models
+
+```python
+# Prompt versioning
+PROMPTS = {
+    "v1": "You are a helpful assistant...",
+    "v2": "You are an expert AI engineer...",  # Updated
+}
+
+# Model versioning
+MODELS = {
+    "rag_system": {
+        "v1": {
+            "embedding_model": "text-embedding-ada-002",
+            "llm_model": "gpt-3.5-turbo",
+            "chunk_size": 1000
+        },
+        "v2": {
+            "embedding_model": "text-embedding-3-small",
+            "llm_model": "gpt-4",
+            "chunk_size": 800
+        }
+    }
+}
+```
+
+### Deployment Pipeline
+
+```python
+# deployment_pipeline.py
+def deploy_with_evaluation():
+    """Deploy with pre-deployment evaluation."""
+    # Run evaluations
+    eval_results = run_evaluations()
+    
+    # Check scores
+    if eval_results["pass_rate"] < 0.8:
+        raise Exception("Evaluation failed: pass rate too low")
+    
+    # Deploy
+    deploy_to_production()
+    
+    # Post-deployment smoke tests
+    smoke_test_results = run_smoke_tests()
+    
+    if not smoke_test_results["all_passed"]:
+        rollback_deployment()
+        raise Exception("Smoke tests failed, rolled back")
+```
+
+## Code Examples
+
+Evaluation in CI:
+
+```python
+# scripts/run_evaluations.py
+from eval_framework import EvalFramework
+import sys
+
+def main():
+    framework = EvalFramework()
+    framework.load_test_cases("test_cases.json")
+    
+    from rag_system import RAGSystem
+    system = RAGSystem()
+    
+    results = framework.evaluate(system.query)
+    
+    print(f"Pass rate: {results['pass_rate']:.2%}")
+    print(f"Average score: {results['average_scores']}")
+    
+    if results['pass_rate'] < 0.8:
+        print("ERROR: Evaluation failed")
+        sys.exit(1)
+    
+    print("Evaluation passed")
+
+if __name__ == "__main__":
+    main()
+```
+
+## Common Mistakes
+
+1. **No CI/CD**: Manual deployments are error-prone
+2. **Exact match tests**: Don't work for non-deterministic outputs
+3. **No prompt versioning**: Can't track changes
+4. **No evaluation**: Deploying without testing
+5. **No rollback**: Can't recover from bad deployments
+
+## Exercise
+
+1. Set up CI pipeline with GitHub Actions
+2. Add evaluation tests to CI
+3. Implement prompt versioning
+4. Create deployment pipeline
+5. Add smoke tests
+6. Set up rollback procedures
+
+## Tools & Resources
+
+- [GitHub Actions](https://docs.github.com/en/actions)
+- [CI/CD Best Practices](https://www.atlassian.com/continuous-delivery/ci-vs-ci-vs-cd)
+

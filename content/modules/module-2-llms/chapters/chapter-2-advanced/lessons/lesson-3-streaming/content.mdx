@@ -1,0 +1,184 @@
+---
+id: "lesson-3-streaming"
+slug: "streaming"
+title: "Streaming Responses"
+description: "Learn to stream LLM responses for better user experience, lower latency, and efficient token handling in production applications."
+order: 3
+chapterId: "chapter-2-advanced-usage"
+moduleId: "module-2-llms"
+prerequisites: ["lesson-2-structured-outputs"]
+estimatedMinutes: 9
+tags: ["streaming", "real-time", "latency", "production"]
+difficulty: "intermediate"
+---
+
+# Streaming Responses
+
+## Overview
+
+Streaming allows LLM responses to be sent incrementally as they're generated, dramatically improving perceived latency and user experience in production applications.
+
+## Main Content
+
+### Why Streaming?
+
+**Without Streaming:**
+- User waits 5-10 seconds for complete response
+- Bad user experience
+- No progress indication
+- Higher time-to-first-token
+
+**With Streaming:**
+- First token arrives in <1 second
+- Immediate feedback to user
+- Better perceived performance
+- Can cancel if needed
+
+### Basic Streaming
+
+```python
+from openai import OpenAI
+import sys
+
+client = OpenAI()
+
+def stream_completion(prompt: str):
+    """Stream LLM response."""
+    stream = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        stream=True  # Enable streaming
+    )
+    
+    for chunk in stream:
+        if chunk.choices[0].delta.content:
+            content = chunk.choices[0].delta.content
+            print(content, end="", flush=True)
+    
+    print()  # New line at end
+
+# Usage
+stream_completion("Explain how RAG works")
+```
+
+### Streaming with Error Handling
+
+```python
+def stream_safely(prompt: str):
+    """Stream with proper error handling."""
+    try:
+        stream = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            stream=True,
+            timeout=30.0
+        )
+        
+        full_response = ""
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                content = chunk.choices[0].delta.content
+                full_response += content
+                yield content  # Generator pattern
+        
+        return full_response
+        
+    except Exception as e:
+        raise Exception(f"Streaming error: {e}")
+```
+
+### Server-Sent Events (SSE) for APIs
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+import json
+
+app = FastAPI()
+
+@app.post("/stream")
+async def stream_endpoint(request: dict):
+    """Stream response as Server-Sent Events."""
+    prompt = request["prompt"]
+    
+    async def generate():
+        stream = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            stream=True
+        )
+        
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                content = chunk.choices[0].delta.content
+                # Format as SSE
+                yield f"data: {json.dumps({'content': content})}\n\n"
+        
+        yield "data: [DONE]\n\n"
+    
+    return StreamingResponse(generate(), media_type="text/event-stream")
+```
+
+## Code Examples
+
+Complete streaming implementation:
+
+```python
+from typing import Iterator
+from openai import OpenAI
+
+class StreamingLLM:
+    def __init__(self, model: str = "gpt-4"):
+        self.client = OpenAI()
+        self.model = model
+    
+    def stream(self, prompt: str, **kwargs) -> Iterator[str]:
+        """Stream response tokens."""
+        stream = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            stream=True,
+            **kwargs
+        )
+        
+        for chunk in stream:
+            delta = chunk.choices[0].delta
+            if delta.content:
+                yield delta.content
+    
+    def stream_complete(self, prompt: str, **kwargs) -> str:
+        """Stream and collect full response."""
+        full_response = ""
+        for chunk in self.stream(prompt, **kwargs):
+            full_response += chunk
+        return full_response
+
+# Usage
+llm = StreamingLLM()
+for token in llm.stream("Explain RAG"):
+    print(token, end="", flush=True)
+```
+
+## Common Mistakes
+
+1. **Not handling stream errors**: Network issues break streaming
+2. **No timeout**: Streams can hang indefinitely
+3. **Not flushing output**: Tokens don't appear immediately
+4. **Ignoring partial responses**: May need to handle incomplete chunks
+5. **No cancellation**: Can't stop expensive streaming requests
+
+## Exercise
+
+1. Implement basic streaming for LLM responses
+2. Add error handling and timeouts
+3. Create a streaming API endpoint
+4. Measure latency improvements (time-to-first-token)
+5. Compare streaming vs non-streaming UX
+6. Add cancellation support
+
+## Tools & Resources
+
+- [OpenAI Streaming](https://platform.openai.com/docs/api-reference/streaming)
+- [FastAPI StreamingResponse](https://fastapi.tiangolo.com/advanced/custom-response/#streamingresponse)
+- [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
+

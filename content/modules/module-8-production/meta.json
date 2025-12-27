@@ -4,8 +4,10 @@
   "title": "Security and Production Best Practices",
   "description": "Secure AI applications, handle errors gracefully, and follow production best practices.",
   "order": 8,
-  "estimatedHours": 9,
-  "prerequisites": ["module-7-monitoring"],
+  "estimatedHours": 0.3,
+  "prerequisites": [
+    "module-7-monitoring"
+  ],
   "learningObjectives": [
     "Secure AI applications",
     "Prevent prompt injection",

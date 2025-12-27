@@ -4,8 +4,10 @@
   "title": "AI Agents",
   "description": "Build AI agents with tool calling, workflows, error handling, and production patterns.",
   "order": 4,
-  "estimatedHours": 19,
-  "prerequisites": ["module-3-rag"],
+  "estimatedHours": 0.4,
+  "prerequisites": [
+    "module-3-rag"
+  ],
   "learningObjectives": [
     "Understand agent architectures",
     "Build agents with tool integration",

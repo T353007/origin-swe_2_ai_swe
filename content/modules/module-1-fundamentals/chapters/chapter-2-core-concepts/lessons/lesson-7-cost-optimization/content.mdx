@@ -1,0 +1,233 @@
+---
+id: "lesson-7-cost-optimization"
+slug: "cost-optimization"
+title: "Cost Optimization Strategies"
+description: "Learn practical techniques to reduce LLM API costs: model selection, prompt optimization, caching, and token management."
+order: 7
+chapterId: "chapter-2-core-concepts"
+moduleId: "module-1-fundamentals"
+prerequisites: ["lesson-4-tokens-costs", "lesson-2-model-selection"]
+estimatedMinutes: 11
+tags: ["cost-optimization", "pricing", "efficiency"]
+difficulty: "intermediate"
+---
+
+# Cost Optimization Strategies
+
+## Overview
+
+LLM API costs can quickly escalate. This lesson covers practical strategies to reduce costs while maintaining quality: choosing cheaper models, optimizing prompts, caching, and token management.
+
+## Main Content
+
+### Cost Drivers
+
+**Main cost factors:**
+- **Model choice**: GPT-4 is 10-20x more expensive than GPT-3.5
+- **Token usage**: Both input and output tokens cost money
+- **Request volume**: More requests = higher costs
+- **Context length**: Longer contexts use more tokens
+
+### Strategy 1: Model Selection
+
+**Use cheaper models when possible:**
+- GPT-3.5-turbo for simple tasks (10x cheaper)
+- GPT-4 only when quality is critical
+- Consider Claude Haiku for simple tasks (very cost-effective)
+
+```python
+def select_cost_effective_model(task_complexity: str):
+    """Select model based on task requirements."""
+    if task_complexity == "simple":
+        return "gpt-3.5-turbo"  # Much cheaper
+    elif task_complexity == "medium":
+        return "gpt-3.5-turbo"  # Still cheaper, usually sufficient
+    else:
+        return "gpt-4"  # Only for complex tasks
+```
+
+### Strategy 2: Prompt Optimization
+
+**Reduce prompt length:**
+- Remove unnecessary context
+- Use concise instructions
+- Avoid redundant examples
+
+**Before (expensive):**
+```
+You are a helpful assistant. Please be thorough and detailed. 
+Consider all aspects of the question. Think step by step. 
+Remember to be clear and comprehensive in your response.
+[long context here...]
+```
+
+**After (cheaper):**
+```
+[concise context]
+Answer briefly and accurately.
+```
+
+### Strategy 3: Caching
+
+**Cache identical requests:**
+```python
+from functools import lru_cache
+import hashlib
+import json
+
+class CachedLLM:
+    def __init__(self):
+        self.client = OpenAI()
+        self.cache = {}
+    
+    def get_completion(self, prompt: str, model: str = "gpt-4") -> str:
+        """Get completion with caching."""
+        cache_key = hashlib.md5(f"{prompt}:{model}".encode()).hexdigest()
+        
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+        
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0  # Deterministic for caching
+        )
+        
+        result = response.choices[0].message.content
+        self.cache[cache_key] = result
+        return result
+```
+
+### Strategy 4: Limit Output Length
+
+**Use max_tokens to control costs:**
+```python
+# Limit response length
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": prompt}],
+    max_tokens=500  # Limit output length
+)
+```
+
+### Strategy 5: Batch Processing
+
+**Batch similar requests when possible:**
+```python
+def batch_process(prompts: list[str], model: str = "gpt-3.5-turbo"):
+    """Process multiple prompts efficiently."""
+    # Create conversation with multiple user messages
+    messages = [
+        {"role": "user", "content": prompt}
+        for prompt in prompts
+    ]
+    
+    # Single API call for multiple requests (if API supports)
+    # Note: Most APIs require separate calls, but you can optimize client-side
+    results = []
+    for prompt in prompts:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        results.append(response.choices[0].message.content)
+    
+    return results
+```
+
+## Code Examples
+
+Cost tracking and optimization:
+
+```python
+from typing import Dict
+from openai import OpenAI
+
+class CostOptimizedLLM:
+    def __init__(self):
+        self.client = OpenAI()
+        self.total_cost = 0.0
+        self.cache = {}
+    
+    def get_completion(
+        self,
+        prompt: str,
+        model: str = "gpt-3.5-turbo",
+        use_cache: bool = True
+    ) -> tuple[str, float]:
+        """Get completion and return cost."""
+        # Check cache
+        if use_cache:
+            cache_key = hash(f"{prompt}:{model}")
+            if cache_key in self.cache:
+                return self.cache[cache_key], 0.0
+        
+        # Make API call
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500  # Limit output
+        )
+        
+        # Calculate cost
+        usage = response.usage
+        cost = self._calculate_cost(
+            model,
+            usage.prompt_tokens,
+            usage.completion_tokens
+        )
+        
+        result = response.choices[0].message.content
+        
+        # Cache result
+        if use_cache:
+            self.cache[cache_key] = (result, cost)
+        
+        self.total_cost += cost
+        return result, cost
+    
+    def _calculate_cost(
+        self,
+        model: str,
+        input_tokens: int,
+        output_tokens: int
+    ) -> float:
+        """Calculate cost based on model pricing."""
+        pricing = {
+            "gpt-4": (0.03, 0.06),  # per 1K tokens
+            "gpt-3.5-turbo": (0.0015, 0.002),
+            "gpt-4-turbo": (0.01, 0.03),
+        }
+        
+        input_price, output_price = pricing.get(model, (0.03, 0.06))
+        return (input_tokens / 1000 * input_price) + (output_tokens / 1000 * output_price)
+    
+    def get_total_cost(self) -> float:
+        """Get total cost so far."""
+        return self.total_cost
+```
+
+## Common Mistakes
+
+1. **Always using GPT-4**: 10-20x more expensive than needed
+2. **No caching**: Regenerating same responses
+3. **Unlimited output**: Not setting max_tokens
+4. **Verbose prompts**: Including unnecessary context
+5. **Not tracking costs**: Costs spiral unnoticed
+6. **No cost budgets**: No limits or alerts
+
+## Exercise
+
+1. Track costs for different models on same task
+2. Implement caching for repeated queries
+3. Optimize a prompt to reduce token usage
+4. Compare costs: GPT-4 vs GPT-3.5 for simple tasks
+5. Set up cost monitoring and alerts
+6. Calculate ROI of optimizations
+
+## Tools & Resources
+
+- [OpenAI Pricing](https://openai.com/pricing)
+- [Anthropic Pricing](https://www.anthropic.com/pricing)
+- [Token Usage Dashboard](https://platform.openai.com/usage)
+

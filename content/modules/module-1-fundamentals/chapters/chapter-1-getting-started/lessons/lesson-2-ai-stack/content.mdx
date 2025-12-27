@@ -7,7 +7,7 @@ order: 2
 chapterId: "chapter-1-getting-started"
 moduleId: "module-1-fundamentals"
 prerequisites: ["lesson-1-introduction"]
-estimatedMinutes: 20
+estimatedMinutes: 8
 tags: ["ai-stack", "tools", "overview"]
 difficulty: "beginner"
 ---
@@ -56,21 +56,30 @@ Store and search embeddings efficiently:
 Basic stack integration example:
 
 ```python
-from langchain.llms import OpenAI
-from langchain.vectorstores import Pinecone
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_pinecone import PineconeVectorStore
 
 # Initialize components
-llm = OpenAI(temperature=0)
+llm = ChatOpenAI(model="gpt-4", temperature=0)
 embeddings = OpenAIEmbeddings()
-vectorstore = Pinecone.from_existing_index("my-index", embeddings)
+
+# Initialize Pinecone vector store (assuming index already exists)
+vectorstore = PineconeVectorStore(index_name="my-index", embedding=embeddings)
 
 # Simple RAG chain
 def answer_question(question: str) -> str:
+    # Step 1: Retrieve relevant documents
     docs = vectorstore.similarity_search(question, k=3)
+    
+    # Step 2: Build context from retrieved documents
     context = "\n".join([doc.page_content for doc in docs])
+    
+    # Step 3: Construct prompt with context
     prompt = f"Context: {context}\n\nQuestion: {question}\n\nAnswer:"
-    return llm(prompt)
+    
+    # Step 4: Generate answer using LLM
+    response = llm.invoke(prompt)
+    return response.content
 ```
 
 ## Common Mistakes

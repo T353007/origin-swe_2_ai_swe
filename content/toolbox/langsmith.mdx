@@ -1,0 +1,63 @@
+---
+title: "LangSmith"
+category: "observability"
+description: "Platform for debugging, testing, and monitoring LLM applications"
+officialUrl: "https://www.langchain.com/langsmith"
+tags: ["observability", "debugging", "evaluation", "monitoring"]
+whenToUse: [
+  "Debugging LLM applications",
+  "Evaluating prompt performance",
+  "Monitoring production LLM systems",
+  "Tracing agent execution"
+]
+alternatives: ["Phoenix", "Weights & Biases", "Custom logging"]
+---
+
+# LangSmith
+
+LangSmith is a platform for debugging, testing, and monitoring LLM applications. It provides tracing, evaluation, and monitoring capabilities for production AI systems.
+
+## Overview
+
+LangSmith helps you:
+- **Debug** LLM applications with detailed traces
+- **Evaluate** prompt performance and quality
+- **Monitor** production systems in real-time
+- **Optimize** prompts and chains
+
+## When to Use
+
+- Debugging complex LLM chains and agents
+- Evaluating prompt variations
+- Monitoring production LLM applications
+- Tracing agent execution paths
+
+## Key Features
+
+- **Tracing**: Detailed traces of LLM calls
+- **Evaluation**: Test and compare prompts
+- **Monitoring**: Real-time production monitoring
+- **Datasets**: Manage test datasets
+
+## Basic Example
+
+```python
+from langsmith import traceable
+from openai import OpenAI
+
+client = OpenAI()
+
+@traceable
+def my_llm_function(prompt: str):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
+```
+
+## Resources
+
+- [LangSmith Documentation](https://docs.smith.langchain.com/)
+- [LangSmith GitHub](https://github.com/langchain-ai/langsmith-sdk)
+

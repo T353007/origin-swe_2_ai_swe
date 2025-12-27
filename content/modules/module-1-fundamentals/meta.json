@@ -4,7 +4,7 @@
   "title": "Fundamentals of AI Engineering",
   "description": "Learn the foundational concepts, tools, and practices for building AI applications. Understand tokens, API costs, embeddings, and prompt engineering basics.",
   "order": 1,
-  "estimatedHours": 10,
+  "estimatedHours": 1.8,
   "prerequisites": [],
   "learningObjectives": [
     "Understand the modern AI stack and development environment",
@@ -15,4 +15,3 @@
     "Handle rate limits and errors effectively"
   ]
 }
-

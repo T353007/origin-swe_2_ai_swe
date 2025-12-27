@@ -32,10 +32,10 @@ const mdxComponents = {
   ul: (props: any) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
   ol: (props: any) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
   code: (props: any) => (
-    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+    <code className="bg-gray-100 dark:bg-muted text-gray-900 dark:text-foreground px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
   ),
   pre: (props: any) => (
-    <pre className="bg-muted rounded-lg p-4 overflow-x-auto mb-4" {...props} />
+    <pre className="bg-gray-100 dark:bg-muted text-gray-900 dark:text-foreground rounded-lg p-4 overflow-x-auto mb-4" {...props} />
   ),
   a: (props: any) => (
     <a className="text-primary underline hover:text-primary/80" {...props} />

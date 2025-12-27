@@ -1,0 +1,156 @@
+---
+id: "lesson-1-function-calling"
+slug: "function-calling"
+title: "Function/Tool Calling"
+description: "Enable LLMs to call functions and interact with external systems using function calling capabilities."
+order: 1
+chapterId: "chapter-2-advanced-usage"
+moduleId: "module-2-llms"
+prerequisites: ["lesson-3-providers"]
+estimatedMinutes: 7
+tags: ["function-calling", "tool-calling", "tools"]
+difficulty: "intermediate"
+---
+
+# Function/Tool Calling
+
+## Overview
+
+Function calling (tool calling) allows LLMs to interact with external systems by defining functions the model can invoke. This enables agents and complex applications.
+
+## Main Content
+
+### How Function Calling Works
+
+1. Define functions with JSON schemas
+2. LLM decides which function(s) to call
+3. Execute function with provided parameters
+4. Return result to LLM
+5. LLM generates final response
+
+### OpenAI Function Calling
+
+```python
+from openai import OpenAI
+import json
+
+client = OpenAI()
+
+functions = [
+    {
+        "name": "get_weather",
+        "description": "Get current weather for a location",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "City and state"
+                }
+            },
+            "required": ["location"]
+        }
+    }
+]
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "What's the weather in San Francisco?"}],
+    functions=functions
+)
+
+message = response.choices[0].message
+
+if message.function_call:
+    function_name = message.function_call.name
+    function_args = json.loads(message.function_call.arguments)
+    
+    # Execute function
+    if function_name == "get_weather":
+        result = get_weather(function_args["location"])
+        
+        # Send result back
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "user", "content": "What's the weather in San Francisco?"},
+                message,
+                {
+                    "role": "function",
+                    "name": function_name,
+                    "content": result
+                }
+            ]
+        )
+```
+
+## Code Examples
+
+Complete function calling system:
+
+```python
+class FunctionCallingSystem:
+    def __init__(self):
+        self.client = OpenAI()
+        self.functions = {}
+        self.function_definitions = []
+    
+    def register_function(self, name: str, func: callable, description: str, schema: dict):
+        """Register a function."""
+        self.functions[name] = func
+        self.function_definitions.append({
+            "name": name,
+            "description": description,
+            "parameters": schema
+        })
+    
+    def call(self, user_message: str) -> str:
+        """Call LLM with function calling."""
+        messages = [{"role": "user", "content": user_message}]
+        
+        while True:
+            response = self.client.chat.completions.create(
+                model="gpt-4",
+                messages=messages,
+                functions=self.function_definitions
+            )
+            
+            message = response.choices[0].message
+            messages.append(message)
+            
+            if not message.function_call:
+                return message.content
+            
+            # Execute function
+            func_name = message.function_call.name
+            func_args = json.loads(message.function_call.arguments)
+            result = self.functions[func_name](**func_args)
+            
+            # Add function result
+            messages.append({
+                "role": "function",
+                "name": func_name,
+                "content": str(result)
+            })
+```
+
+## Common Mistakes
+
+1. **Poor function descriptions**: LLM can't choose correctly
+2. **Incorrect schemas**: JSON schema errors
+3. **No error handling**: Function failures crash system
+4. **Infinite loops**: LLM keeps calling functions
+
+## Exercise
+
+1. Define 3-5 functions for your use case
+2. Implement function calling
+3. Test with various queries
+4. Handle errors gracefully
+5. Add loop prevention
+
+## Tools & Resources
+
+- [OpenAI Function Calling](https://platform.openai.com/docs/guides/function-calling)
+- [Anthropic Tool Use](https://docs.anthropic.com/claude/docs/tool-use)
+

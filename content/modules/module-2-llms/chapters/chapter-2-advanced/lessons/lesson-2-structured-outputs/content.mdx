@@ -1,0 +1,148 @@
+---
+id: "lesson-2-structured-outputs"
+slug: "structured-outputs"
+title: "Structured Outputs"
+description: "Get structured, parseable outputs from LLMs using JSON mode, function calling, and prompt engineering techniques."
+order: 2
+chapterId: "chapter-2-advanced-usage"
+moduleId: "module-2-llms"
+prerequisites: ["lesson-1-function-calling"]
+estimatedMinutes: 8
+tags: ["structured-outputs", "json", "parsing"]
+difficulty: "intermediate"
+---
+
+# Structured Outputs
+
+## Overview
+
+LLMs typically return free-form text, but many applications need structured data (JSON, XML, etc.). This lesson covers techniques for getting reliable structured outputs.
+
+## Main Content
+
+### JSON Mode
+
+OpenAI supports JSON mode for guaranteed JSON output:
+
+```python
+from openai import OpenAI
+import json
+
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{
+        "role": "user",
+        "content": "Extract information as JSON: name, age, location"
+    }],
+    response_format={"type": "json_object"}
+)
+
+result = json.loads(response.choices[0].message.content)
+```
+
+### Prompt Engineering for Structure
+
+Use clear instructions and examples:
+
+```python
+prompt = """Extract information from this text and return as JSON.
+
+Text: John is 30 years old and lives in San Francisco.
+
+Format:
+{
+  "name": "string",
+  "age": number,
+  "location": "string"
+}
+
+JSON:"""
+```
+
+### Function Calling for Structure
+
+Use function calling to get structured output:
+
+```python
+schema = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "age": {"type": "number"},
+        "location": {"type": "string"}
+    },
+    "required": ["name", "age", "location"]
+}
+
+functions = [{
+    "name": "extract_info",
+    "description": "Extract structured information",
+    "parameters": schema
+}]
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Extract: John, 30, San Francisco"}],
+    functions=functions
+)
+
+# Parse from function_call.arguments
+data = json.loads(response.choices[0].message.function_call.arguments)
+```
+
+## Code Examples
+
+Robust structured output:
+
+```python
+from pydantic import BaseModel, ValidationError
+import json
+
+class PersonInfo(BaseModel):
+    name: str
+    age: int
+    location: str
+
+def extract_structured(text: str) -> PersonInfo:
+    """Extract structured data with validation."""
+    prompt = f"""Extract person information as JSON:
+{text}
+
+Return JSON with name, age, location."""
+    
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"}
+    )
+    
+    try:
+        data = json.loads(response.choices[0].message.content)
+        return PersonInfo(**data)  # Validates with Pydantic
+    except (json.JSONDecodeError, ValidationError) as e:
+        # Retry or handle error
+        raise ValueError(f"Failed to extract structured data: {e}")
+```
+
+## Common Mistakes
+
+1. **No validation**: Trusting LLM output structure
+2. **Parsing errors**: Not handling malformed JSON
+3. **No retries**: Single attempt may fail
+4. **Unclear prompts**: LLM doesn't understand format needed
+
+## Exercise
+
+1. Extract structured data from text
+2. Validate with Pydantic
+3. Handle parsing errors
+4. Compare JSON mode vs prompt engineering
+5. Add retry logic
+
+## Tools & Resources
+
+- [OpenAI JSON Mode](https://platform.openai.com/docs/guides/text-generation/json-mode)
+- [Pydantic](https://docs.pydantic.dev/)
+

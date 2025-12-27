@@ -4,8 +4,10 @@
   "title": "Evaluation and Testing",
   "description": "Build evaluation frameworks, test AI systems, and ensure quality in production.",
   "order": 5,
-  "estimatedHours": 11,
-  "prerequisites": ["module-2-llms"],
+  "estimatedHours": 0.3,
+  "prerequisites": [
+    "module-2-llms"
+  ],
   "learningObjectives": [
     "Understand why evaluations matter",
     "Build evaluation frameworks",

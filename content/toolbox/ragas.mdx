@@ -1,0 +1,64 @@
+---
+title: "RAGAS"
+category: "evals"
+description: "Framework for evaluating RAG (Retrieval-Augmented Generation) pipelines"
+officialUrl: "https://docs.ragas.io/"
+tags: ["evaluation", "rag", "metrics", "testing"]
+whenToUse: [
+  "Evaluating RAG systems",
+  "Measuring retrieval quality",
+  "Testing RAG improvements",
+  "Comparing RAG configurations"
+]
+alternatives: ["LangSmith", "Custom evaluation", "Phoenix"]
+---
+
+# RAGAS
+
+RAGAS is a framework for evaluating RAG (Retrieval-Augmented Generation) pipelines. It provides metrics to measure the quality of retrieval and generation components.
+
+## Overview
+
+RAGAS helps evaluate:
+- **Retrieval Quality**: How well documents are retrieved
+- **Generation Quality**: Quality of generated answers
+- **Faithfulness**: Whether answers are grounded in context
+- **Answer Relevance**: How relevant answers are to questions
+
+## When to Use
+
+- Evaluating RAG system quality
+- Measuring retrieval performance
+- Testing RAG improvements
+- Comparing different RAG configurations
+
+## Key Features
+
+- **RAG-Specific Metrics**: Metrics designed for RAG systems
+- **Automated Evaluation**: Uses LLMs to evaluate quality
+- **Multiple Metrics**: Faithfulness, relevance, context precision, etc.
+- **Easy Integration**: Works with LangChain and other frameworks
+
+## Basic Example
+
+```python
+from ragas import evaluate
+from datasets import Dataset
+
+# Prepare dataset
+dataset = Dataset.from_dict({
+    "question": ["What is RAG?"],
+    "answer": ["RAG is Retrieval-Augmented Generation..."],
+    "contexts": [["RAG combines retrieval and generation..."]],
+    "ground_truth": ["RAG is a technique that..."]
+})
+
+# Evaluate
+results = evaluate(dataset)
+```
+
+## Resources
+
+- [RAGAS Documentation](https://docs.ragas.io/)
+- [RAGAS GitHub](https://github.com/explodinggradients/ragas)
+

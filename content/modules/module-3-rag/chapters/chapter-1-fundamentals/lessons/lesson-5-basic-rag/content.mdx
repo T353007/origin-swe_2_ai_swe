@@ -1,0 +1,240 @@
+---
+id: "lesson-5-basic-rag"
+slug: "basic-rag"
+title: "Basic RAG Implementation"
+description: "Build your first complete RAG system from scratch: indexing documents, retrieving relevant chunks, and generating answers."
+order: 5
+chapterId: "chapter-1-rag-fundamentals"
+moduleId: "module-3-rag"
+prerequisites: ["lesson-4-chunking"]
+estimatedMinutes: 9
+tags: ["rag", "implementation", "langchain", "tutorial"]
+difficulty: "intermediate"
+---
+
+# Basic RAG Implementation
+
+## Overview
+
+Build a complete RAG system step-by-step: index documents, implement retrieval, and generate answers using retrieved context.
+
+## Main Content
+
+### RAG Pipeline Overview
+
+A basic RAG system has four components:
+1. **Document Loader**: Load documents from various sources
+2. **Text Splitter**: Chunk documents appropriately
+3. **Vector Store**: Store and search embeddings
+4. **Retrieval Chain**: Combine retrieval with generation
+
+### Complete RAG Implementation
+
+```python
+from langchain_community.document_loaders import TextLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain.chains import RetrievalQA
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate
+
+# Step 1: Load documents
+loader = TextLoader("documents.txt")
+documents = loader.load()
+
+# Step 2: Split documents
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200
+)
+chunks = text_splitter.split_documents(documents)
+
+# Step 3: Create vector store
+embeddings = OpenAIEmbeddings()
+vectorstore = Chroma.from_documents(
+    documents=chunks,
+    embedding=embeddings,
+    persist_directory="./chroma_db"
+)
+
+# Step 4: Create retrieval chain
+llm = ChatOpenAI(model="gpt-4", temperature=0)
+retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+prompt = ChatPromptTemplate.from_template("""
+Context: {context}
+
+Question: {input}
+
+Answer:
+""")
+
+chain = create_stuff_documents_chain(llm, prompt)
+qa_chain = RetrievalQA(retriever=retriever, combine_documents_chain=chain)
+
+# Step 5: Query
+result = qa_chain.invoke({"query": "What is RAG?"})
+print(result["result"])
+print("Sources:", result.get("source_documents", []))
+```
+
+### Custom RAG Implementation
+
+Building RAG without LangChain for better control:
+
+```python
+from openai import OpenAI
+import chromadb
+from chromadb.config import Settings
+
+class SimpleRAG:
+    def __init__(self):
+        self.llm_client = OpenAI()
+        self.chroma_client = chromadb.Client(Settings(
+            persist_directory="./rag_db"
+        ))
+        self.collection = self.chroma_client.get_or_create_collection(
+            "documents"
+        )
+    
+    def index_documents(self, documents: list[str], doc_ids: list[str]):
+        """Index documents in vector store."""
+        # Generate embeddings
+        embeddings = []
+        for doc in documents:
+            response = self.llm_client.embeddings.create(
+                input=doc,
+                model="text-embedding-3-small"
+            )
+            embeddings.append(response.data[0].embedding)
+        
+        # Store in Chroma
+        self.collection.add(
+            embeddings=embeddings,
+            documents=documents,
+            ids=doc_ids
+        )
+    
+    def retrieve(self, query: str, k: int = 3) -> list[str]:
+        """Retrieve relevant document chunks."""
+        # Get query embedding
+        response = self.llm_client.embeddings.create(
+            input=query,
+            model="text-embedding-3-small"
+        )
+        query_embedding = response.data[0].embedding
+        
+        # Search
+        results = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=k
+        )
+        
+        return results["documents"][0]
+    
+    def generate(self, query: str, context: list[str]) -> str:
+        """Generate answer using retrieved context."""
+        context_text = "\n\n".join(context)
+        
+        prompt = f"""Use the following context to answer the question.
+If you don't know the answer based on the context, say so.
+
+Context:
+{context_text}
+
+Question: {query}
+
+Answer:"""
+        
+        response = self.llm_client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
+        )
+        
+        return response.choices[0].message.content
+    
+    def query(self, question: str, k: int = 3) -> dict:
+        """Complete RAG query."""
+        retrieved = self.retrieve(question, k)
+        answer = self.generate(question, retrieved)
+        
+        return {
+            "question": question,
+            "answer": answer,
+            "sources": retrieved
+        }
+
+# Usage
+rag = SimpleRAG()
+rag.index_documents(
+    documents=["doc1 text", "doc2 text"],
+    doc_ids=["doc1", "doc2"]
+)
+result = rag.query("What is RAG?")
+```
+
+## Code Examples
+
+RAG with source citation:
+
+```python
+def rag_with_sources(query: str, vectorstore, llm, k: int = 3):
+    """RAG that includes source citations."""
+    # Retrieve
+    docs = vectorstore.similarity_search(query, k=k)
+    
+    # Build context with citations
+    context_parts = []
+    for i, doc in enumerate(docs, 1):
+        source = doc.metadata.get("source", "Unknown")
+        context_parts.append(f"[{i}] {doc.page_content} (Source: {source})")
+    
+    context = "\n\n".join(context_parts)
+    
+    # Generate with citation instructions
+    prompt = f"""Answer the question using the provided context.
+Cite sources using [1], [2], etc.
+
+Context:
+{context}
+
+Question: {query}
+
+Answer:"""
+    
+    response = llm(prompt)
+    return {
+        "answer": response,
+        "sources": [doc.metadata for doc in docs]
+    }
+```
+
+## Common Mistakes
+
+1. **Not testing retrieval**: Retrieving irrelevant chunks hurts answers
+2. **Context too long**: Exceeding token limits truncates important info
+3. **No source tracking**: Can't verify or debug answers
+4. **Wrong k value**: Too few chunks miss info, too many add noise
+5. **Not handling no results**: System should handle queries with no matches
+6. **Ignoring prompt engineering**: Prompt structure affects answer quality
+7. **No evaluation**: Don't know if RAG is working well
+8. **Forgetting to persist**: Vector store data lost on restart
+
+## Exercise
+
+1. Build a basic RAG system from scratch
+2. Index a small document collection (10-20 docs)
+3. Test with various queries (easy, hard, ambiguous)
+4. Add source citation to answers
+5. Compare LangChain vs custom implementation
+6. Measure retrieval quality (precision, recall)
+7. Handle edge cases (no results, very long contexts)
+
+## Tools & Resources
+
+- [LangChain RAG Tutorial](https://python.langchain.com/docs/use_cases/question_answering/)
+- [LlamaIndex RAG Guide](https://docs.llamaindex.ai/en/stable/getting_started/concepts/)
+- [Building RAG Applications](https://www.pinecone.io/learn/retrieval-augmented-generation/)
+
