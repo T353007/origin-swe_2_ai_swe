@@ -148,17 +148,134 @@ This course covers: Fundamentals (tokens, embeddings, prompts) → LLMs (models,
 
 ## Exercise
 
-Complete these steps to get hands-on experience:
+Use the code template below to complete your first AI engineering exercise. Fill in the blanks and complete each step.
 
-1. **Set up API access**: Sign up for OpenAI or Anthropic, get your API key, save it securely
+### Code Template
 
-2. **Make your first API call**: Use the code example above, try different prompts, experiment with temperature values (0.0, 0.7, 1.0)
+```python
+import os
+from openai import OpenAI
+import tiktoken
 
-3. **Count tokens**: Install `tiktoken`, count tokens in your prompt, compare with API usage report
+# TODO: Set your API key as an environment variable
+# export OPENAI_API_KEY="sk-..." (in terminal)
+# OR create a .env file and use python-dotenv
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-4. **Calculate costs**: Look up current pricing, calculate: (input_tokens/1000 * input_price) + (output_tokens/1000 * output_price), estimate cost for 10,000 requests
+def get_completion(prompt: str, temperature: float = 0.7) -> str:
+    """
+    Complete this function to call the OpenAI API.
+    
+    Args:
+        prompt: The user's prompt
+        temperature: Controls randomness (0.0 = deterministic, 1.0 = creative)
+    
+    Returns:
+        The model's response text
+    """
+    # TODO: Make the API call here
+    response = client.chat.completions.create(
+        model="___",  # Fill in: which model to use? (e.g., "gpt-4" or "gpt-3.5-turbo")
+        messages=[
+            {"role": "___", "content": "___"}  # Fill in: role and content
+        ],
+        temperature=___  # Fill in: temperature value
+    )
+    
+    # TODO: Extract and return the response text
+    return ___  # Fill in: how to get the message content?
 
-5. **Reflection**: What surprised you? How did temperature affect outputs? What would 1 million requests cost?
+def count_tokens(text: str, model: str = "gpt-4") -> int:
+    """
+    Count tokens in a text string.
+    
+    Args:
+        text: The text to count tokens for
+        model: The model to use for token counting
+    
+    Returns:
+        Number of tokens
+    """
+    # TODO: Use tiktoken to count tokens
+    encoding = tiktoken.encoding_for_model(___)
+    tokens = encoding.encode(___)
+    return len(___)
+
+def calculate_cost(input_tokens: int, output_tokens: int, 
+                   input_price_per_1k: float = 0.03, 
+                   output_price_per_1k: float = 0.06) -> float:
+    """
+    Calculate the cost of an API call.
+    
+    Args:
+        input_tokens: Number of input tokens
+        output_tokens: Number of output tokens
+        input_price_per_1k: Price per 1K input tokens (default for GPT-4)
+        output_price_per_1k: Price per 1K output tokens (default for GPT-4)
+    
+    Returns:
+        Total cost in dollars
+    """
+    # TODO: Calculate the cost
+    input_cost = (___ / 1000) * ___
+    output_cost = (___ / 1000) * ___
+    return ___ + ___
+
+# Exercise tasks:
+if __name__ == "__main__":
+    # 1. Set up API key (done above or via environment variable)
+    
+    # 2. Make your first API call
+    prompt = "Explain what AI engineering is in one sentence."
+    result = get_completion(prompt, temperature=0.0)
+    print(f"Temperature 0.0: {result}\n")
+    
+    # TODO: Try the same prompt with temperature 0.7 and 1.0
+    # result_07 = get_completion(___, temperature=___)
+    # result_10 = get_completion(___, temperature=___)
+    # print(f"Temperature 0.7: {result_07}\n")
+    # print(f"Temperature 1.0: {result_10}\n")
+    
+    # 3. Count tokens
+    token_count = count_tokens(prompt)
+    print(f"Prompt tokens: {token_count}")
+    
+    # 4. Calculate costs
+    # TODO: Get actual token counts from the API response
+    # Look at response.usage.input_tokens and response.usage.output_tokens
+    input_tokens = ___  # Fill in: actual input tokens from API response
+    output_tokens = ___  # Fill in: actual output tokens from API response
+    cost = calculate_cost(input_tokens, output_tokens)
+    print(f"Cost per request: ${cost:.4f}")
+    print(f"Cost for 10,000 requests: ${cost * 10000:.2f}")
+    
+    # 5. Reflection questions (answer in comments or notebook):
+    # - What surprised you about the API response?
+    # - How did temperature affect the outputs?
+    # - What would 1 million requests cost?
+```
+
+### Steps to Complete
+
+1. **Set up API access**: Sign up for [OpenAI](https://platform.openai.com/) or [Anthropic](https://console.anthropic.com/), get your API key, and save it as an environment variable or in a `.env` file (don't commit it to git!)
+
+2. **Install dependencies**: 
+   ```bash
+   pip install openai tiktoken python-dotenv
+   ```
+
+3. **Fill in the blanks**: Complete all the `TODO` comments and `___` placeholders in the code template above
+
+4. **Run and experiment**: 
+   - Test different temperature values (0.0, 0.7, 1.0) with the same prompt
+   - Observe how outputs change
+   - Count tokens in your prompts
+   - Calculate actual costs from API responses
+
+5. **Reflection**: Answer these questions:
+   - What surprised you about the API response?
+   - How did temperature affect the outputs?
+   - What would 1 million requests cost at current pricing?
 
 ## Tools & Resources
 
