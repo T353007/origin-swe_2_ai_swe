@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { formatTime } from "@/lib/utils";
-import { getModulePath } from "@/lib/content/utils";
 
 interface ModuleCardProps {
   module: ModuleMetadata;
@@ -19,7 +18,7 @@ export function ModuleCard({ module, progress = 0 }: ModuleCardProps) {
   };
 
   return (
-    <Link href={getModulePath(module)}>
+    <Link href={`/learning-path/module/${module.slug}`}>
       <Card className="h-full transition-shadow hover:shadow-lg cursor-pointer">
         <CardHeader>
           <div className="flex items-start justify-between">

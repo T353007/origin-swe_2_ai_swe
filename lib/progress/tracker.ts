@@ -27,6 +27,8 @@ export function saveProgress(progress: ProgressData): void {
   try {
     progress.lastUpdated = Date.now();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    // Dispatch event so components can update when progress changes
+    window.dispatchEvent(new CustomEvent("progressUpdated"));
   } catch (error) {
     console.error("Error saving progress to localStorage:", error);
   }
@@ -51,4 +53,13 @@ export function markLessonIncomplete(lessonId: string): void {
 export function isLessonComplete(lessonId: string): boolean {
   const progress = getProgress();
   return progress.completedLessons.includes(lessonId);
+}
+
+export function resetModuleProgress(lessonIds: string[]): void {
+  const progress = getProgress();
+  // Remove all lesson IDs from this module from completed lessons
+  progress.completedLessons = progress.completedLessons.filter(
+    (id) => !lessonIds.includes(id)
+  );
+  saveProgress(progress);
 }

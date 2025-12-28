@@ -1,9 +1,8 @@
 import { getAllModules } from "@/lib/content/loaders";
 import { getTotalLessons, getTotalEstimatedHours } from "@/lib/content/utils";
+import { getChaptersByModule, getLessonsByChapter } from "@/lib/content/loaders";
 import { formatTime } from "@/lib/utils";
-import { ModuleCard } from "@/components/course/ModuleCard";
-import { getModuleProgress } from "@/lib/progress/tracker-server";
-import { ProgressIndicator } from "@/components/course/ProgressIndicator";
+import { ModuleCardWithProgress } from "@/components/course/ModuleCardWithProgress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function LearningPathPage() {
@@ -50,7 +49,11 @@ export default function LearningPathPage() {
           <h2 className="text-2xl font-bold">Modules</h2>
           <div className="space-y-6">
             {modules.map((module, index) => {
-              const progress = getModuleProgress(module.id);
+              const chapters = getChaptersByModule(module.id);
+              const lessonIds = chapters.flatMap((chapter) => {
+                const lessons = getLessonsByChapter(chapter.id);
+                return lessons.map((lesson) => lesson.id);
+              });
               return (
                 <div key={module.id} className="space-y-4">
                   <div className="flex items-center gap-4">
@@ -60,16 +63,10 @@ export default function LearningPathPage() {
                     <div className="flex-1">
                       <h3 className="text-xl font-semibold">{module.title}</h3>
                       <p className="text-muted-foreground">{module.description}</p>
-                      <div className="mt-2">
-                        <ProgressIndicator
-                          value={progress.percentage}
-                          showPercentage
-                        />
-                      </div>
                     </div>
                   </div>
                   <div className="ml-14">
-                    <ModuleCard module={module} progress={progress.percentage} />
+                    <ModuleCardWithProgress module={module} lessonIds={lessonIds} />
                   </div>
                   {index < modules.length - 1 && (
                     <div className="ml-5 border-l-2 border-border h-8" />

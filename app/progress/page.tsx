@@ -1,15 +1,23 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ProgressIndicator } from "@/components/course/ProgressIndicator";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatTime } from "@/lib/utils";
 import { getAllModules, getChaptersByModule, getLessonsByChapter } from "@/lib/content/loaders";
-import { getModuleProgress, getOverallProgress } from "@/lib/progress/tracker-server";
+import { OverallProgressIndicator } from "@/components/course/OverallProgressIndicator";
+import { ModuleProgressCard } from "@/components/course/ModuleProgressCard";
 
 export default function ProgressPage() {
   const modules = getAllModules();
-  const overallProgress = getOverallProgress();
+  
+  // Get all lesson IDs for overall progress
+  const allLessonIds = modules.flatMap((module) => {
+    const chapters = getChaptersByModule(module.id);
+    return chapters.flatMap((chapter) => {
+      const lessons = getLessonsByChapter(chapter.id);
+      return lessons.map((lesson) => lesson.id);
+    });
+  });
 
   return (
     <div className="container py-12">
@@ -22,15 +30,18 @@ export default function ProgressPage() {
             <CardDescription>Track your journey through the course</CardDescription>
           </CardHeader>
           <CardContent>
-            <ProgressIndicator value={overallProgress} label="Course Completion" />
+            <OverallProgressIndicator allLessonIds={allLessonIds} label="Course Completion" />
           </CardContent>
         </Card>
 
         <div className="space-y-6">
           <h2 className="text-2xl font-bold">Module Progress</h2>
           {modules.map((module) => {
-            const progress = getModuleProgress(module.id);
             const chapters = getChaptersByModule(module.id);
+            const lessonIds = chapters.flatMap((chapter) => {
+              const lessons = getLessonsByChapter(chapter.id);
+              return lessons.map((lesson) => lesson.id);
+            });
             
             return (
               <Card key={module.id}>
@@ -47,15 +58,7 @@ export default function ProgressPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="font-medium">{progress.completedLessons} of {progress.totalLessons} lessons completed</span>
-                        <span className="text-muted-foreground">{progress.percentage}%</span>
-                      </div>
-                      <ProgressIndicator
-                        value={progress.percentage}
-                      />
-                    </div>
+                    <ModuleProgressCard lessonIds={lessonIds} />
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <span>{formatTime(module.estimatedHours * 60)} estimated</span>
                       <Link href={`/learning-path/module/${module.slug}`}>

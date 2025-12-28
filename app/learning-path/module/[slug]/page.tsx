@@ -4,10 +4,10 @@ import { getModuleBySlug, getChaptersByModule, getLessonsByChapter } from "@/lib
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ProgressIndicator } from "@/components/course/ProgressIndicator";
+import { ModuleProgressIndicator } from "@/components/course/ModuleProgressIndicator";
+import { ResetModuleProgressButton } from "@/components/course/ResetModuleProgressButton";
 import { LessonCard } from "@/components/course/LessonCard";
 import { formatTime } from "@/lib/utils";
-import { getModuleProgress } from "@/lib/progress/tracker-server";
 import { getLessonPath } from "@/lib/content/utils";
 import { ArrowLeft } from "lucide-react";
 
@@ -24,7 +24,12 @@ export default async function ModulePage({ params }: PageProps) {
   }
 
   const chapters = getChaptersByModule(mod.id);
-  const progress = getModuleProgress(mod.id);
+  // Get all lesson IDs for progress calculation (passed to client component)
+  const lessonIds = chapters.flatMap((chapter) => {
+    const lessons = getLessonsByChapter(chapter.id);
+    return lessons.map((lesson) => lesson.id);
+  });
+  const totalLessons = lessonIds.length;
 
   return (
     <div className="container py-12">
@@ -51,12 +56,17 @@ export default async function ModulePage({ params }: PageProps) {
               <div className="text-sm text-muted-foreground">Chapters</div>
             </div>
             <div>
-              <div className="text-2xl font-bold">{progress.totalLessons}</div>
+              <div className="text-2xl font-bold">{totalLessons}</div>
               <div className="text-sm text-muted-foreground">Lessons</div>
             </div>
           </div>
 
-          <ProgressIndicator value={progress.percentage} label="Module Progress" />
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <ModuleProgressIndicator lessonIds={lessonIds} label="Module Progress" />
+            </div>
+            <ResetModuleProgressButton lessonIds={lessonIds} moduleTitle={mod.title} />
+          </div>
         </div>
 
         {mod.learningObjectives.length > 0 && (
