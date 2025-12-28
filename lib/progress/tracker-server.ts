@@ -54,4 +54,3 @@ export function getOverallProgress(): number {
 
   return totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 }
-

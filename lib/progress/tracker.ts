@@ -1,4 +1,4 @@
-import { ProgressData, ModuleProgress } from "@/types/progress";
+import { ProgressData } from "@/types/progress";
 
 const STORAGE_KEY = "course-progress";
 
