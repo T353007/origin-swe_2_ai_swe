@@ -22,34 +22,42 @@ The AI engineering stack consists of LLM providers, vector databases, frameworks
 
 In 2024-2025, the ecosystem has matured significantly. What used to be research projects are now production-ready tools. The challenge isn't finding tools anymore - it's choosing the right ones for your specific use case without getting overwhelmed by options.
 
+**Note:** Model versions and capabilities change rapidly. The information below reflects the state as of December 2025. Always check provider documentation for the latest model versions, pricing, and capabilities.
+
 ## Main Content
 
 ### Core Components
 
 #### 1. LLM Providers
 
-**OpenAI**
-- **GPT-4o**: Latest multimodal model, faster and cheaper than GPT-4 Turbo, excellent for most production use cases
-- **GPT-4o-mini**: Cost-effective alternative for simpler tasks
-- **GPT-4 Turbo**: Previous generation, still widely used
-- **text-embedding-3**: State-of-the-art embeddings in multiple dimensions (small, large, etc.)
+**OpenAI** (as of December 2025)
+- **GPT-5.2** (Released December 11, 2025): Latest and most capable model, available in three variants:
+  - **GPT-5.2 Pro**: Premium version for complex reasoning and quality-critical applications
+  - **GPT-5.2 Thinking**: Optimized for reasoning-intensive tasks
+  - **GPT-5.2 Instant**: Fast, responsive variant for real-time applications
+- **GPT-4o**: Excellent multimodal model, best balance of quality and cost for most production use cases. 128K context window.
+- **GPT-4o-mini**: Cost-effective alternative for simpler tasks. 128K context window.
+- **text-embedding-3**: Latest embeddings in multiple dimensions (small, large, etc.)
 - Best for: General-purpose tasks, production reliability, extensive tooling ecosystem
+- **Check latest:** [OpenAI Models](https://platform.openai.com/docs/models) for current model availability
 
-**Anthropic**
-- **Claude 3.5 Sonnet**: Latest model, exceptional for coding tasks and complex reasoning
-- **Claude 3 Opus**: Previous generation, still powerful for complex analysis
-- **Claude 3 Haiku**: Fast and cost-effective for simpler tasks
-- Best for: Long context windows (up to 200K tokens), code generation, safety-critical applications
+**Anthropic** (as of December 2025)
+- **Claude 4.5 Sonnet**: Latest model, exceptional for coding tasks and complex reasoning. 200K standard context window.
+- **Claude 4.5 Opus**: Premium model with extended capabilities for complex analysis tasks.
+- Best for: Long context windows (up to 200K tokens standard, up to 1M extended), code generation, safety-critical applications
+- **Check latest:** [Anthropic Models](https://docs.anthropic.com/claude/docs/models-overview) for current model versions
 
-**Google**
-- **Gemini 2.0**: Latest multimodal model with strong performance
-- **Gemini Pro**: Previous generation, good for general tasks
-- Best for: Integration with Google Cloud services, multimodal applications
+**Google** (as of December 2025)
+- **Gemini 3 Pro**: Latest multimodal model with strong performance and extended context windows.
+- **Gemini 3 Flash**: Fast, cost-effective version of Gemini 3 for simpler tasks.
+- Best for: Integration with Google Cloud services, multimodal applications, long context needs
+- **Check latest:** [Google AI Studio](https://aistudio.google.com/) for current Gemini model availability
 
-**Open Source Options**
-- **Llama 3.1** (Meta): Strong open-source option, requires self-hosting or cloud deployment
-- **Mistral** models: Efficient European models, good for privacy-conscious deployments
+**Open Source Options** (as of December 2025)
+- **Llama 3.1** (Meta): Strong open-source option, requires self-hosting or cloud deployment. Available in multiple sizes (8B, 70B, 405B parameters).
+- **Mistral** models: Efficient European models (Mistral Large, Mistral Small), good for privacy-conscious deployments
 - **Best for**: Cost control at scale, data privacy, customization needs
+- **Note**: Open-source models require infrastructure setup and may not match commercial model quality for all tasks
 
 #### 2. Vector Databases
 
@@ -176,9 +184,11 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 import os
 
-# Initialize LLM (using latest GPT-4o model)
+# Initialize LLM (using GPT-4o model as of December 2025)
+# Note: GPT-5.2 is the latest (released Dec 11, 2025), but GPT-4o offers best value
+# Always check OpenAI documentation for latest model names: GPT-5.2 Pro, GPT-5.2 Thinking, GPT-5.2 Instant
 llm = ChatOpenAI(
-    model="gpt-4o",  # Latest model: faster and cheaper than GPT-4 Turbo
+    model="gpt-4o",  # Balanced choice: GPT-5.2 is latest but GPT-4o offers excellent quality/cost ratio
     temperature=0,   # Deterministic for consistency
 )
 
@@ -233,9 +243,11 @@ if __name__ == "__main__":
 ```
 
 **Key Points:**
-- Using `gpt-4o` (latest model) instead of older `gpt-4`
+- GPT-5.2 (released Dec 11, 2025) is the latest model, available as Pro, Thinking, and Instant variants
+- Using `gpt-4o` in this example - it offers excellent quality/cost balance for most use cases
 - Using `text-embedding-3-small` (current embedding model)
 - This is a simplified example - production code would include error handling, logging, and evaluation
+- Always check OpenAI's documentation for the latest model names and capabilities before deploying
 
 ## Common Mistakes
 
@@ -246,7 +258,7 @@ Don't use every framework and tool just because they exist. Each tool adds compl
 Locking yourself into a single LLM provider or vector database makes switching expensive later. Consider abstraction layers (like LangChain's LLM abstraction) so you can swap providers if pricing or features change. However, don't over-engineer - premature abstraction is also a mistake.
 
 #### 3. Ignoring costs
-Vector databases and LLM APIs can get expensive fast, especially at scale. A common mistake: using expensive models (like GPT-4) for simple tasks that GPT-4o-mini could handle. Monitor costs from day one, set budgets, and use cost-effective models where appropriate.
+Vector databases and LLM APIs can get expensive fast, especially at scale. A common mistake: using expensive models (like GPT-5.2 or GPT-4o) for simple tasks that GPT-4o-mini could handle. Monitor costs from day one, set budgets, and use cost-effective models where appropriate. GPT-5.2 is the latest and most capable, but GPT-4o-mini handles most tasks at a fraction of the cost.
 
 #### 4. No observability
 Deploying without tracing makes debugging production issues nearly impossible. When your AI system produces wrong answers, you need to see: what was the prompt? What context was retrieved? What was the model response? Without observability, you're flying blind.
@@ -313,6 +325,7 @@ import os
 
 load_dotenv()  # Load OPENAI_API_KEY from .env
 
+# Using GPT-4o-mini as of December 2025 - check OpenAI docs for latest model names
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)  # Cost-effective model
 response = llm.invoke("What is AI engineering?")
 print(response.content)
