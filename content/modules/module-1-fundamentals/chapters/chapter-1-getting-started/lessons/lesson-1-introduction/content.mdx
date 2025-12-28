@@ -14,13 +14,13 @@ difficulty: "beginner"
 
 # Introduction to AI Engineering
 
-> **💡** *If traditional software engineering is like playing chess, AI engineering is like playing poker—same table, completely different rules, and your unit tests just became probability distributions.*
+> **💡** *If traditional software engineering is like playing chess, AI engineering is like playing poker - same table, completely different rules, and your unit tests just became probability distributions.*
 
 ## Overview
 
 AI engineering is the discipline of building, deploying, and maintaining production-ready AI systems. Unlike traditional software engineering, AI engineering requires understanding probabilistic systems, managing model APIs, handling token costs, and building robust evaluation frameworks.
 
-This field has exploded in recent years—what was cutting-edge research in 2022 is now production code in 2024. Companies that built AI features are seeing massive adoption, while those who ignored it are scrambling to catch up. The good news? You don't need a PhD to build production AI systems. You need solid engineering fundamentals, curiosity, and this course.
+This field has exploded in recent years - what was cutting-edge research in 2022 is now production code in 2024. Companies that built AI features are seeing massive adoption, while those who ignored it are scrambling to catch up. The good news? You don't need a PhD to build production AI systems. You need solid engineering fundamentals, curiosity, and this course.
 
 ## Main Content
 
@@ -138,7 +138,7 @@ print(result)
 # response.usage.total_tokens, response.usage.prompt_tokens, response.usage.completion_tokens
 ```
 
-**Note**: This is intentionally simplified. In production, you'd add retry logic, error handling, rate limit management, and cost tracking—topics we'll cover in later lessons.
+**Note**: This is intentionally simplified. In production, you'd add retry logic, error handling, rate limit management, and cost tracking - topics we'll cover in later lessons.
 
 ### Career Path: From Software Engineer to AI Engineer
 
@@ -176,7 +176,7 @@ By the end, you'll have built real projects and understand not just how to use A
 
 ## Common Mistakes
 
-These mistakes are expensive—either in dollars or engineering time. Learn them here, not in production:
+These mistakes are expensive - either in dollars or engineering time. Learn them here, not in production:
 
 #### 1. Ignoring token costs
 Not tracking usage leads to unexpected bills. A single unoptimized loop can cost hundreds of dollars. One team accidentally spent $5000 in a weekend because they forgot to add a prompt length limit.
@@ -185,13 +185,13 @@ Not tracking usage leads to unexpected bills. A single unoptimized loop can cost
 LLM APIs fail, rate limit, timeout. Always implement retries with exponential backoff, fallbacks, and graceful degradation.
 
 #### 3. Hardcoding prompts
-Prompts are code—they should be versioned, tested, and reviewed. A typo in a production prompt can silently break your app.
+Prompts are code - they should be versioned, tested, and reviewed. A typo in a production prompt can silently break your app.
 
 #### 4. No evaluation
 Deploying without evals means you ship bugs without knowing it. Your users will notice quality degradation before you do.
 
 #### 5. Assuming deterministic behavior
-Even with `temperature=0`, there's variation. Design systems to handle it—don't assume `assert output == expected`.
+Even with `temperature=0`, there's variation. Design systems to handle it - don't assume `assert output == expected`.
 
 #### 6. Ignoring rate limits
 Hitting rate limits in production breaks user experience. Implement queuing, batching, and proper error messages.

@@ -14,19 +14,19 @@ difficulty: "beginner"
 
 # Understanding Tokens and API Costs
 
-> **💡** *Tokens are like the calories of AI—you need them to function, but if you're not careful, you'll wake up one morning with a $5,000 bill and wonder what happened. The difference? You can actually track tokens before they become a problem.*
+> **💡** *Tokens are like the calories of AI - you need them to function, but if you're not careful, you'll wake up one morning with a $5,000 bill and wonder what happened. The difference? You can actually track tokens before they become a problem.*
 
 ## Overview
 
 Tokens are the currency of LLM APIs. Every API call costs tokens, and tokens cost money. Understanding token counting and costs is essential for building cost-effective AI applications and avoiding unexpected bills. A single unoptimized loop can cost hundreds of dollars. One team accidentally spent $5,000 in a weekend because they forgot to add a prompt length limit.
 
-In 2024-2025, pricing has become more competitive with new models like GPT-4o offering better performance at lower costs than previous generations. However, costs can still add up quickly at scale—understanding token economics is critical for production systems.
+In 2024-2025, pricing has become more competitive with new models like GPT-4o offering better performance at lower costs than previous generations. However, costs can still add up quickly at scale - understanding token economics is critical for production systems.
 
 ## Main Content
 
 ### What Are Tokens?
 
-Tokens are the fundamental units of text that AI models process. Think of them as chunks of text—sometimes a word, sometimes part of a word, sometimes punctuation. The model processes your input token by token and generates output token by token.
+Tokens are the fundamental units of text that AI models process. Think of them as chunks of text - sometimes a word, sometimes part of a word, sometimes punctuation. The model processes your input token by token and generates output token by token.
 
 **Rough Estimates (English text):**
 - 1 token ≈ 4 characters
@@ -45,7 +45,7 @@ Tokens are the fundamental units of text that AI models process. Think of them a
 2. **Output tokens**: The text the model generates in response
 
 **Real-World Example:**
-A 1,000-word document ≈ 1,333 tokens. If you send this as context for every API call, you're paying for 1,333 input tokens each time. At $2.50 per 1M input tokens for GPT-4o, that's $0.003 per request—seems cheap until you realize 1,000 requests cost $3, and with loops or high traffic, costs explode quickly.
+A 1,000-word document ≈ 1,333 tokens. If you send this as context for every API call, you're paying for 1,333 input tokens each time. At $2.50 per 1M input tokens for GPT-4o, that's $0.003 per request - seems cheap until you realize 1,000 requests cost $3, and with loops or high traffic, costs explode quickly.
 
 ### Token Counting
 
@@ -221,7 +221,7 @@ Token costs can add up quickly. Here are proven strategies to optimize costs wit
 Use the cheapest model that meets your quality requirements:
 - **GPT-4o-mini**: For simple tasks, classifications, basic Q&A (16x cheaper than GPT-4o)
 - **GPT-4o**: For complex reasoning, high-quality content generation
-- **GPT-4 Turbo**: Generally avoid—GPT-4o is better and cheaper
+- **GPT-4 Turbo**: Generally avoid - GPT-4o is better and cheaper
 
 **Decision Framework:**
 1. Start with GPT-4o-mini
@@ -506,7 +506,7 @@ tracker.print_summary()
 ## Common Mistakes
 
 #### 1. Not tracking token usage
-This is the #1 mistake. Without tracking, you have no idea what's costing money until the bill arrives. Implement token tracking from day one—log every request, track costs, set up alerts. Many teams have been surprised by $1,000+ bills from a single buggy loop or unoptimized prompt.
+This is the #1 mistake. Without tracking, you have no idea what's costing money until the bill arrives. Implement token tracking from day one - log every request, track costs, set up alerts. Many teams have been surprised by $1,000+ bills from a single buggy loop or unoptimized prompt.
 
 #### 2. Always using the most expensive model
 Using GPT-4o for every task is like using a Ferrari to get groceries. GPT-4o-mini is 16x cheaper and works great for many tasks. Test with cheaper models first, only upgrade when quality is insufficient. The cost difference compounds quickly: 1,000 requests with GPT-4o-mini costs $0.75, with GPT-4o costs $12.50.
@@ -518,7 +518,7 @@ Sending entire documents when you only need summaries wastes tokens and money. A
 Unbounded outputs can generate thousands of tokens when you only need a sentence. Always set `max_tokens` to limit output length. A bug that causes 10,000-token outputs instead of 500-token outputs costs 20x more. Set reasonable limits based on your actual needs.
 
 #### 5. Token blowups in loops
-Sending large context windows inside loops multiplies costs. If you process 100 items and send 5,000 tokens of context with each, that's 500,000 tokens—$1.25 for input alone (GPT-4o). Optimize by batching, using smaller context windows, or caching intermediate results.
+Sending large context windows inside loops multiplies costs. If you process 100 items and send 5,000 tokens of context with each, that's 500,000 tokens - $1.25 for input alone (GPT-4o). Optimize by batching, using smaller context windows, or caching intermediate results.
 
 #### 6. Ignoring conversation history token costs
 Chat applications that keep full conversation history can accumulate massive token counts. A 10-message conversation with 500 tokens each = 5,000 tokens per request. At 1,000 requests/day, that's 5M tokens/day = $12.50/day in input costs alone (GPT-4o). Implement conversation summarization or limit history length.

@@ -14,11 +14,11 @@ difficulty: "beginner"
 
 # Setting Up Your Development Environment
 
-> **💡** *Setting up a dev environment for AI engineering is like packing for a camping trip—you'll survive with just a tent, but a good sleeping bag, headlamp, and bug spray make all the difference. Same here: Python works alone, but virtual environments, API key management, and the right tools turn survival into comfort.*
+> **💡** *Setting up a dev environment for AI engineering is like packing for a camping trip - you'll survive with just a tent, but a good sleeping bag, headlamp, and bug spray make all the difference. Same here: Python works alone, but virtual environments, API key management, and the right tools turn survival into comfort.*
 
 ## Overview
 
-A proper development environment is crucial for AI engineering. This lesson covers setting up Python, virtual environments, API keys, and essential tools. Getting this right from the start saves hours of debugging later—dependency conflicts, API key leaks, and version mismatches are the most common beginner mistakes.
+A proper development environment is crucial for AI engineering. This lesson covers setting up Python, virtual environments, API keys, and essential tools. Getting this right from the start saves hours of debugging later - dependency conflicts, API key leaks, and version mismatches are the most common beginner mistakes.
 
 In 2024-2025, the Python AI ecosystem has matured significantly. Python 3.10+ is the standard, and modern tools like `ruff` (replacing `flake8` + `black` + `isort`) and `uv` (fast package manager) have emerged. We'll cover both the tried-and-true approaches and the latest tools.
 
@@ -172,7 +172,7 @@ pip install -r requirements.txt
 
 **Critical Security Rule: Never commit API keys to git!**
 
-API keys are like passwords—if exposed, attackers can use them to make requests on your behalf, racking up charges or accessing your data. Treat them as secrets.
+API keys are like passwords - if exposed, attackers can use them to make requests on your behalf, racking up charges or accessing your data. Treat them as secrets.
 
 #### Step 1: Create a `.env` File
 
@@ -457,13 +457,13 @@ env/
 ## Common Mistakes
 
 #### 1. Committing API keys to git
-This is the #1 mistake beginners make. Once committed, the key is in git history forever (even if you delete it later). Use `.env` files, add them to `.gitignore`, and always verify with `git status` before committing. If you've already committed a key, rotate it immediately—don't try to remove it from history.
+This is the #1 mistake beginners make. Once committed, the key is in git history forever (even if you delete it later). Use `.env` files, add them to `.gitignore`, and always verify with `git status` before committing. If you've already committed a key, rotate it immediately - don't try to remove it from history.
 
 #### 2. Not using virtual environments
 Installing packages globally leads to version conflicts between projects. Your system Python becomes a mess of incompatible packages. Always create a virtual environment per project, even for small scripts.
 
 #### 3. Using outdated package versions
-AI libraries change rapidly. Using old versions (like `openai==0.27.0`) means missing bug fixes, security updates, and new features. However, don't update blindly—test updates in a separate environment first. Use `pip list --outdated` to check for updates.
+AI libraries change rapidly. Using old versions (like `openai==0.27.0`) means missing bug fixes, security updates, and new features. However, don't update blindly - test updates in a separate environment first. Use `pip list --outdated` to check for updates.
 
 #### 4. Hardcoding secrets in code
 Never write `api_key = "sk-..."` directly in your code. Use environment variables or secrets management. Hardcoded keys get committed, exposed in screenshots, logged, and shared in code reviews.

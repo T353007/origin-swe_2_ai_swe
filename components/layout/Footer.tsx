@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Linkedin } from "lucide-react";
 
 export function Footer() {
   return (
@@ -44,10 +45,31 @@ export function Footer() {
 
           <div>
             <h3 className="font-semibold mb-4">About</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-3">
               Learn how to become an AI engineer from 0 to 100. Production-ready
               course content for software engineers.
             </p>
+            <div className="space-y-2">
+              <a
+                href="https://www.linkedin.com/in/alam-imtiaz/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline inline-flex items-center gap-2"
+              >
+                <Linkedin className="h-4 w-4" />
+                Author: Imtiaz Alam
+              </a>
+              <br />
+              <a
+                href="https://www.linkedin.com/in/nabiya-alam-1367b41bb/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline inline-flex items-center gap-2"
+              >
+                <Linkedin className="h-4 w-4" />
+                Co-author: Nabiya Alam
+              </a>
+            </div>
           </div>
 
           <div>

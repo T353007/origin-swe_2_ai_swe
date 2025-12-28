@@ -14,13 +14,13 @@ difficulty: "advanced"
 
 # Prompt Injection Prevention
 
-> **💡** Prompt injection is like SQL injection, except instead of 'DROP TABLE users; --', attackers just ask your LLM nicely to ignore its instructions. It's the friendliest form of hacking—no code needed, just persuasive language. But the impact is real: system prompt extraction, behavior manipulation, and data exfiltration, all through what looks like a normal user query." - AI Engineering Best Practice
+> **💡** Prompt injection is like SQL injection, except instead of 'DROP TABLE users; --', attackers just ask your LLM nicely to ignore its instructions. It's the friendliest form of hacking - no code needed, just persuasive language. But the impact is real: system prompt extraction, behavior manipulation, and data exfiltration, all through what looks like a normal user query." - AI Engineering Best Practice
 
 ## Overview
 
 Prompt injection attacks manipulate LLM behavior by injecting malicious instructions into user inputs. These attacks can extract system prompts, bypass safety measures, manipulate outputs, and exfiltrate data. Understanding attack patterns and implementing robust defenses is critical for production AI systems.
 
-Prompt injection is one of the most significant security threats for AI systems. Unlike traditional attacks that exploit code vulnerabilities, prompt injection exploits the fundamental nature of LLMs—they follow instructions, including malicious ones hidden in user input.
+Prompt injection is one of the most significant security threats for AI systems. Unlike traditional attacks that exploit code vulnerabilities, prompt injection exploits the fundamental nature of LLMs - they follow instructions, including malicious ones hidden in user input.
 
 ## Understanding Prompt Injection
 
@@ -846,7 +846,7 @@ Relying on only one defense mechanism is insufficient.
 - Layer defenses (validate, sanitize, structure, validate output)
 - Defense in depth approach
 
-Use multiple layers—no single defense is perfect.
+Use multiple layers - no single defense is perfect.
 
 ### 2. Over-reliance on pattern matching
 
@@ -900,7 +900,7 @@ Missing output validation allows leakage.
 - Filter sensitive content
 - Monitor outputs
 
-Validate outputs—defense doesn't end at generation.
+Validate outputs - defense doesn't end at generation.
 
 ### 5. Ignoring multi-stage attacks
 
@@ -940,7 +940,7 @@ Monitor to detect and learn from attacks.
 
 ### 7. Trusting sanitization alone
 
-Sanitization can be bypassed—don't rely on it alone.
+Sanitization can be bypassed - don't rely on it alone.
 
 **Problems:**
 - Encoding bypasses sanitization
@@ -972,7 +972,7 @@ Not testing allows vulnerabilities to remain.
 - Penetration testing
 - Bug bounty programs
 
-Test your defenses—assume they'll be tested by attackers.
+Test your defenses - assume they'll be tested by attackers.
 
 ### 9. Ignoring false positives
 
@@ -1008,7 +1008,7 @@ Missing response plan delays recovery.
 - Post-incident analysis
 - Continuous improvement
 
-Plan for incidents—they will happen.
+Plan for incidents - they will happen.
 
 ## Exercise
 

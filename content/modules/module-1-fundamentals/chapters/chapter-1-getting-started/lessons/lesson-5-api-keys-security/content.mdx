@@ -14,7 +14,7 @@ difficulty: "beginner"
 
 # API Keys and Security Best Practices
 
-> **💡** *API keys are like the password to your bank account, except your bank account can rack up thousands of dollars in charges if someone gets your password. And unlike your bank account, once you commit a key to git, it's in history forever. Git never forgets—which is great for code, terrible for secrets.*
+> **💡** *API keys are like the password to your bank account, except your bank account can rack up thousands of dollars in charges if someone gets your password. And unlike your bank account, once you commit a key to git, it's in history forever. Git never forgets - which is great for code, terrible for secrets.*
 
 ## Overview
 
@@ -258,7 +258,7 @@ Regular key rotation is a security best practice. It limits the damage if a key 
 - Wait 24-48 hours after deployment
 - Verify no errors or usage from old key
 - Revoke old key in provider dashboard
-- **Important**: Don't revoke too early—have a grace period
+- **Important**: Don't revoke too early - have a grace period
 
 #### Zero-Downtime Rotation
 
@@ -586,7 +586,7 @@ except ValueError as e:
 ## Common Mistakes
 
 #### 1. Committing keys to git
-This is the most common and dangerous mistake. Once committed, keys are in git history forever. Even if you delete the file and commit again, the key is still accessible via `git log`. Use `.gitignore` for `.env` files, use pre-commit hooks to scan for secrets, and if you've already committed a key, rotate it immediately—don't try to remove it from history.
+This is the most common and dangerous mistake. Once committed, keys are in git history forever. Even if you delete the file and commit again, the key is still accessible via `git log`. Use `.gitignore` for `.env` files, use pre-commit hooks to scan for secrets, and if you've already committed a key, rotate it immediately - don't try to remove it from history.
 
 #### 2. Sharing keys in screenshots or demos
 Screenshots of code, terminal output, or dashboards can expose keys. Keys in screenshots get indexed by search engines, shared on social media, or saved by viewers. Always blur or mask keys in screenshots, or use example/placeholder keys for demos.
@@ -601,10 +601,10 @@ Without spending limits, a compromised key or buggy code can rack up thousands o
 Logging API keys (even in development) exposes them in log files, log aggregation services, and error tracking tools. Logs can be accessed by team members, stored indefinitely, or leaked. Always mask keys in logs (show only first/last few characters) or avoid logging them entirely.
 
 #### 6. Using API keys in frontend/client-side code
-API keys in frontend code (JavaScript, mobile apps) are exposed to anyone who can view the code. Attackers can extract keys from browser dev tools, mobile app decompilation, or source code inspection. Never use API keys in client-side code—use a backend API proxy instead.
+API keys in frontend code (JavaScript, mobile apps) are exposed to anyone who can view the code. Attackers can extract keys from browser dev tools, mobile app decompilation, or source code inspection. Never use API keys in client-side code - use a backend API proxy instead.
 
 #### 7. Not rotating keys after exposure
-If a key is exposed (committed to git, in screenshot, etc.), you must rotate it immediately. Don't assume it hasn't been used—attackers scan public repos automatically. Generate a new key, update everywhere it's used, then revoke the old key. Waiting even a few hours can be costly.
+If a key is exposed (committed to git, in screenshot, etc.), you must rotate it immediately. Don't assume it hasn't been used - attackers scan public repos automatically. Generate a new key, update everywhere it's used, then revoke the old key. Waiting even a few hours can be costly.
 
 #### 8. Storing keys in code comments or documentation
 Keys in comments, README files, or documentation can be committed and shared. Example keys that look real can be accidentally used. Always use clear placeholders like `your-api-key-here` or `sk-...` in documentation, never real keys even for examples.

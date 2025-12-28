@@ -109,7 +109,7 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {modules.slice(0, 6).map((module) => (
+            {modules.map((module) => (
               <ModuleCard key={module.id} module={module} />
             ))}
           </div>

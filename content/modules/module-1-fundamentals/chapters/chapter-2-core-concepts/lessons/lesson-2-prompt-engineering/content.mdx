@@ -14,11 +14,11 @@ difficulty: "intermediate"
 
 # Prompt Engineering Fundamentals
 
-> **💡** *Prompt engineering is like giving directions to someone who's incredibly smart but takes everything literally—be clear, be specific, and for the love of all that's good, include examples. A bad prompt is like asking "fix my code" when you meant "review this Python function for security vulnerabilities and return a JSON list of issues." The model will try its best, but you'll get what you asked for, not what you wanted.*
+> **💡** *Prompt engineering is like giving directions to someone who's incredibly smart but takes everything literally - be clear, be specific, and for the love of all that's good, include examples. A bad prompt is like asking "fix my code" when you meant "review this Python function for security vulnerabilities and return a JSON list of issues." The model will try its best, but you'll get what you asked for, not what you wanted.*
 
 ## Overview
 
-Prompt engineering is the practice of designing inputs (prompts) to get desired outputs from LLMs. It's both an art and a science—good prompts are clear, specific, structured, and include examples when needed. The difference between a good prompt and a bad prompt can be the difference between getting exactly what you need and getting something completely unusable.
+Prompt engineering is the practice of designing inputs (prompts) to get desired outputs from LLMs. It's both an art and a science - good prompts are clear, specific, structured, and include examples when needed. The difference between a good prompt and a bad prompt can be the difference between getting exactly what you need and getting something completely unusable.
 
 In 2024-2025, prompt engineering has become a critical skill for AI engineers. Modern models like GPT-4o are incredibly capable, but they require well-crafted prompts to perform consistently. A poorly written prompt can waste API calls, produce low-quality outputs, and lead to production issues. This lesson covers the fundamentals you need to write production-ready prompts.
 
@@ -576,7 +576,7 @@ current_prompt = PROMPT_VERSIONS["code_review_v2"].prompt
 "Fix this code" leaves too much open to interpretation. The model doesn't know what to fix, how to fix it, or what format you want. Be specific: "Review this Python function for security vulnerabilities, identify the issues, and suggest fixes in JSON format."
 
 #### 2. Too much or irrelevant context
-Including unnecessary information dilutes the prompt's effectiveness. The model has limited attention—if you include 10 pages of context for a simple task, the important instructions get lost. Include only relevant context.
+Including unnecessary information dilutes the prompt's effectiveness. The model has limited attention - if you include 10 pages of context for a simple task, the important instructions get lost. Include only relevant context.
 
 #### 3. Inconsistent output formatting
 Varying formats make parsing outputs difficult. If sometimes you get JSON, sometimes plain text, sometimes markdown, your code has to handle all cases (or breaks). Always specify exact output format and stick to it.
@@ -585,7 +585,7 @@ Varying formats make parsing outputs difficult. If sometimes you get JSON, somet
 Complex tasks with subtle distinctions need examples. If you're classifying sentiment, providing examples teaches the model your specific definitions of "positive" vs "neutral". Without examples, you get the model's default understanding, which may not match yours.
 
 #### 5. Ignoring token limits and costs
-Very long prompts cost more and may exceed model limits (8K, 128K, etc.). A 10,000-token prompt costs $0.025 per request (GPT-4o input pricing). At scale, this adds up. Be concise—include what's needed, remove what's not.
+Very long prompts cost more and may exceed model limits (8K, 128K, etc.). A 10,000-token prompt costs $0.025 per request (GPT-4o input pricing). At scale, this adds up. Be concise - include what's needed, remove what's not.
 
 #### 6. Mixing instructions and data
 Confusing structure makes prompts hard to parse (for both humans and models). Use clear sections, markdown formatting, and separators. Separate the "what to do" from the "data to process".
@@ -600,7 +600,7 @@ Without constraints, outputs can be too long, include unwanted content, or viola
 Different models (GPT-4o vs Claude vs GPT-3.5) may respond differently to the same prompt. What works for one model might not work for another. Test and adapt prompts for your specific model.
 
 #### 10. Not versioning prompts
-Prompts evolve over time. Without versioning, you can't track what changed, roll back to working versions, or A/B test improvements. Treat prompts like code—version them, test changes, and track performance.
+Prompts evolve over time. Without versioning, you can't track what changed, roll back to working versions, or A/B test improvements. Treat prompts like code - version them, test changes, and track performance.
 
 ## Exercise
 

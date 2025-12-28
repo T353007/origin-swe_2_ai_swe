@@ -14,13 +14,13 @@ difficulty: "intermediate"
 
 # Rate Limits and Error Handling
 
-> **💡** *Rate limits are like traffic lights for APIs—they exist to prevent chaos, but hitting one means you're stuck waiting. The difference is that with APIs, you can implement smart retry logic that doesn't just sit there honking. Exponential backoff is your friend: wait a bit, try again, wait longer, try again. It's the API equivalent of patience.*
+> **💡** *Rate limits are like traffic lights for APIs - they exist to prevent chaos, but hitting one means you're stuck waiting. The difference is that with APIs, you can implement smart retry logic that doesn't just sit there honking. Exponential backoff is your friend: wait a bit, try again, wait longer, try again. It's the API equivalent of patience.*
 
 ## Overview
 
 API providers enforce rate limits to manage load and ensure fair usage. Production applications must handle rate limits gracefully, implement proper retry logic, and distinguish between transient errors (retry) and permanent errors (fail fast). Without proper error handling, your application will fail unpredictably in production.
 
-In 2024-2025, as AI applications scale, rate limit handling has become critical. Hitting rate limits is not a bug—it's expected behavior at scale. The key is handling them gracefully with exponential backoff, proper error classification, and monitoring.
+In 2024-2025, as AI applications scale, rate limit handling has become critical. Hitting rate limits is not a bug - it's expected behavior at scale. The key is handling them gracefully with exponential backoff, proper error classification, and monitoring.
 
 ## Main Content
 

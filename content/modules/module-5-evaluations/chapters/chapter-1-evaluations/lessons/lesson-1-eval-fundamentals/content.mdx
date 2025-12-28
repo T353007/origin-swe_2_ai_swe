@@ -14,7 +14,7 @@ difficulty: "intermediate"
 
 # Evaluation Fundamentals
 
-> **💡** Evaluating AI systems is like testing software, except the software is probabilistic, the test outputs change slightly each run, and 'it works on my machine' becomes 'it worked that one time with temperature 0.' Traditional unit tests won't cut it—you need evaluations that account for the probabilistic nature of AI systems while still catching regressions. Without evaluations, you're flying blind." - AI Engineering Best Practice
+> **💡** Evaluating AI systems is like testing software, except the software is probabilistic, the test outputs change slightly each run, and 'it works on my machine' becomes 'it worked that one time with temperature 0.' Traditional unit tests won't cut it - you need evaluations that account for the probabilistic nature of AI systems while still catching regressions. Without evaluations, you're flying blind." - AI Engineering Best Practice
 
 ## Overview
 
@@ -38,10 +38,10 @@ Understanding why evaluations are essential is the first step toward building re
 - **Can't debug**: When users report issues, you have no systematic way to reproduce them
 
 **Real-world impact:**
-- A small prompt change degrades answer quality for 20% of queries—you never notice
-- A chunking strategy change breaks retrieval for specific document types—users complain, you don't know why
-- You optimize latency but don't realize accuracy dropped—you ship a worse system
-- You add a new model but don't compare it properly—you deploy something that's actually worse
+- A small prompt change degrades answer quality for 20% of queries - you never notice
+- A chunking strategy change breaks retrieval for specific document types - users complain, you don't know why
+- You optimize latency but don't realize accuracy dropped - you ship a worse system
+- You add a new model but don't compare it properly - you deploy something that's actually worse
 
 ### The Benefits With Evaluations
 
@@ -55,10 +55,10 @@ Understanding why evaluations are essential is the first step toward building re
 - **Deploy safely**: Run evaluations before and after deployment
 
 **Real-world impact:**
-- Automated evaluation catches a prompt regression before deployment—you fix it
-- Evaluation shows that a new chunking strategy improves retrieval accuracy by 15%—you ship it confidently
-- Metrics show latency optimization didn't hurt accuracy—you optimize with confidence
-- Comparison evaluation shows new model is 10% better—data-driven decision to switch
+- Automated evaluation catches a prompt regression before deployment - you fix it
+- Evaluation shows that a new chunking strategy improves retrieval accuracy by 15% - you ship it confidently
+- Metrics show latency optimization didn't hurt accuracy - you optimize with confidence
+- Comparison evaluation shows new model is 10% better - data-driven decision to switch
 
 ### The Evaluation Mindset
 
@@ -74,9 +74,9 @@ Evaluations require a mindset shift:
 - Evaluations are probabilistic: same input → different outputs
 - Quality is a spectrum: scores range from 0-1
 - Evaluations need periodic review as systems evolve
-- Edge cases are everywhere—every input is potentially an edge case
+- Edge cases are everywhere - every input is potentially an edge case
 
-**Key insight:** Evaluations aren't just tests—they're measurement systems that help you understand, improve, and maintain AI system quality over time.
+**Key insight:** Evaluations aren't just tests - they're measurement systems that help you understand, improve, and maintain AI system quality over time.
 
 ## Types of Evaluations
 
@@ -748,7 +748,7 @@ Non-deterministic evaluations that fail randomly make evaluation results unrelia
 - Average multiple runs for probabilistic scorers
 - Handle flakiness explicitly
 
-Flaky evaluations are worse than no evaluations—they give false confidence.
+Flaky evaluations are worse than no evaluations - they give false confidence.
 
 ### 5. No baseline
 

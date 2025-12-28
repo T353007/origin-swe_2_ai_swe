@@ -20,7 +20,7 @@ difficulty: "intermediate"
 
 CI/CD for AI systems requires adapting traditional CI/CD patterns to handle non-deterministic outputs, prompt versioning, model management, and evaluation-based testing. This lesson covers CI/CD patterns specifically designed for AI applications.
 
-Traditional CI/CD assumes deterministic behavior—same input produces same output. AI systems break this assumption, requiring evaluation-based testing, confidence thresholds, and probabilistic quality checks. The goal is the same (reliable, automated deployments) but the methods differ.
+Traditional CI/CD assumes deterministic behavior - same input produces same output. AI systems break this assumption, requiring evaluation-based testing, confidence thresholds, and probabilistic quality checks. The goal is the same (reliable, automated deployments) but the methods differ.
 
 ## CI/CD Challenges for AI Systems
 
@@ -198,7 +198,7 @@ def test_smoke_basic_query():
 
 ## Prompt Versioning
 
-Version prompts like code—track changes, test impact, deploy safely.
+Version prompts like code - track changes, test impact, deploy safely.
 
 ### Prompt Versioning Strategy
 
@@ -865,7 +865,7 @@ Manual deployments are error-prone and slow.
 - Use infrastructure as code
 - Version control everything
 
-CI/CD is essential—don't deploy manually.
+CI/CD is essential - don't deploy manually.
 
 ### 2. Exact match tests for AI outputs
 
@@ -883,7 +883,7 @@ Using exact match tests that fail on non-deterministic outputs.
 - Test score distributions
 - Use semantic similarity
 
-Never use exact match for AI outputs—use evaluations.
+Never use exact match for AI outputs - use evaluations.
 
 ### 3. No prompt versioning
 
@@ -901,7 +901,7 @@ Not versioning prompts makes changes untrackable.
 - Test prompt versions
 - Store prompt history
 
-Version prompts like code—they affect behavior.
+Version prompts like code - they affect behavior.
 
 ### 4. No evaluation in CI
 
@@ -919,7 +919,7 @@ Deploying without evaluation testing.
 - Fail on regressions
 - Test before deployment
 
-Evaluations are your quality gate—use them.
+Evaluations are your quality gate - use them.
 
 ### 5. No rollback strategy
 
@@ -937,7 +937,7 @@ Can't recover from bad deployments.
 - Automate rollback
 - Have rollback triggers
 
-Always have a rollback plan—you'll need it.
+Always have a rollback plan - you'll need it.
 
 ### 6. Testing too slowly
 
@@ -1010,7 +1010,7 @@ Not tracking model configurations and versions.
 - Support model rollback
 - Document model changes
 
-Model configuration is code—version it.
+Model configuration is code - version it.
 
 ### 10. Deployment without staging
 

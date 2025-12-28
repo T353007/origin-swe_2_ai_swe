@@ -14,11 +14,11 @@ difficulty: "intermediate"
 
 # Security Fundamentals for AI Systems
 
-> **💡** Security for AI systems is like security for regular applications, except attackers can try to jailbreak your LLM by asking nicely, your inputs can contain hidden instructions that manipulate behavior, and your outputs might leak sensitive training data. It's security, but your application is a large language model that follows instructions—including malicious ones." - AI Engineering Best Practice
+> **💡** Security for AI systems is like security for regular applications, except attackers can try to jailbreak your LLM by asking nicely, your inputs can contain hidden instructions that manipulate behavior, and your outputs might leak sensitive training data. It's security, but your application is a large language model that follows instructions - including malicious ones." - AI Engineering Best Practice
 
 ## Overview
 
-AI systems face unique security challenges: prompt injection attacks, data leakage, API key exposure, PII handling, and output filtering. Security is not optional—AI systems that interact with external users need robust security measures to prevent attacks, protect data, and ensure safe operation.
+AI systems face unique security challenges: prompt injection attacks, data leakage, API key exposure, PII handling, and output filtering. Security is not optional - AI systems that interact with external users need robust security measures to prevent attacks, protect data, and ensure safe operation.
 
 Security for AI systems requires understanding how LLMs work, what attacks they're vulnerable to, and how to defend against them. This lesson covers essential security practices for production AI applications.
 
@@ -348,7 +348,7 @@ class OutputFilter:
 
 ## API Key Security
 
-API keys are sensitive credentials—protect them properly.
+API keys are sensitive credentials - protect them properly.
 
 ### Secret Management Best Practices
 
@@ -765,7 +765,7 @@ Deploying without input validation makes systems vulnerable to injection.
 - Use pattern matching
 - Implement multiple validation layers
 
-Input validation is the first line of defense—always implement it.
+Input validation is the first line of defense - always implement it.
 
 ### 2. Exposing API keys
 
@@ -784,7 +784,7 @@ API keys exposed in code, logs, or client expose systems to abuse.
 - Never log keys
 - Rotate keys regularly
 
-API keys are secrets—treat them as such.
+API keys are secrets - treat them as such.
 
 ### 3. No rate limiting
 
@@ -898,7 +898,7 @@ Assuming LLM outputs are safe is dangerous.
 - Implement output filtering
 - Test output security
 
-Never trust LLM outputs—validate and sanitize.
+Never trust LLM outputs - validate and sanitize.
 
 ### 9. No security testing
 

@@ -14,11 +14,11 @@ difficulty: "intermediate"
 
 # Model Parameters and Temperature
 
-> **💡** *Model parameters are like the dials on a mixing board—turn temperature too high and your code explanations become poetry, turn it too low and creative writing becomes technical documentation. The trick is finding the right settings for each task, which is easier said than done when "creativity" is measured on a scale of 0 to 2.*
+> **💡** *Model parameters are like the dials on a mixing board - turn temperature too high and your code explanations become poetry, turn it too low and creative writing becomes technical documentation. The trick is finding the right settings for each task, which is easier said than done when "creativity" is measured on a scale of 0 to 2.*
 
 ## Overview
 
-Model parameters control how LLMs generate text. Understanding temperature, top_p, max_tokens, and other parameters is crucial for getting consistent, high-quality outputs that match your use case. The same prompt with different parameters can produce dramatically different results—a fact that surprises many developers who expect deterministic behavior.
+Model parameters control how LLMs generate text. Understanding temperature, top_p, max_tokens, and other parameters is crucial for getting consistent, high-quality outputs that match your use case. The same prompt with different parameters can produce dramatically different results - a fact that surprises many developers who expect deterministic behavior.
 
 In 2024-2025, understanding these parameters has become even more important as models like GPT-4o have become more sensitive to parameter tuning. Getting parameters right can be the difference between a production-ready system and one that produces inconsistent, unusable outputs.
 
@@ -305,7 +305,7 @@ Without max_tokens, the model can generate thousands of tokens, wasting money an
 Stop sequences are essential for controlling output format. Without them, list generation continues indefinitely, structured formats break, and parsing becomes difficult. Use stop sequences like `\n\n`, `"---"`, or custom markers to control where generation stops.
 
 #### 4. Using the same parameters for all tasks
-Different tasks need different parameters. Factual Q&A needs temperature 0.0, creative writing needs 0.8-1.0, code generation needs 0.0 with high max_tokens. Don't use a one-size-fits-all approach—tune parameters per use case.
+Different tasks need different parameters. Factual Q&A needs temperature 0.0, creative writing needs 0.8-1.0, code generation needs 0.0 with high max_tokens. Don't use a one-size-fits-all approach - tune parameters per use case.
 
 #### 5. Using temperature and top_p together
 Temperature and top_p interact in complex ways. Using both simultaneously leads to unpredictable behavior. Pick one: use temperature for most cases, or use top_p when you need fine-grained control. Don't set both unless you've tested the interaction.
@@ -317,7 +317,7 @@ If max_tokens is too low, responses get truncated mid-sentence. Estimate your ex
 Even with temperature 0.0, outputs can vary slightly due to model architecture, batching, and other factors. Don't write code that depends on exact string matches. Use temperature 0.0 for consistency, but still validate outputs rather than assuming they're identical.
 
 #### 8. Not testing parameter settings
-Parameters affect outputs significantly. Don't guess—test different settings with your actual use case. What works for one task might not work for another. Create test cases, compare outputs, and choose parameters based on real results, not assumptions.
+Parameters affect outputs significantly. Don't guess - test different settings with your actual use case. What works for one task might not work for another. Create test cases, compare outputs, and choose parameters based on real results, not assumptions.
 
 #### 9. Ignoring token costs when setting max_tokens
 Higher max_tokens means higher potential costs. Setting max_tokens to 4000 "just to be safe" means every response could cost $0.04 (GPT-4o output pricing). Be realistic about actual needs. Monitor actual token usage and adjust accordingly.

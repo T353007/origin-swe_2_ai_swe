@@ -14,7 +14,7 @@ difficulty: "intermediate"
 
 # Token Counting and Context Windows
 
-> **💡** *Context windows are like luggage limits on airlines—you can fit a surprising amount if you pack smart, but go over the limit and you're stuck paying extra (or in this case, your request fails). The difference is that with context windows, you can actually count your tokens before trying to fit everything in, and sometimes you need to summarize your old conversations to make room for new ones.*
+> **💡** *Context windows are like luggage limits on airlines - you can fit a surprising amount if you pack smart, but go over the limit and you're stuck paying extra (or in this case, your request fails). The difference is that with context windows, you can actually count your tokens before trying to fit everything in, and sometimes you need to summarize your old conversations to make room for new ones.*
 
 ## Overview
 
@@ -95,7 +95,7 @@ The context window is the maximum number of tokens (input + output) that a model
 - Context window = Input tokens + Output tokens (combined)
 - If your input is 120K tokens and you set max_tokens to 10K, total is 130K (exceeds 128K limit = error)
 - Always reserve tokens for output when calculating available input tokens
-- Different models have different limits—check the model's documentation
+- Different models have different limits - check the model's documentation
 
 **Example calculations:**
 

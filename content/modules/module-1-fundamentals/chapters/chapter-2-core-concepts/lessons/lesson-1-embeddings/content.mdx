@@ -14,7 +14,7 @@ difficulty: "intermediate"
 
 # Understanding Embeddings
 
-> **💡** *Embeddings are like GPS coordinates for meaning—they turn "dog" and "puppy" into points in space that are close together, while "dog" and "tax filing" are far apart. But instead of 2D maps, we're working with 1536-dimensional spaces where similarity means everything.*
+> **💡** *Embeddings are like GPS coordinates for meaning - they turn "dog" and "puppy" into points in space that are close together, while "dog" and "tax filing" are far apart. But instead of 2D maps, we're working with 1536-dimensional spaces where similarity means everything.*
 
 ## Overview
 
@@ -475,7 +475,7 @@ Regenerating the same embeddings wastes API calls and money. If you're searching
 Using `text-embedding-3-large` when `text-embedding-3-small` would suffice wastes money (6.5x more expensive). Using `text-embedding-ada-002` when newer models are available gets you worse quality at higher cost. Start with `text-embedding-3-small` (best quality/cost ratio), only upgrade if needed.
 
 #### 3. Not batching embedding generation
-Generating embeddings one at a time is slow and inefficient. The OpenAI API supports batching—send 100 texts in one API call instead of 100 separate calls. Batching is faster, more rate-limit friendly, and reduces overhead.
+Generating embeddings one at a time is slow and inefficient. The OpenAI API supports batching - send 100 texts in one API call instead of 100 separate calls. Batching is faster, more rate-limit friendly, and reduces overhead.
 
 #### 4. Assuming embeddings understand everything
 Embeddings capture semantic similarity but don't understand logic, math, or precise facts. "2 + 2 = 4" and "2 + 2 = 5" might have similar embeddings because they're structurally similar, even though one is wrong. Use embeddings for similarity search, not for factual verification.
@@ -484,7 +484,7 @@ Embeddings capture semantic similarity but don't understand logic, math, or prec
 Embedding APIs have rate limits. Generating embeddings for 10,000 documents without rate limit handling will fail. Implement exponential backoff, batch processing, and rate limit error handling. Check provider documentation for current rate limits.
 
 #### 6. Mixing embedding models
-Different models produce embeddings in different vector spaces. You can't directly compare embeddings from `text-embedding-3-small` and `text-embedding-3-large`—they're incompatible. Always use the same model for queries and documents in the same search system.
+Different models produce embeddings in different vector spaces. You can't directly compare embeddings from `text-embedding-3-small` and `text-embedding-3-large` - they're incompatible. Always use the same model for queries and documents in the same search system.
 
 #### 7. Ignoring input length limits
 Embedding models have maximum input lengths (typically 8,192 tokens for OpenAI models). Longer texts are truncated silently, which can lose important information. Chunk long documents before embedding, or use models with longer context windows if needed.
@@ -493,7 +493,7 @@ Embedding models have maximum input lengths (typically 8,192 tokens for OpenAI m
 While modern OpenAI embeddings are normalized, if you're using custom embeddings or other providers, ensure they're normalized for cosine similarity to work correctly. Non-normalized vectors give incorrect similarity scores.
 
 #### 9. Embedding entire documents without chunking
-Embedding very long documents (thousands of tokens) loses granularity—you're averaging meaning across the entire document. For better search results, chunk documents into smaller pieces (e.g., 500-1000 tokens), embed each chunk, and search at the chunk level. This is critical for RAG systems.
+Embedding very long documents (thousands of tokens) loses granularity - you're averaging meaning across the entire document. For better search results, chunk documents into smaller pieces (e.g., 500-1000 tokens), embed each chunk, and search at the chunk level. This is critical for RAG systems.
 
 ## Exercise
 

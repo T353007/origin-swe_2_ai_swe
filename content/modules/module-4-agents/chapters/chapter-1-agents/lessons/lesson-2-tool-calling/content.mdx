@@ -14,11 +14,11 @@ difficulty: "intermediate"
 
 # Tool Integration Patterns
 
-> **💡** Tool calling is like giving an LLM a Swiss Army knife—except instead of a knife, you're giving it access to your database, APIs, and file system. The LLM might not know how to use it perfectly, but with good descriptions, it'll figure it out. Mostly." - AI Engineering Best Practice
+> **💡** Tool calling is like giving an LLM a Swiss Army knife - except instead of a knife, you're giving it access to your database, APIs, and file system. The LLM might not know how to use it perfectly, but with good descriptions, it'll figure it out. Mostly." - AI Engineering Best Practice
 
 ## Overview
 
-Tool calling (also called function calling) enables LLMs to interact with external systems by defining functions they can invoke during conversations. This is the foundation of AI agents—without tool calling, agents are just chat interfaces. Mastering tool calling is essential for building production AI systems.
+Tool calling (also called function calling) enables LLMs to interact with external systems by defining functions they can invoke during conversations. This is the foundation of AI agents - without tool calling, agents are just chat interfaces. Mastering tool calling is essential for building production AI systems.
 
 Tool calling has evolved significantly. In 2023, OpenAI introduced function calling, which was later renamed to "tools" and standardized across providers. Today (2024-2025), tool calling is a first-class feature in GPT-4o, Claude 3.5, and Gemini models.
 
@@ -51,7 +51,7 @@ The LLM analyzes the user's request and available tools, then decides:
 
 **Step 3: Execute Tool**
 
-Your system executes the actual function with the arguments the LLM provided. This happens outside the LLM—it could call an API, query a database, read a file, etc.
+Your system executes the actual function with the arguments the LLM provided. This happens outside the LLM - it could call an API, query a database, read a file, etc.
 
 **Step 4: Return Result**
 
@@ -82,7 +82,7 @@ The LLM uses tool results (along with conversation history) to generate a final 
 
 ## Tool Definition
 
-Tool definitions use JSON Schema to describe functions. The schema is critical—poor schemas lead to incorrect tool calls.
+Tool definitions use JSON Schema to describe functions. The schema is critical - poor schemas lead to incorrect tool calls.
 
 ### Basic Tool Definition
 
@@ -145,7 +145,7 @@ tools = [
 
 ### Tool Description Best Practices
 
-Tool descriptions are critical—they're how the LLM understands when to use each tool.
+Tool descriptions are critical - they're how the LLM understands when to use each tool.
 
 **Good descriptions:**
 - Clear and specific about what the tool does

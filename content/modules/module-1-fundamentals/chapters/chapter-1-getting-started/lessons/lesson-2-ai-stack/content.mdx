@@ -14,13 +14,13 @@ difficulty: "beginner"
 
 # The Modern AI Stack
 
-> **💡** *The modern AI stack is like a Swiss Army knife—except instead of a knife, corkscrew, and scissors, you have vector databases, LLM providers, and frameworks. And instead of opening wine, you're building production AI systems. Just as useful, slightly more complex.*
+> **💡** *The modern AI stack is like a Swiss Army knife - except instead of a knife, corkscrew, and scissors, you have vector databases, LLM providers, and frameworks. And instead of opening wine, you're building production AI systems. Just as useful, slightly more complex.*
 
 ## Overview
 
-The AI engineering stack consists of LLM providers, vector databases, frameworks, evaluation tools, and observability platforms. Understanding this stack helps you choose the right tools for your projects and avoid the common pitfall of "framework fatigue"—trying every new tool that comes out.
+The AI engineering stack consists of LLM providers, vector databases, frameworks, evaluation tools, and observability platforms. Understanding this stack helps you choose the right tools for your projects and avoid the common pitfall of "framework fatigue" - trying every new tool that comes out.
 
-In 2024-2025, the ecosystem has matured significantly. What used to be research projects are now production-ready tools. The challenge isn't finding tools anymore—it's choosing the right ones for your specific use case without getting overwhelmed by options.
+In 2024-2025, the ecosystem has matured significantly. What used to be research projects are now production-ready tools. The challenge isn't finding tools anymore - it's choosing the right ones for your specific use case without getting overwhelmed by options.
 
 ## Main Content
 
@@ -120,7 +120,7 @@ Frameworks abstract away the complexity of building LLM applications, providing 
 
 #### 4. Evaluation & Testing
 
-Evaluating AI systems is fundamentally different from traditional software testing. You can't use simple unit tests—you need to measure quality, relevance, accuracy, and consistency.
+Evaluating AI systems is fundamentally different from traditional software testing. You can't use simple unit tests - you need to measure quality, relevance, accuracy, and consistency.
 
 **LangSmith** (Commercial)
 - Built by LangChain team
@@ -235,7 +235,7 @@ if __name__ == "__main__":
 **Key Points:**
 - Using `gpt-4o` (latest model) instead of older `gpt-4`
 - Using `text-embedding-3-small` (current embedding model)
-- This is a simplified example—production code would include error handling, logging, and evaluation
+- This is a simplified example - production code would include error handling, logging, and evaluation
 
 ## Common Mistakes
 
@@ -243,7 +243,7 @@ if __name__ == "__main__":
 Don't use every framework and tool just because they exist. Each tool adds complexity and maintenance burden. Choose based on your actual needs: if you're building a simple RAG app, you don't need LangChain agents. Start simple, add complexity only when needed.
 
 #### 2. Vendor lock-in without abstraction
-Locking yourself into a single LLM provider or vector database makes switching expensive later. Consider abstraction layers (like LangChain's LLM abstraction) so you can swap providers if pricing or features change. However, don't over-engineer—premature abstraction is also a mistake.
+Locking yourself into a single LLM provider or vector database makes switching expensive later. Consider abstraction layers (like LangChain's LLM abstraction) so you can swap providers if pricing or features change. However, don't over-engineer - premature abstraction is also a mistake.
 
 #### 3. Ignoring costs
 Vector databases and LLM APIs can get expensive fast, especially at scale. A common mistake: using expensive models (like GPT-4) for simple tasks that GPT-4o-mini could handle. Monitor costs from day one, set budgets, and use cost-effective models where appropriate.
