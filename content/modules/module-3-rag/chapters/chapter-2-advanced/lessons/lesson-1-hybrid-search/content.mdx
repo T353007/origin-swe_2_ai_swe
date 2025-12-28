@@ -2,86 +2,175 @@
 id: "lesson-1-hybrid-search"
 slug: "hybrid-search"
 title: "Hybrid Search (Vector + Keyword)"
-description: "Combine semantic vector search with keyword search for better retrieval quality in RAG systems."
+description: "Combine semantic vector search with keyword search (BM25) for superior retrieval quality in production RAG systems. Learn when and how to implement hybrid search effectively."
 order: 1
 chapterId: "chapter-2-advanced-rag"
 moduleId: "module-3-rag"
 prerequisites: ["lesson-5-basic-rag"]
-estimatedMinutes: 9
-tags: ["hybrid-search", "keyword-search", "bm25", "retrieval"]
+estimatedMinutes: 18
+tags: ["hybrid-search", "keyword-search", "bm25", "retrieval", "vector-search"]
 difficulty: "intermediate"
 ---
 
 # Hybrid Search (Vector + Keyword)
 
+> **💡** Hybrid search is like having both a GPS and a paper map - the GPS understands context, but the map shows you the exact street names." - AI Engineering Best Practice
+
 ## Overview
 
-Hybrid search combines semantic vector search with traditional keyword search (BM25) to get the best of both worlds: semantic understanding and exact keyword matching.
+Hybrid search combines semantic vector search with traditional keyword search (BM25) to get the best of both worlds: semantic understanding and exact keyword matching. This lesson covers when to use hybrid search, how to implement it, and how to tune it for your use case.
 
-## Main Content
+## Why Hybrid Search Matters
 
-### Why Hybrid Search?
+Hybrid search is the most effective retrieval strategy for production RAG systems (2024-2025). Research shows hybrid search improves retrieval accuracy by 15-30% compared to vector-only or keyword-only approaches.
 
-**Vector Search Limitations:**
-- May miss exact keyword matches
-- Can struggle with technical terms
-- Embeddings may not capture all nuances
+### Vector Search Limitations
 
-**Keyword Search Limitations:**
-- No semantic understanding
-- Misses synonyms and related concepts
-- Requires exact word matches
+**When vector search struggles:**
+- **Exact matches**: Vector search may miss exact keyword matches that users expect
+- **Technical terms**: Domain-specific terms, acronyms, and codes aren't always well-represented in embeddings
+- **Entity matching**: Names, IDs, and unique identifiers need exact matching
+- **Number-heavy content**: Financial data, dates, measurements need precision
+- **New terminology**: Embeddings trained on older data may miss recent terms
+- **Multi-lingual content**: Code-switching and mixed languages can confuse embeddings
 
-**Hybrid Approach:**
-- Combines both methods
-- Reranks by combining scores
-- Better overall retrieval quality
+**Example:** Searching for "GPT-4o API" might miss documents that only say "GPT-4o" without "API", even though they're relevant.
 
-### BM25 Keyword Search
+### Keyword Search (BM25) Limitations
 
-BM25 is a ranking function for keyword search:
+**When keyword search struggles:**
+- **Semantic understanding**: No understanding of meaning, synonyms, or context
+- **Paraphrasing**: "What is machine learning?" vs "Explain ML" won't match
+- **Conceptual queries**: "How do neural networks learn?" requires understanding concepts
+- **Cross-language**: Can't match related concepts across languages
+- **Misspellings**: Requires exact word matches (unless fuzzy matching is added)
+- **Context-dependent terms**: Same word means different things in different contexts
+
+**Example:** Searching for "ML model training" won't find documents that say "machine learning model development" even though they're about the same thing.
+
+### The Hybrid Solution
+
+**Hybrid search combines both:**
+- **Semantic understanding** from vector search (catches "machine learning" when searching for "ML")
+- **Exact matching** from keyword search (finds "GPT-4o" when explicitly searched)
+- **Better recall**: Catches more relevant documents
+- **Better precision**: Ranks truly relevant documents higher
+- **Robustness**: Handles edge cases better than either method alone
+
+**Real-world impact:** In production RAG systems, hybrid search typically improves answer quality by 20-40% compared to vector-only approaches, especially for technical documentation, code, and domain-specific content.
+
+## Understanding BM25
+
+BM25 (Best Matching 25) is a probabilistic ranking function for keyword search that's been the industry standard since the 1990s. It's based on term frequency (TF) and inverse document frequency (IDF).
+
+### How BM25 Works
+
+1. **Term Frequency (TF)**: How often a term appears in a document (more occurrences = higher score)
+2. **Inverse Document Frequency (IDF)**: How rare/common a term is across all documents (rare terms = higher score)
+3. **Document Length Normalization**: Prevents long documents from dominating (normalizes by document length)
+4. **Saturation**: Diminishing returns for term frequency (prevents over-weighting very frequent terms)
+
+**Key advantages:**
+- Fast and efficient (no neural networks needed)
+- Interpretable (you can see why documents ranked high)
+- Works well for exact matches, technical terms, and entities
+- Industry-proven (used by Google, Elasticsearch, etc.)
+
+### BM25 Implementation
 
 ```python
 from rank_bm25 import BM25Okapi
-import nltk
-from nltk.tokenize import word_tokenize
+from typing import List
+
+def tokenize(text: str) -> List[str]:
+    """Simple tokenization - in production, use proper NLP tokenization."""
+    return text.lower().split()
+
+# Prepare documents
+documents = [
+    "Python is a programming language",
+    "Machine learning uses Python",
+    "Python programming for data science"
+]
 
 # Tokenize documents
-tokenized_docs = [word_tokenize(doc.lower()) for doc in documents]
+tokenized_docs = [tokenize(doc) for doc in documents]
 
 # Create BM25 index
 bm25 = BM25Okapi(tokenized_docs)
 
 # Search
-query_tokens = word_tokenize(query.lower())
+query = "Python programming"
+query_tokens = tokenize(query)
 scores = bm25.get_scores(query_tokens)
+
+# Get top results
+top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+for idx in top_indices[:3]:
+    print(f"Score: {scores[idx]:.4f} - {documents[idx]}")
 ```
 
-### Hybrid Search Implementation
+**Production considerations:**
+- Use proper tokenization (spaCy, NLTK, or language-specific tokenizers)
+- Handle stop words appropriately (BM25 handles this naturally)
+- Consider stemming/lemmatization for better matching
+- Preprocess consistently (same preprocessing for indexing and querying)
+
+## Hybrid Search Implementation
+
+The key to hybrid search is **score normalization and combination**. Different scoring methods produce scores in different ranges, so normalization is critical.
+
+### Score Normalization Strategies
+
+1. **Min-Max Normalization**: Scale to [0, 1] range
+2. **Z-score Normalization**: Mean-centered, unit variance
+3. **Rank-based**: Use ranks instead of raw scores
+4. **Reciprocal Rank Fusion (RRF)**: Combine ranks without normalization
+
+**Min-Max is most common**, but RRF is growing in popularity (2024-2025) because it's simpler and often performs better.
+
+### Basic Hybrid Search
 
 ```python
 import numpy as np
 from rank_bm25 import BM25Okapi
+from typing import List, Tuple
+from openai import OpenAI
+
+client = OpenAI()
 
 def hybrid_search(
     query: str,
-    documents: list[str],
-    embeddings: list[list[float]],
-    query_embedding: list[float],
-    alpha: float = 0.5
-) -> list[tuple]:
-    """Combine vector and keyword search scores."""
+    documents: List[str],
+    embeddings: List[List[float]],
+    query_embedding: List[float],
+    alpha: float = 0.7  # 0.7 = more weight on vector, 0.3 on keyword
+) -> List[Tuple[str, float]]:
+    """
+    Combine vector and keyword search scores.
     
-    # Vector similarity scores
+    Args:
+        query: Search query
+        documents: List of document texts
+        embeddings: Pre-computed document embeddings
+        query_embedding: Query embedding
+        alpha: Weight for vector search (0-1). Higher = more vector, lower = more keyword
+    
+    Returns:
+        List of (document, score) tuples, sorted by score descending
+    """
+    
+    # Vector similarity scores (cosine similarity)
     query_emb = np.array(query_embedding)
     doc_embeddings = np.array(embeddings)
     
-    # Cosine similarity
-    vector_scores = np.dot(doc_embeddings, query_emb) / (
-        np.linalg.norm(doc_embeddings, axis=1) * np.linalg.norm(query_emb)
-    )
+    # Cosine similarity: dot product / (norm * norm)
+    dot_products = np.dot(doc_embeddings, query_emb)
+    doc_norms = np.linalg.norm(doc_embeddings, axis=1)
+    query_norm = np.linalg.norm(query_emb)
+    vector_scores = dot_products / (doc_norms * query_norm + 1e-8)  # Add small epsilon to avoid division by zero
     
-    # Normalize to 0-1
+    # Normalize vector scores to [0, 1] (cosine similarity is [-1, 1])
     vector_scores = (vector_scores + 1) / 2
     
     # BM25 keyword scores
@@ -89,93 +178,650 @@ def hybrid_search(
     bm25 = BM25Okapi(tokenized_docs)
     keyword_scores = bm25.get_scores(query.lower().split())
     
-    # Normalize keyword scores
-    keyword_scores = (keyword_scores - keyword_scores.min()) / (
-        keyword_scores.max() - keyword_scores.min() + 1e-8
-    )
+    # Normalize keyword scores to [0, 1]
+    # Handle edge case where all scores are the same
+    score_range = keyword_scores.max() - keyword_scores.min()
+    if score_range > 0:
+        keyword_scores = (keyword_scores - keyword_scores.min()) / score_range
+    else:
+        keyword_scores = np.ones_like(keyword_scores) * 0.5  # Default to middle score
     
-    # Combine scores
+    # Combine scores: alpha * vector + (1 - alpha) * keyword
     hybrid_scores = alpha * vector_scores + (1 - alpha) * keyword_scores
     
-    # Return top results
+    # Return top results sorted by score
     results = list(zip(documents, hybrid_scores))
     results.sort(key=lambda x: x[1], reverse=True)
     
     return results
+
+# Usage
+documents = ["Document 1 text...", "Document 2 text...", ...]
+doc_embeddings = [get_embedding(doc) for doc in documents]  # Pre-computed
+query = "What is RAG?"
+query_emb = get_embedding(query)
+
+results = hybrid_search(
+    query=query,
+    documents=documents,
+    embeddings=doc_embeddings,
+    query_embedding=query_emb,
+    alpha=0.7  # 70% vector, 30% keyword
+)
+
+for doc, score in results[:5]:
+    print(f"Score: {score:.4f} - {doc[:100]}...")
 ```
 
-### Using Weaviate for Hybrid Search
+### Reciprocal Rank Fusion (RRF) - Modern Approach
 
-Weaviate supports hybrid search natively:
+RRF (2024-2025) is simpler and often performs better than weighted combination:
+
+```python
+def reciprocal_rank_fusion(
+    vector_ranks: List[int],
+    keyword_ranks: List[int],
+    k: int = 60  # Standard RRF constant
+) -> List[float]:
+    """
+    Combine ranks using Reciprocal Rank Fusion.
+    No normalization needed - works directly with ranks.
+    """
+    num_docs = len(vector_ranks)
+    rrf_scores = np.zeros(num_docs)
+    
+    # RRF formula: score = sum(1 / (k + rank))
+    for doc_idx in range(num_docs):
+        vector_rank = vector_ranks[doc_idx]
+        keyword_rank = keyword_ranks[doc_idx]
+        
+        # Lower rank = better (rank 0 is best)
+        rrf_scores[doc_idx] = (1 / (k + vector_rank + 1)) + (1 / (k + keyword_rank + 1))
+    
+    return rrf_scores.tolist()
+
+# Usage with RRF
+vector_results = hybrid_search(...)  # Get vector search results
+keyword_results = bm25_search(...)  # Get keyword search results
+
+# Convert to ranks
+vector_ranks = {doc: rank for rank, (doc, _) in enumerate(vector_results)}
+keyword_ranks = {doc: rank for rank, (doc, _) in enumerate(keyword_results)}
+
+# Combine with RRF
+rrf_scores = reciprocal_rank_fusion(vector_ranks, keyword_ranks)
+```
+
+## Native Hybrid Search Support
+
+Many modern vector databases support hybrid search natively (2024-2025). This is preferred over manual implementation because it's optimized and easier to maintain.
+
+### Weaviate Hybrid Search
+
+Weaviate has excellent hybrid search support:
 
 ```python
 import weaviate
+import weaviate.classes as wvc
 
-client = weaviate.Client("http://localhost:8080")
+# Weaviate v4+ (2024)
+client = weaviate.connect_to_local()
 
 # Hybrid query
-result = client.query.get(
-    "Document",
-    ["text", "metadata"]
-).with_hybrid(
+collection = client.collections.get("Document")
+
+result = collection.query.hybrid(
     query="What is RAG?",
-    alpha=0.7  # 0.7 vector, 0.3 keyword
-).with_limit(5).do()
+    alpha=0.7,  # 0.7 = 70% vector, 30% keyword
+    limit=5,
+    return_metadata=wvc.query.MetadataQuery(score=True)
+)
+
+for item in result.objects:
+    print(f"Score: {item.metadata.score} - {item.properties['text']}")
+
+client.close()
 ```
 
-## Code Examples
+### Pinecone Hybrid Search
 
-Complete hybrid search system:
+Pinecone Serverless (2024) supports hybrid search with sparse vectors:
 
 ```python
+from pinecone import Pinecone, ServerlessSpec
+import numpy as np
+
+pc = Pinecone(api_key="your-api-key")
+index = pc.Index("hybrid-index")
+
+# Sparse vector (BM25-style) + dense vector
+query_dense = get_embedding("What is RAG?")
+query_sparse = create_sparse_vector("What is RAG?")  # BM25-style sparse vector
+
+results = index.query(
+    vector=query_dense,
+    sparse_vector=query_sparse,
+    top_k=5,
+    include_metadata=True
+)
+```
+
+### Qdrant Hybrid Search
+
+Qdrant supports hybrid search with multiple vectors:
+
+```python
+from qdrant_client import QdrantClient
+
+client = QdrantClient("localhost", port=6333)
+
+# Hybrid search with multiple named vectors
+results = client.search(
+    collection_name="documents",
+    query_vector={
+        "vector": query_embedding,  # Dense vector
+        "sparse": sparse_vector     # Sparse vector (BM25)
+    },
+    limit=5
+)
+```
+
+### Vespa Hybrid Search
+
+Vespa has powerful native hybrid search:
+
+```yaml
+# Vespa schema
+rank-profile hybrid inherits default {
+    first-phase {
+        expression: 0.7 * bm25(text) + 0.3 * closeness(field, embedding)
+    }
+}
+```
+
+### When to Use Native vs Custom
+
+**Use native hybrid search when:**
+- You're using a supported vector database
+- You want optimized performance
+- You want simpler code and maintenance
+- You're building production systems
+
+**Use custom implementation when:**
+- Your vector database doesn't support hybrid search
+- You need fine-grained control over the combination
+- You want to experiment with different fusion methods
+- You're combining multiple retrieval methods (not just 2)
+
+## Production-Ready Hybrid RAG System
+
+Here's a complete, production-ready hybrid search implementation:
+
+```python
+import numpy as np
+from rank_bm25 import BM25Okapi
+from typing import List, Tuple, Optional
+from openai import OpenAI
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 class HybridRAG:
-    def __init__(self, documents: list[str], embeddings: list[list[float]]):
+    """
+    Production-ready hybrid RAG system combining vector and keyword search.
+    
+    Features:
+    - Cached embeddings
+    - Configurable alpha (vector vs keyword weighting)
+    - Score normalization
+    - Error handling
+    - Logging
+    """
+    
+    def __init__(
+        self,
+        documents: List[str],
+        embeddings: Optional[List[List[float]]] = None,
+        embedding_model: str = "text-embedding-3-small",
+        openai_api_key: Optional[str] = None
+    ):
         self.documents = documents
-        self.embeddings = embeddings
+        self.embedding_model = embedding_model
+        self.client = OpenAI(api_key=openai_api_key) if openai_api_key else OpenAI()
+        
+        # Use provided embeddings or compute them
+        if embeddings:
+            self.embeddings = np.array(embeddings)
+        else:
+            logger.info("Computing embeddings for documents...")
+            self.embeddings = np.array([self._get_embedding(doc) for doc in documents])
         
         # Initialize BM25
-        tokenized_docs = [doc.lower().split() for doc in documents]
+        tokenized_docs = [self._tokenize(doc) for doc in documents]
         self.bm25 = BM25Okapi(tokenized_docs)
+        
+        logger.info(f"Initialized HybridRAG with {len(documents)} documents")
     
-    def search(self, query: str, k: int = 5, alpha: float = 0.5):
-        """Hybrid search with configurable weighting."""
-        # Get query embedding
-        query_emb = get_embedding(query)
+    def _tokenize(self, text: str) -> List[str]:
+        """Tokenize text for BM25. In production, use proper NLP tokenization."""
+        return text.lower().split()
+    
+    def _get_embedding(self, text: str) -> List[float]:
+        """Get embedding for text."""
+        response = self.client.embeddings.create(
+            model=self.embedding_model,
+            input=text
+        )
+        return response.data[0].embedding
+    
+    def _normalize_scores(self, scores: np.ndarray) -> np.ndarray:
+        """Normalize scores to [0, 1] range."""
+        score_range = scores.max() - scores.min()
+        if score_range > 0:
+            return (scores - scores.min()) / score_range
+        else:
+            return np.ones_like(scores) * 0.5
+    
+    def _vector_similarity(self, query_embedding: List[float]) -> np.ndarray:
+        """Compute cosine similarity between query and document embeddings."""
+        query_emb = np.array(query_embedding)
         
-        # Vector scores
-        vector_scores = self._vector_similarity(query_emb)
+        # Cosine similarity
+        dot_products = np.dot(self.embeddings, query_emb)
+        doc_norms = np.linalg.norm(self.embeddings, axis=1)
+        query_norm = np.linalg.norm(query_emb)
         
-        # Keyword scores
-        keyword_scores = self.bm25.get_scores(query.lower().split())
-        keyword_scores = self._normalize(keyword_scores)
+        similarities = dot_products / (doc_norms * query_norm + 1e-8)
         
-        # Combine
-        hybrid_scores = alpha * vector_scores + (1 - alpha) * keyword_scores
+        # Normalize from [-1, 1] to [0, 1]
+        return (similarities + 1) / 2
+    
+    def search(
+        self,
+        query: str,
+        k: int = 5,
+        alpha: float = 0.7,
+        return_scores: bool = False
+    ) -> List[Tuple[str, float]] | List[str]:
+        """
+        Hybrid search combining vector and keyword search.
         
-        # Top k
-        top_indices = np.argsort(hybrid_scores)[-k:][::-1]
-        return [(self.documents[i], hybrid_scores[i]) for i in top_indices]
+        Args:
+            query: Search query
+            k: Number of results to return
+            alpha: Weight for vector search (0-1). 0.7 = 70% vector, 30% keyword
+            return_scores: If True, return (document, score) tuples. If False, return just documents.
+        
+        Returns:
+            List of documents or (document, score) tuples
+        """
+        try:
+            # Get query embedding
+            query_emb = self._get_embedding(query)
+            
+            # Vector similarity scores
+            vector_scores = self._vector_similarity(query_emb)
+            
+            # Keyword scores (BM25)
+            query_tokens = self._tokenize(query)
+            keyword_scores = self.bm25.get_scores(query_tokens)
+            keyword_scores = self._normalize_scores(keyword_scores)
+            
+            # Combine scores
+            hybrid_scores = alpha * vector_scores + (1 - alpha) * keyword_scores
+            
+            # Get top k results
+            top_indices = np.argsort(hybrid_scores)[-k:][::-1]
+            
+            results = [(self.documents[i], float(hybrid_scores[i])) for i in top_indices]
+            
+            logger.info(f"Hybrid search returned {len(results)} results for query: {query[:50]}...")
+            
+            if return_scores:
+                return results
+            else:
+                return [doc for doc, _ in results]
+        
+        except Exception as e:
+            logger.error(f"Error in hybrid search: {e}")
+            raise
+    
+    def add_documents(self, new_documents: List[str]):
+        """Add new documents to the index (updates both embeddings and BM25)."""
+        # Compute embeddings for new documents
+        new_embeddings = np.array([self._get_embedding(doc) for doc in new_documents])
+        self.embeddings = np.vstack([self.embeddings, new_embeddings])
+        
+        # Update BM25 index
+        new_tokenized = [self._tokenize(doc) for doc in new_documents]
+        all_tokenized = [self._tokenize(doc) for doc in self.documents] + new_tokenized
+        self.bm25 = BM25Okapi(all_tokenized)
+        
+        # Update documents list
+        self.documents.extend(new_documents)
+        
+        logger.info(f"Added {len(new_documents)} new documents")
+
+# Usage
+rag = HybridRAG(
+    documents=["Document 1...", "Document 2...", ...],
+    embedding_model="text-embedding-3-small",
+    openai_api_key=os.getenv("OPENAI_API_KEY")
+)
+
+results = rag.search("What is RAG?", k=5, alpha=0.7, return_scores=True)
+for doc, score in results:
+    print(f"Score: {score:.4f} - {doc[:100]}...")
 ```
+
+### Tuning Alpha (Vector vs Keyword Weight)
+
+**Alpha guidelines:**
+- **0.7-0.8** (70-80% vector): Best for most use cases (semantic-heavy content)
+- **0.5-0.6** (50-60% vector): Balanced approach, good default
+- **0.3-0.4** (30-40% vector): Best for technical docs, code, entity-heavy content
+- **0.9+** (90%+ vector): Almost vector-only, use when exact matches aren't important
+- **Less than 0.3** (under 30% vector): Almost keyword-only, rare but useful for entity search
+
+**How to tune:**
+1. Start with 0.7 (good default)
+2. Test on sample queries
+3. Measure metrics (precision@k, recall@k, MRR)
+4. Adjust alpha based on results
+5. Consider different alphas for different query types
 
 ## Common Mistakes
 
-1. **Wrong alpha weight**: Too much vector or keyword hurts quality
-2. **Not normalizing scores**: Different score ranges skew results
-3. **Ignoring keyword search**: Vector-only misses exact matches
-4. **No tuning**: Alpha needs tuning for your use case
-5. **BM25 on raw text**: Should tokenize/preprocess properly
+### 1. Wrong alpha weight
+
+**Problem:** Using default alpha (0.5) without tuning for your use case. Too much vector or keyword hurts quality.
+
+**Example mistake:**
+```python
+# Wrong: Using default without tuning
+results = hybrid_search(query, docs, embeds, query_emb, alpha=0.5)
+```
+
+**Fix:** Tune alpha based on your content and queries:
+```python
+# Test different alpha values
+for alpha in [0.3, 0.5, 0.7, 0.9]:
+    results = hybrid_search(query, docs, embeds, query_emb, alpha=alpha)
+    # Measure quality, pick best alpha
+```
+
+**Best practice:** Start with 0.7, test on sample queries, adjust based on metrics.
+
+### 2. Not normalizing scores
+
+**Problem:** Vector scores (cosine similarity: -1 to 1) and BM25 scores (0 to ~10+) are in different ranges. Combining without normalization gives wrong results.
+
+**Example mistake:**
+```python
+# Wrong: Not normalizing scores
+hybrid_scores = alpha * vector_scores + (1 - alpha) * keyword_scores  # Broken!
+```
+
+**Fix:** Always normalize scores before combining:
+```python
+# Correct: Normalize both score types
+vector_scores = (vector_scores + 1) / 2  # [-1, 1] -> [0, 1]
+keyword_scores = (keyword_scores - keyword_scores.min()) / (keyword_scores.max() - keyword_scores.min())
+hybrid_scores = alpha * vector_scores + (1 - alpha) * keyword_scores
+```
+
+### 3. Ignoring keyword search entirely
+
+**Problem:** Many developers use vector-only search, missing the benefits of hybrid search. Vector search misses exact matches, technical terms, and entities.
+
+**Example mistake:**
+```python
+# Wrong: Vector-only (common mistake)
+results = vector_search(query, embeddings)
+```
+
+**Fix:** Always use hybrid search for production RAG systems:
+```python
+# Correct: Hybrid search
+results = hybrid_search(query, documents, embeddings, query_embedding, alpha=0.7)
+```
+
+### 4. No tuning or evaluation
+
+**Problem:** Implementing hybrid search but never measuring if it's better than alternatives or tuning parameters.
+
+**Fix:** Always measure and tune:
+- Compare hybrid vs vector-only vs keyword-only
+- Measure precision@k, recall@k, MRR
+- Tune alpha based on your content type
+- A/B test in production
+
+### 5. Poor BM25 tokenization
+
+**Problem:** Using naive tokenization (simple split) instead of proper NLP tokenization, hurting keyword search quality.
+
+**Example mistake:**
+```python
+# Wrong: Naive tokenization
+tokenized = doc.lower().split()  # Doesn't handle punctuation, compound words, etc.
+```
+
+**Fix:** Use proper tokenization:
+```python
+# Correct: Proper tokenization
+import spacy
+nlp = spacy.load("en_core_web_sm")
+tokenized = [token.text.lower() for token in nlp(doc) if not token.is_stop and not token.is_punct]
+```
+
+### 6. Inconsistent preprocessing
+
+**Problem:** Preprocessing documents differently during indexing vs querying, causing mismatches.
+
+**Example mistake:**
+```python
+# Wrong: Different preprocessing
+index_docs = [doc.lower().strip() for doc in documents]  # Indexing
+query = query.lower().strip()  # But what if documents had more preprocessing?
+```
+
+**Fix:** Use the same preprocessing function for both:
+```python
+# Correct: Consistent preprocessing
+def preprocess(text: str) -> str:
+    return text.lower().strip()
+
+index_docs = [preprocess(doc) for doc in documents]
+query = preprocess(query)
+```
+
+### 7. Not using native hybrid search when available
+
+**Problem:** Implementing custom hybrid search when your vector database supports it natively (slower, more code, harder to maintain).
+
+**Fix:** Use native hybrid search when available:
+```python
+# Better: Use native hybrid search (Weaviate, Pinecone, etc.)
+results = weaviate_client.query.hybrid(query=query, alpha=0.7)
+```
+
+### 8. Overfitting to test queries
+
+**Problem:** Tuning alpha based on a small set of test queries that don't represent real usage.
+
+**Fix:** Use diverse query sets:
+- Use real user queries if available
+- Include various query types (semantic, keyword, mixed)
+- Test on different content domains
+- Validate on held-out test set
 
 ## Exercise
 
-1. Implement hybrid search combining vector and BM25
-2. Test different alpha values (0.3, 0.5, 0.7)
-3. Compare hybrid vs vector-only vs keyword-only
-4. Measure retrieval quality improvements
-5. Tune alpha for your specific use case
+Complete these exercises to master hybrid search implementation and tuning.
+
+### 1. Implement basic hybrid search
+
+```python
+def implement_hybrid_search_exercise():
+    """TODO: Implement hybrid search from scratch"""
+    # TODO: Implement vector search (cosine similarity)
+    # TODO: Implement BM25 keyword search
+    # TODO: Normalize both score types
+    # TODO: Combine scores with configurable alpha
+    # TODO: Return top k results
+    pass
+```
+
+### 2. Compare retrieval methods
+
+```python
+def compare_retrieval_methods_exercise(documents, queries):
+    """TODO: Compare vector-only, keyword-only, and hybrid search"""
+    # TODO: Implement vector-only search
+    # TODO: Implement keyword-only search (BM25)
+    # TODO: Implement hybrid search
+    # TODO: Run all three on the same queries
+    # TODO: Measure and compare:
+    #   - Precision@k (e.g., P@5, P@10)
+    #   - Recall@k (e.g., R@5, R@10)
+    #   - Mean Reciprocal Rank (MRR)
+    # TODO: Document which method performs best for your use case
+    pass
+```
+
+### 3. Tune alpha parameter
+
+```python
+def tune_alpha_exercise(documents, queries, ground_truth):
+    """TODO: Tune alpha for optimal hybrid search performance"""
+    # TODO: Test alpha values: [0.1, 0.3, 0.5, 0.7, 0.9]
+    # TODO: For each alpha, measure retrieval quality
+    # TODO: Use metrics: precision@k, recall@k, MRR, NDCG
+    # TODO: Plot results (alpha vs metrics)
+    # TODO: Identify optimal alpha value
+    # TODO: Analyze why that alpha works best for your content
+    pass
+```
+
+### 4. Implement Reciprocal Rank Fusion (RRF)
+
+```python
+def implement_rrf_exercise():
+    """TODO: Implement RRF as an alternative to weighted combination"""
+    # TODO: Get ranked results from vector search
+    # TODO: Get ranked results from keyword search
+    # TODO: Implement RRF formula: score = sum(1 / (k + rank))
+    # TODO: Compare RRF vs weighted combination
+    # TODO: Measure which performs better for your use case
+    pass
+```
+
+### 5. Use native hybrid search
+
+```python
+def native_hybrid_search_exercise():
+    """TODO: Use native hybrid search from a vector database"""
+    # TODO: Set up Weaviate, Pinecone, or Qdrant
+    # TODO: Index documents with embeddings
+    # TODO: Perform hybrid search using native API
+    # TODO: Compare native vs custom implementation (speed, ease of use)
+    # TODO: Document pros/cons of each approach
+    pass
+```
+
+### 6. Handle edge cases
+
+```python
+def handle_edge_cases_exercise():
+    """TODO: Handle edge cases in hybrid search"""
+    # TODO: What happens when all keyword scores are 0? (empty query, no matches)
+    # TODO: What happens when all vector scores are the same?
+    # TODO: Handle single-word queries vs multi-word queries
+    # TODO: Handle very short documents vs very long documents
+    # TODO: Handle queries with special characters, numbers, etc.
+    # TODO: Implement robust error handling
+    pass
+```
+
+### 7. Production-ready hybrid RAG
+
+```python
+class ProductionHybridRAGExercise:
+    """TODO: Build a production-ready hybrid RAG system"""
+    
+    def __init__(self):
+        # TODO: Initialize embeddings model
+        # TODO: Initialize BM25 index
+        # TODO: Set up caching for embeddings
+        # TODO: Add logging
+        pass
+    
+    def index_documents(self, documents):
+        """TODO: Index documents with error handling"""
+        # TODO: Compute embeddings (with caching)
+        # TODO: Build BM25 index
+        # TODO: Handle errors gracefully
+        # TODO: Log progress
+        pass
+    
+    def search(self, query, k=5, alpha=0.7):
+        """TODO: Hybrid search with all production features"""
+        # TODO: Get query embedding (with caching)
+        # TODO: Vector search
+        # TODO: Keyword search
+        # TODO: Combine scores
+        # TODO: Return top k results
+        # TODO: Add error handling
+        # TODO: Add logging/metrics
+        pass
+    
+    def add_documents(self, new_documents):
+        """TODO: Incrementally add documents"""
+        # TODO: Update embeddings
+        # TODO: Update BM25 index
+        # TODO: Handle incremental updates efficiently
+        pass
+```
+
+### 8. Reflection questions
+
+After completing the exercises, answer these questions:
+
+1. When should you use hybrid search vs vector-only search?
+2. How do you determine the optimal alpha value for your use case?
+3. What's the difference between weighted combination and RRF? When to use each?
+4. How do you normalize scores from different retrieval methods?
+5. What are the trade-offs between native hybrid search and custom implementation?
+6. How does hybrid search improve retrieval quality in production RAG systems?
+7. What preprocessing is needed for effective BM25 keyword search?
+8. How do you handle edge cases in hybrid search (empty queries, no matches, etc.)?
+9. What metrics should you use to evaluate hybrid search quality?
+10. How can you optimize hybrid search for speed in production?
 
 ## Tools & Resources
 
-- [rank-bm25](https://github.com/dorianbrown/rank_bm25)
-- [Weaviate Hybrid Search](https://weaviate.io/developers/weaviate/search/hybrid)
-- [BM25 Algorithm](https://en.wikipedia.org/wiki/Okapi_BM25)
+### Libraries
+
+- **[rank-bm25](https://github.com/dorianbrown/rank_bm25)**: Python BM25 implementation
+- **[sentence-transformers](https://www.sbert.net/)**: Embedding models for vector search
+- **[spaCy](https://spacy.io/)**: NLP library for tokenization
+
+### Vector Databases with Hybrid Search
+
+- **[Weaviate](https://weaviate.io/developers/weaviate/search/hybrid)**: Native hybrid search support
+- **[Pinecone](https://www.pinecone.io/learn/hybrid-search/)**: Hybrid search with sparse vectors (2024)
+- **[Qdrant](https://qdrant.tech/documentation/concepts/search/#hybrid-search)**: Multiple vector search
+- **[Vespa](https://vespa.ai/)**: Powerful hybrid search capabilities
+
+### Documentation & Guides
+
+- **[BM25 Algorithm](https://en.wikipedia.org/wiki/Okapi_BM25)**: BM25 explanation
+- **[Reciprocal Rank Fusion](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf)**: RRF paper
+- **[Hybrid Search Best Practices](https://www.pinecone.io/learn/hybrid-search/)**: Production patterns
+
+### Research Papers
+
+- "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods" (Cormack et al., 2009)
+- "Improving Neural Retrieval with Dense-Sparse Hybrid Search" (2024)
 

@@ -2,236 +2,1170 @@
 id: "lesson-2-eval-frameworks"
 slug: "eval-frameworks"
 title: "Building Evaluation Frameworks"
-description: "Create comprehensive evaluation frameworks: test datasets, metrics, and evaluation pipelines for AI systems."
+description: "Learn to build comprehensive evaluation frameworks: test dataset creation, metrics implementation, evaluation pipelines, and production-ready evaluation systems."
 order: 2
 chapterId: "chapter-1-evaluations"
 moduleId: "module-5-evaluations"
 prerequisites: ["lesson-1-eval-fundamentals"]
-estimatedMinutes: 8
-tags: ["evaluation", "frameworks", "testing", "metrics"]
+estimatedMinutes: 19
+tags: ["evaluation", "frameworks", "testing", "metrics", "datasets"]
 difficulty: "intermediate"
 ---
 
 # Building Evaluation Frameworks
 
+> **💡** Building an evaluation framework is like building a quality assurance system for a restaurant—you need diverse test cases (customers with different tastes), multiple metrics (taste, presentation, service), and systematic processes (consistent evaluation). Without a framework, you're just hoping the food tastes good. With one, you can measure, improve, and maintain quality consistently." - AI Engineering Best Practice
+
 ## Overview
 
-A good evaluation framework provides systematic, repeatable testing of your AI system. This lesson covers building comprehensive eval frameworks with test datasets and metrics.
+A good evaluation framework provides systematic, repeatable testing of your AI system. It's the foundation for measuring quality, detecting regressions, and making data-driven improvements. This lesson covers building comprehensive evaluation frameworks from scratch and using existing tools.
 
-## Main Content
+Evaluation frameworks are what transform ad-hoc testing into production-ready quality assurance. They enable you to run evaluations consistently, track metrics over time, compare different approaches, and catch regressions before deployment.
 
-### Test Dataset Creation
+## Test Dataset Creation
 
-**Sources for test cases:**
-- Real user queries (anonymized)
-- Edge cases and failures
-- Domain-specific scenarios
-- Synthetic generated cases
+A good test dataset is the foundation of effective evaluation. It should be representative, diverse, and cover the scenarios your system will face.
 
-**Dataset structure:**
+### Principles of Good Test Datasets
+
+**1. Representative**
+
+Test cases should represent real-world usage:
+- Real user queries (anonymized when possible)
+- Actual use cases your system will encounter
+- Distribution similar to production traffic
+- Same domains and topics users ask about
+
+**2. Diverse**
+
+Cover different aspects of your system:
+- Various difficulty levels (easy, medium, hard)
+- Different question types (factual, analytical, procedural)
+- Different domains or categories
+- Edge cases and boundary conditions
+
+**3. Comprehensive**
+
+Cover what matters:
+- Common cases (80% of usage)
+- Important edge cases (critical failures)
+- Failure modes (known weaknesses)
+- Error scenarios (malformed inputs, etc.)
+
+**4. Maintainable**
+
+Keep datasets up-to-date:
+- Version control
+- Documented with metadata
+- Easy to add/remove cases
+- Clear organization
+
+### Sources for Test Cases
+
+**1. Real User Queries**
+
+The best source—actual queries from production:
+
 ```python
-test_dataset = [
-    {
-        "query": "What is RAG?",
-        "expected_answer": "RAG is Retrieval-Augmented Generation...",
-        "context": "optional context",
-        "metadata": {
-            "difficulty": "easy",
-            "category": "definitions"
-        }
-    },
-    # More test cases
+# Collect from production (anonymized)
+production_queries = [
+    "How do I reset my password?",
+    "What's the refund policy?",
+    "How does RAG work?",
+    # ... more real queries
 ]
 ```
 
-### Evaluation Metrics
+**Benefits:**
+- Reflects actual usage
+- Includes real edge cases
+- User-focused
 
-**Accuracy metrics:**
-- Exact match
-- Semantic similarity (embedding-based)
-- BLEU/ROUGE scores
-- LLM-as-judge
+**Considerations:**
+- Anonymize sensitive data
+- Sample diverse queries
+- Include successful and failed queries
 
-**Quality metrics:**
-- Relevance
-- Completeness
-- Factuality
-- Coherence
+**2. Edge Cases and Failures**
 
-### Building the Framework
+Cases that previously caused failures:
 
 ```python
-from typing import List, Dict, Callable
-import numpy as np
-from openai import OpenAI
+edge_cases = [
+    {
+        "query": "",  # Empty query
+        "expected": "Please provide a question",
+        "category": "edge_case"
+    },
+    {
+        "query": "a" * 1000,  # Very long query
+        "expected": "Response handling long input",
+        "category": "edge_case"
+    },
+    {
+        "query": "What is the answer to life, the universe, and everything?",
+        "expected": "42 (or appropriate philosophical response)",
+        "category": "ambiguous"
+    }
+]
+```
 
-class EvalFramework:
-    def __init__(self):
-        self.client = OpenAI()
-        self.test_cases = []
-        self.metrics = {}
-    
-    def add_test_case(self, query: str, expected: str, metadata: Dict = None):
-        """Add a test case."""
-        self.test_cases.append({
-            "query": query,
-            "expected": expected,
-            "metadata": metadata or {}
-        })
-    
-    def evaluate(
-        self, 
-        system_func: Callable,
-        metrics: List[str] = ["exact_match", "semantic_similarity"]
-    ) -> Dict:
-        """Evaluate system on all test cases."""
-        results = []
-        
-        for test_case in self.test_cases:
-            try:
-                actual = system_func(test_case["query"])
-                
-                scores = {}
-                for metric_name in metrics:
-                    scores[metric_name] = self._compute_metric(
-                        metric_name,
-                        test_case["expected"],
-                        actual
-                    )
-                
-                results.append({
-                    "query": test_case["query"],
-                    "expected": test_case["expected"],
-                    "actual": actual,
-                    "scores": scores,
-                    "passed": all(s > 0.7 for s in scores.values())
-                })
-            except Exception as e:
-                results.append({
-                    "query": test_case["query"],
-                    "error": str(e),
-                    "passed": False
-                })
-        
-        return self._aggregate_results(results)
-    
-    def _compute_metric(self, metric_name: str, expected: str, actual: str) -> float:
-        """Compute a metric."""
-        if metric_name == "exact_match":
-            return 1.0 if expected.lower() == actual.lower() else 0.0
-        
-        elif metric_name == "semantic_similarity":
-            # Use embeddings
-            return self._semantic_similarity(expected, actual)
-        
-        elif metric_name == "llm_judge":
-            return self._llm_as_judge(expected, actual)
-        
-        return 0.0
-    
-    def _semantic_similarity(self, text1: str, text2: str) -> float:
-        """Compute semantic similarity using embeddings."""
-        # Implementation with embeddings
-        return 0.0  # Placeholder
-    
-    def _llm_as_judge(self, expected: str, actual: str) -> float:
-        """Use LLM to judge if answer is correct."""
-        prompt = f"""Evaluate if the actual answer correctly addresses the expected answer.
+**3. Domain-Specific Scenarios**
 
-Expected: {expected}
-Actual: {actual}
+Scenarios specific to your domain:
 
-Respond with "CORRECT" or "INCORRECT"."""
-        
-        response = self.client.chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0
-        )
-        
-        result = response.choices[0].message.content
-        return 1.0 if "CORRECT" in result.upper() else 0.0
+```python
+domain_scenarios = [
+    {
+        "query": "What is our company's return policy?",
+        "expected": "30-day return policy with receipt...",
+        "category": "policy",
+        "domain": "support"
+    },
+    {
+        "query": "How do I integrate your API?",
+        "expected": "API integration steps...",
+        "category": "technical",
+        "domain": "developer"
+    }
+]
+```
+
+**4. Synthetic Generated Cases**
+
+Generate test cases using LLMs:
+
+```python
+def generate_synthetic_cases(topic: str, count: int = 10) -> List[Dict]:
+    """Generate synthetic test cases using LLM."""
+    from openai import OpenAI
+    client = OpenAI()
     
-    def _aggregate_results(self, results: List[Dict]) -> Dict:
-        """Aggregate evaluation results."""
-        total = len(results)
-        passed = sum(1 for r in results if r.get("passed", False))
-        
-        # Average scores
-        all_scores = {}
-        for result in results:
-            if "scores" in result:
-                for metric, score in result["scores"].items():
-                    if metric not in all_scores:
-                        all_scores[metric] = []
-                    all_scores[metric].append(score)
-        
-        avg_scores = {
-            metric: np.mean(scores)
-            for metric, scores in all_scores.items()
+    prompt = f"""Generate {count} diverse test questions about {topic}.
+Include questions of varying difficulty and types (factual, analytical, procedural).
+For each question, also provide an expected answer.
+
+Format as JSON:
+[
+    {{"query": "...", "expected": "...", "difficulty": "easy|medium|hard", "type": "..."}}
+]
+"""
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        response_format={"type": "json_object"}
+    )
+    
+    return json.loads(response.choices[0].message.content)
+```
+
+**5. Manual Curated Cases**
+
+Hand-crafted cases for specific scenarios:
+
+```python
+curated_cases = [
+    {
+        "query": "Explain RAG in simple terms",
+        "expected": "RAG (Retrieval-Augmented Generation) is like having a smart assistant that can look up information before answering...",
+        "category": "explanation",
+        "difficulty": "medium",
+        "curated_by": "team"
+    }
+]
+```
+
+### Test Dataset Structure
+
+Organize test cases with consistent structure and metadata:
+
+```python
+from dataclasses import dataclass
+from typing import Dict, List, Any, Optional
+
+@dataclass
+class TestCase:
+    """Structured test case with metadata."""
+    query: str
+    expected_answer: str
+    context: Optional[str] = None
+    metadata: Dict[str, Any] = None
+    id: Optional[str] = None
+    
+    def __post_init__(self):
+        if self.metadata is None:
+            self.metadata = {}
+        if self.id is None:
+            self.id = f"test_{hash(self.query)}"
+
+# Example dataset
+test_dataset: List[TestCase] = [
+    TestCase(
+        query="What is RAG?",
+        expected_answer="RAG is Retrieval-Augmented Generation, a technique that combines retrieval with generation.",
+        metadata={
+            "difficulty": "easy",
+            "category": "definition",
+            "domain": "ai",
+            "tags": ["rag", "basics"]
         }
+    ),
+    TestCase(
+        query="How does RAG improve upon traditional language models?",
+        expected_answer="RAG improves upon traditional language models by providing access to external knowledge...",
+        context="User is familiar with basic LLMs",
+        metadata={
+            "difficulty": "medium",
+            "category": "comparison",
+            "domain": "ai",
+            "tags": ["rag", "comparison"]
+        }
+    ),
+    # More test cases...
+]
+```
+
+### Dataset Management
+
+Store and manage test datasets effectively:
+
+```python
+import json
+from typing import List
+from pathlib import Path
+
+class TestDatasetManager:
+    """Manage test datasets with versioning and organization."""
+    
+    def __init__(self, dataset_dir: str = "test_datasets"):
+        self.dataset_dir = Path(dataset_dir)
+        self.dataset_dir.mkdir(exist_ok=True)
+    
+    def save_dataset(self, dataset: List[TestCase], name: str, version: str = "v1"):
+        """Save dataset to file."""
+        filepath = self.dataset_dir / f"{name}_{version}.json"
+        
+        data = [
+            {
+                "query": tc.query,
+                "expected_answer": tc.expected_answer,
+                "context": tc.context,
+                "metadata": tc.metadata,
+                "id": tc.id
+            }
+            for tc in dataset
+        ]
+        
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
+        
+        print(f"Saved dataset: {filepath}")
+    
+    def load_dataset(self, name: str, version: str = "v1") -> List[TestCase]:
+        """Load dataset from file."""
+        filepath = self.dataset_dir / f"{name}_{version}.json"
+        
+        with open(filepath, "r") as f:
+            data = json.load(f)
+        
+        return [
+            TestCase(
+                query=item["query"],
+                expected_answer=item["expected_answer"],
+                context=item.get("context"),
+                metadata=item.get("metadata", {}),
+                id=item.get("id")
+            )
+            for item in data
+        ]
+    
+    def analyze_dataset(self, dataset: List[TestCase]) -> Dict[str, Any]:
+        """Analyze dataset statistics."""
+        total = len(dataset)
+        
+        # Count by category
+        categories = {}
+        difficulties = {}
+        domains = {}
+        
+        for tc in dataset:
+            metadata = tc.metadata or {}
+            
+            category = metadata.get("category", "unknown")
+            categories[category] = categories.get(category, 0) + 1
+            
+            difficulty = metadata.get("difficulty", "unknown")
+            difficulties[difficulty] = difficulties.get(difficulty, 0) + 1
+            
+            domain = metadata.get("domain", "unknown")
+            domains[domain] = domains.get(domain, 0) + 1
         
         return {
             "total": total,
-            "passed": passed,
-            "pass_rate": passed / total if total > 0 else 0,
-            "average_scores": avg_scores,
-            "results": results
+            "categories": categories,
+            "difficulties": difficulties,
+            "domains": domains
         }
+```
+
+## Evaluation Metrics Implementation
+
+Implement multiple metrics to evaluate different aspects of your system.
+
+### Exact Match
+
+Simple but strict metric:
+
+```python
+def exact_match(expected: str, actual: str, case_sensitive: bool = False) -> float:
+    """Exact match score."""
+    if case_sensitive:
+        return 1.0 if expected.strip() == actual.strip() else 0.0
+    else:
+        return 1.0 if expected.lower().strip() == actual.lower().strip() else 0.0
+```
+
+### Semantic Similarity
+
+Use embeddings to measure semantic equivalence:
+
+```python
+from openai import OpenAI
+import numpy as np
+from numpy.linalg import norm
+
+class SemanticSimilarityMetric:
+    """Semantic similarity using embeddings."""
+    
+    def __init__(self, model: str = "text-embedding-3-small"):
+        self.client = OpenAI()
+        self.model = model
+    
+    def compute(self, expected: str, actual: str) -> float:
+        """Compute semantic similarity score."""
+        # Get embeddings
+        expected_emb = self._get_embedding(expected)
+        actual_emb = self._get_embedding(actual)
+        
+        # Cosine similarity
+        cosine = np.dot(expected_emb, actual_emb) / (
+            norm(expected_emb) * norm(actual_emb)
+        )
+        
+        return float(cosine)
+    
+    def _get_embedding(self, text: str) -> np.ndarray:
+        """Get embedding for text."""
+        response = self.client.embeddings.create(
+            model=self.model,
+            input=text
+        )
+        return np.array(response.data[0].embedding)
+```
+
+### LLM-as-Judge
+
+Use LLM to evaluate answers:
+
+```python
+class LLMJudgeMetric:
+    """Use LLM to judge answer quality."""
+    
+    def __init__(self, model: str = "gpt-4o", temperature: float = 0):
+        self.client = OpenAI()
+        self.model = model
+        self.temperature = temperature
+    
+    def compute(
+        self,
+        query: str,
+        expected: str,
+        actual: str,
+        criteria: str = "correctness"
+    ) -> float:
+        """Compute LLM-as-judge score."""
+        prompt = self._build_prompt(query, expected, actual, criteria)
+        
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+            response_format={"type": "json_object"}
+        )
+        
+        result = json.loads(response.choices[0].message.content)
+        return result.get("score", 0.0)
+    
+    def _build_prompt(self, query: str, expected: str, actual: str, criteria: str) -> str:
+        """Build evaluation prompt."""
+        return f"""You are evaluating an AI system's response quality.
+
+Query: {query}
+
+Expected Answer: {expected}
+
+Actual Answer: {actual}
+
+Evaluation Criteria: {criteria}
+
+Rate the actual answer on a scale of 0.0 to 1.0 where:
+- 1.0 = Perfect or equivalent to expected
+- 0.8-0.9 = Mostly correct with minor issues
+- 0.6-0.7 = Partially correct but missing important aspects
+- 0.4-0.5 = Somewhat relevant but incorrect or incomplete
+- 0.0-0.3 = Incorrect or irrelevant
+
+Return JSON with:
+- "score": float (0.0 to 1.0)
+- "reasoning": string (brief explanation)
+"""
+```
+
+### BLEU and ROUGE Scores
+
+Use traditional NLP metrics:
+
+```python
+from rouge_score import rouge_scorer
+import nltk
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+
+class BLEUMetric:
+    """BLEU score metric."""
+    
+    def compute(self, expected: str, actual: str) -> float:
+        """Compute BLEU score."""
+        expected_tokens = expected.lower().split()
+        actual_tokens = actual.lower().split()
+        
+        smoothing = SmoothingFunction().method1
+        score = sentence_bleu(
+            [expected_tokens],
+            actual_tokens,
+            smoothing_function=smoothing
+        )
+        
+        return float(score)
+
+class ROUGEMetric:
+    """ROUGE score metric."""
+    
+    def __init__(self):
+        self.scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+    
+    def compute(self, expected: str, actual: str) -> Dict[str, float]:
+        """Compute ROUGE scores."""
+        scores = self.scorer.score(expected, actual)
+        
+        return {
+            "rouge1": scores["rouge1"].fmeasure,
+            "rouge2": scores["rouge2"].fmeasure,
+            "rougeL": scores["rougeL"].fmeasure
+        }
+```
+
+### Quality Metrics
+
+Evaluate different quality dimensions:
+
+```python
+class QualityMetrics:
+    """Multi-dimensional quality evaluation."""
+    
+    def __init__(self, llm_judge: LLMJudgeMetric):
+        self.llm_judge = llm_judge
+    
+    def compute_all(self, query: str, expected: str, actual: str) -> Dict[str, float]:
+        """Compute all quality metrics."""
+        return {
+            "relevance": self._relevance(query, expected, actual),
+            "completeness": self._completeness(query, expected, actual),
+            "coherence": self._coherence(actual),
+            "factuality": self._factuality(query, expected, actual)
+        }
+    
+    def _relevance(self, query: str, expected: str, actual: str) -> float:
+        """How relevant is the answer to the query?"""
+        return self.llm_judge.compute(
+            query=query,
+            expected=f"Answer should address: {query}",
+            actual=actual,
+            criteria="relevance to the query"
+        )
+    
+    def _completeness(self, query: str, expected: str, actual: str) -> float:
+        """How complete is the answer?"""
+        return self.llm_judge.compute(
+            query=query,
+            expected=expected,
+            actual=actual,
+            criteria="completeness - does it cover all aspects of the expected answer?"
+        )
+    
+    def _coherence(self, actual: str) -> float:
+        """Is the answer coherent and well-structured?"""
+        prompt = f"""Evaluate if this text is coherent and well-structured:
+
+Text: {actual}
+
+Rate coherence from 0.0 to 1.0. Return JSON with "score" and "reasoning"."""
+        
+        # Use LLM to evaluate coherence
+        # ... implementation
+    
+    def _factuality(self, query: str, expected: str, actual: str) -> float:
+        """Is the answer factually correct?"""
+        return self.llm_judge.compute(
+            query=query,
+            expected=expected,
+            actual=actual,
+            criteria="factual correctness"
+        )
+```
+
+## Building the Framework
+
+Combine everything into a comprehensive evaluation framework:
+
+```python
+from typing import List, Dict, Callable, Any, Optional
+import json
+import time
+from datetime import datetime
+from dataclasses import dataclass, field
+import statistics
+
+@dataclass
+class EvaluationResult:
+    """Result of evaluating a single test case."""
+    test_case_id: str
+    query: str
+    expected: str
+    actual: str
+    scores: Dict[str, float]
+    passed: bool
+    latency: float
+    error: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+class ComprehensiveEvalFramework:
+    """Production-ready evaluation framework."""
+    
+    def __init__(self):
+        self.test_cases: List[TestCase] = []
+        self.metrics: Dict[str, Callable] = {}
+        self.results_history: List[Dict] = []
+    
+    def add_test_case(self, test_case: TestCase):
+        """Add a test case."""
+        self.test_cases.append(test_case)
+    
+    def load_dataset(self, dataset: List[TestCase]):
+        """Load test dataset."""
+        self.test_cases.extend(dataset)
+    
+    def register_metric(self, name: str, metric_func: Callable[[str, str], float]):
+        """Register a metric function."""
+        self.metrics[name] = metric_func
+    
+    def register_metric_with_query(
+        self,
+        name: str,
+        metric_func: Callable[[str, str, str], float]
+    ):
+        """Register metric that needs query context."""
+        self.metrics[name] = lambda e, a, q: metric_func(q, e, a)
+    
+    def evaluate(
+        self,
+        system_func: Callable[[str], str],
+        metric_names: Optional[List[str]] = None,
+        threshold: float = 0.8,
+        verbose: bool = False
+    ) -> Dict[str, Any]:
+        """Evaluate system on all test cases."""
+        if metric_names is None:
+            metric_names = list(self.metrics.keys())
+        
+        # Validate metrics
+        for name in metric_names:
+            if name not in self.metrics:
+                raise ValueError(f"Metric '{name}' not found")
+        
+        results = []
+        
+        for i, test_case in enumerate(self.test_cases):
+            if verbose:
+                print(f"Evaluating {i+1}/{len(self.test_cases)}: {test_case.query[:50]}...")
+            
+            try:
+                start_time = time.time()
+                actual = system_func(test_case.query)
+                latency = time.time() - start_time
+                
+                # Compute all metrics
+                scores = {}
+                for metric_name in metric_names:
+                    metric_func = self.metrics[metric_name]
+                    
+                    # Check if metric needs query context
+                    import inspect
+                    sig = inspect.signature(metric_func)
+                    if len(sig.parameters) == 3:
+                        # Metric needs query
+                        score = metric_func(test_case.expected, actual, test_case.query)
+                    else:
+                        # Standard metric
+                        score = metric_func(test_case.expected, actual)
+                    
+                    scores[metric_name] = score
+                
+                # Determine if passed (all scores above threshold, or average)
+                passed = all(score >= threshold for score in scores.values())
+                
+                results.append(EvaluationResult(
+                    test_case_id=test_case.id or f"test_{i}",
+                    query=test_case.query,
+                    expected=test_case.expected_answer,
+                    actual=actual,
+                    scores=scores,
+                    passed=passed,
+                    latency=latency,
+                    metadata=test_case.metadata or {}
+                ))
+            
+            except Exception as e:
+                results.append(EvaluationResult(
+                    test_case_id=test_case.id or f"test_{i}",
+                    query=test_case.query,
+                    expected=test_case.expected_answer,
+                    actual="",
+                    scores={name: 0.0 for name in metric_names},
+                    passed=False,
+                    latency=0.0,
+                    error=str(e),
+                    metadata=test_case.metadata or {}
+                ))
+        
+        # Calculate aggregate metrics
+        aggregate = self._aggregate_results(results, metric_names)
+        
+        # Store in history
+        self.results_history.append({
+            "timestamp": datetime.now().isoformat(),
+            "results": aggregate
+        })
+        
+        return aggregate
+    
+    def _aggregate_results(
+        self,
+        results: List[EvaluationResult],
+        metric_names: List[str]
+    ) -> Dict[str, Any]:
+        """Calculate aggregate metrics."""
+        total = len(results)
+        passed = sum(1 for r in results if r.passed)
+        
+        aggregate = {
+            "total": total,
+            "passed": passed,
+            "failed": total - passed,
+            "pass_rate": passed / total if total > 0 else 0.0,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Per-metric statistics
+        for metric_name in metric_names:
+            scores = [r.scores[metric_name] for r in results]
+            if scores:
+                aggregate[f"{metric_name}_mean"] = statistics.mean(scores)
+                aggregate[f"{metric_name}_median"] = statistics.median(scores)
+                aggregate[f"{metric_name}_min"] = min(scores)
+                aggregate[f"{metric_name}_max"] = max(scores)
+                aggregate[f"{metric_name}_std"] = statistics.stdev(scores) if len(scores) > 1 else 0.0
+        
+        # Latency statistics
+        latencies = [r.latency for r in results if r.latency > 0]
+        if latencies:
+            aggregate["latency_mean"] = statistics.mean(latencies)
+            aggregate["latency_p50"] = statistics.median(latencies)
+            aggregate["latency_p95"] = statistics.quantiles(latencies, n=20)[18] if len(latencies) >= 20 else max(latencies)
+        
+        # Error rate
+        errors = sum(1 for r in results if r.error)
+        aggregate["error_rate"] = errors / total if total > 0 else 0.0
+        
+        # Detailed results
+        aggregate["results"] = [
+            {
+                "id": r.test_case_id,
+                "query": r.query,
+                "expected": r.expected,
+                "actual": r.actual,
+                "scores": r.scores,
+                "passed": r.passed,
+                "latency": r.latency,
+                "error": r.error
+            }
+            for r in results
+        ]
+        
+        return aggregate
+    
+    def compare_evaluations(
+        self,
+        eval_a: Dict[str, Any],
+        eval_b: Dict[str, Any],
+        metric: str = "pass_rate"
+    ) -> Dict[str, Any]:
+        """Compare two evaluation results."""
+        value_a = eval_a.get(metric, 0)
+        value_b = eval_b.get(metric, 0)
+        
+        improvement = value_b - value_a
+        improvement_pct = (improvement / value_a * 100) if value_a > 0 else 0
+        
+        return {
+            "metric": metric,
+            "before": value_a,
+            "after": value_b,
+            "improvement": improvement,
+            "improvement_percent": improvement_pct,
+            "better": value_b > value_a
+        }
+    
+    def save_results(self, results: Dict[str, Any], filepath: str):
+        """Save evaluation results to JSON."""
+        with open(filepath, "w") as f:
+            json.dump(results, f, indent=2)
+    
+    def get_failure_analysis(self, results: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze failure cases."""
+        failed_results = [r for r in results["results"] if not r["passed"]]
+        
+        # Group by category
+        failures_by_category = {}
+        for result in failed_results:
+            # Extract category from metadata if available
+            category = "unknown"
+            if "metadata" in result:
+                category = result["metadata"].get("category", "unknown")
+            
+            if category not in failures_by_category:
+                failures_by_category[category] = []
+            failures_by_category[category].append(result)
+        
+        return {
+            "total_failures": len(failed_results),
+            "failure_rate": len(failed_results) / results["total"] if results["total"] > 0 else 0.0,
+            "failures_by_category": {
+                cat: len(fails) for cat, fails in failures_by_category.items()
+            },
+            "failure_details": failures_by_category
+        }
+
+# Usage example
+framework = ComprehensiveEvalFramework()
+
+# Register metrics
+framework.register_metric("exact_match", exact_match)
+framework.register_metric("semantic_similarity", SemanticSimilarityMetric().compute)
+framework.register_metric_with_query("llm_judge", LLMJudgeMetric().compute)
+
+# Load test dataset
+dataset_manager = TestDatasetManager()
+test_dataset = dataset_manager.load_dataset("rag_eval", version="v1")
+framework.load_dataset(test_dataset)
+
+# Evaluate system
+results = framework.evaluate(
+    system_func=lambda q: my_rag_system.query(q),
+    metric_names=["exact_match", "semantic_similarity", "llm_judge"],
+    threshold=0.8,
+    verbose=True
+)
+
+print(f"Pass rate: {results['pass_rate']:.2%}")
+print(f"Average semantic similarity: {results['semantic_similarity_mean']:.2f}")
+
+# Analyze failures
+failures = framework.get_failure_analysis(results)
+print(f"Failures by category: {failures['failures_by_category']}")
 ```
 
 ## Code Examples
 
-Using LangSmith for evaluation:
+### Using LangSmith for Evaluation
+
+LangSmith provides a managed evaluation platform:
 
 ```python
 from langsmith import Client
-from langchain.evaluation import evaluate
+from langchain.evaluation import EvaluatorType
+from langchain.evaluation import load_evaluator
 
 client = Client()
 
 # Create dataset
 dataset = client.create_dataset(
-    dataset_name="rag-evaluation",
-    description="RAG system evaluation dataset"
+    dataset_name="rag-evaluation-v2",
+    description="RAG system evaluation dataset for production"
 )
 
 # Add examples
-client.create_example(
-    inputs={"query": "What is RAG?"},
-    outputs={"expected": "RAG is Retrieval-Augmented Generation..."},
-    dataset_id=dataset.id
-)
+examples = [
+    {
+        "inputs": {"query": "What is RAG?"},
+        "outputs": {"expected": "RAG is Retrieval-Augmented Generation..."}
+    },
+    # More examples...
+]
+
+for example in examples:
+    client.create_example(
+        inputs=example["inputs"],
+        outputs=example["outputs"],
+        dataset_id=dataset.id
+    )
+
+# Define evaluators
+evaluators = [
+    load_evaluator(EvaluatorType.EMBEDDING_DISTANCE),
+    load_evaluator(EvaluatorType.LABELED_CRITERIA, criteria="correctness")
+]
 
 # Run evaluation
-results = evaluate(
-    lambda inputs: rag_system.query(inputs["query"]),
-    data=dataset,
-    evaluators=[...]  # Your evaluators
+results = client.run_evaluation(
+    dataset_name="rag-evaluation-v2",
+    target=my_rag_system.query,  # Your system function
+    evaluators=evaluators
 )
+
+# View results
+print(f"Evaluation complete: {results}")
 ```
 
 ## Common Mistakes
 
-1. **Small test set**: Not enough coverage
-2. **Biased test cases**: Don't reflect real usage
-3. **Wrong metrics**: Metrics don't reflect user value
-4. **No baseline**: Can't measure improvements
-5. **Flaky tests**: Non-deterministic evals
-6. **Not updating tests**: Tests become outdated
+### 1. Small or unrepresentative test set
+
+Using too few test cases or test cases that don't reflect real usage.
+
+**Problems:**
+- Doesn't cover important scenarios
+- Misses edge cases
+- Biased toward easy cases
+- Can't detect regressions reliably
+
+**Solutions:**
+- Aim for 50+ test cases minimum
+- Include diverse difficulty levels
+- Use real production queries
+- Cover all important categories
+- Regularly expand dataset
+
+Start with 20-30 cases, but plan to grow to 100+ for production.
+
+### 2. Biased test cases
+
+Test cases that don't reflect actual usage patterns.
+
+**Problems:**
+- Overestimates performance
+- Misses real failure modes
+- Doesn't represent user experience
+- Misleading metrics
+
+**Solutions:**
+- Sample from production queries
+- Match production distribution
+- Include failure cases
+- Cover all user segments
+- Validate distribution matches production
+
+Test on data that represents how users actually use your system.
+
+### 3. Wrong metrics
+
+Using metrics that don't align with user value.
+
+**Problems:**
+- Optimize for wrong thing
+- Good metrics but poor user experience
+- Misleading quality signals
+- Waste effort on irrelevant optimizations
+
+**Solutions:**
+- Choose metrics that reflect user value
+- Validate metrics correlate with user satisfaction
+- Use multiple metrics
+- Test metrics against user feedback
+- Review metrics regularly
+
+Metrics should measure what matters to users.
+
+### 4. No baseline
+
+Evaluating without establishing baseline metrics.
+
+**Problems:**
+- Can't measure improvements
+- Don't know if changes help
+- No reference point
+- Hard to set goals
+
+**Solutions:**
+- Establish baseline before changes
+- Store baseline results
+- Compare against baseline
+- Track improvements over time
+- Set improvement goals
+
+Always establish and store baseline metrics.
+
+### 5. Flaky evaluations
+
+Non-deterministic evaluations that give inconsistent results.
+
+**Problems:**
+- Can't trust results
+- False positives/negatives
+- Wastes time debugging
+- Undermines confidence
+
+**Solutions:**
+- Use deterministic metrics when possible
+- Set appropriate thresholds
+- Average multiple runs for probabilistic metrics
+- Handle randomness explicitly
+- Document expected variance
+
+Flaky evaluations are worse than no evaluations.
+
+### 6. Not updating test cases
+
+Test cases become outdated as system evolves.
+
+**Problems:**
+- Evaluations test obsolete scenarios
+- Can't detect new failure modes
+- Metrics become less relevant
+- False confidence
+
+**Solutions:**
+- Review test cases regularly
+- Add cases for new features
+- Remove obsolete cases
+- Update expected answers if needed
+- Version control test cases
+
+Keep test datasets current with system evolution.
+
+### 7. Ignoring failure analysis
+
+Not analyzing why evaluations fail.
+
+**Problems:**
+- Can't improve system
+- Repeat same mistakes
+- Miss patterns in failures
+- Don't learn from errors
+
+**Solutions:**
+- Analyze failure cases
+- Identify patterns
+- Categorize failures
+- Prioritize fixes
+- Track improvement
+
+Failures are learning opportunities—analyze them.
+
+### 8. Not tracking metrics over time
+
+Evaluating once without historical tracking.
+
+**Problems:**
+- Can't detect gradual degradation
+- Miss regression trends
+- No historical context
+- Can't measure long-term impact
+
+**Solutions:**
+- Store evaluation results
+- Track metrics over time
+- Visualize trends
+- Set up alerts for regressions
+- Compare against history
+
+Tracking enables detecting trends and regressions.
+
+### 9. Over-engineering evaluation framework
+
+Building overly complex frameworks before validating basics.
+
+**Problems:**
+- Wastes time on infrastructure
+- Hard to maintain
+- Delays getting value
+- Overcomplicates simple needs
+
+**Solutions:**
+- Start simple
+- Validate basics first
+- Add complexity as needed
+- Use existing tools when possible
+- Iterate based on needs
+
+Start simple, add complexity as you need it.
+
+### 10. Not integrating with CI/CD
+
+Running evaluations manually instead of automatically.
+
+**Problems:**
+- Evaluations run inconsistently
+- Easy to skip
+- Delayed feedback
+- Manual work
+
+**Solutions:**
+- Integrate with CI/CD
+- Run on every change
+- Automate reporting
+- Fail builds on regressions
+- Make evaluations part of workflow
+
+Automate evaluations—they should run automatically.
 
 ## Exercise
 
-1. Create evaluation dataset (20+ test cases)
-2. Implement multiple metrics
-3. Run evaluations on your system
-4. Analyze failure cases
-5. Set up continuous evaluation
-6. Track metrics over time
+Complete these exercises to master evaluation frameworks.
+
+### 1. Create comprehensive test dataset
+
+Build a diverse test dataset:
+
+```python
+def create_test_dataset_exercise():
+    """TODO: Create comprehensive test dataset"""
+    # TODO: Collect test cases from multiple sources
+    # TODO: Include diverse difficulty levels
+    # TODO: Cover different categories
+    # TODO: Add metadata
+    # TODO: Organize and structure
+    # TODO: Save and version control
+    pass
+```
+
+### 2. Implement multiple metrics
+
+Create metric implementations:
+
+```python
+def implement_metrics_exercise():
+    """TODO: Implement multiple metrics"""
+    # TODO: Exact match
+    # TODO: Semantic similarity
+    # TODO: LLM-as-judge
+    # TODO: BLEU/ROUGE (optional)
+    # TODO: Quality metrics (relevance, completeness, etc.)
+    pass
+```
+
+### 3. Build evaluation framework
+
+Create comprehensive framework:
+
+```python
+class EvalFrameworkExercise:
+    """TODO: Build evaluation framework"""
+    
+    def __init__(self):
+        """TODO: Initialize framework"""
+        # TODO: Test case storage
+        # TODO: Metric registration
+        # TODO: Results tracking
+        pass
+    
+    def evaluate(self, system_func):
+        """TODO: Run evaluations"""
+        # TODO: Execute all test cases
+        # TODO: Compute all metrics
+        # TODO: Aggregate results
+        # TODO: Return comprehensive report
+        pass
+```
+
+### 4. Analyze and improve
+
+Analyze evaluation results:
+
+```python
+def analyze_results_exercise(framework, results):
+    """TODO: Analyze evaluation results"""
+    # TODO: Identify failure patterns
+    # TODO: Categorize failures
+    # TODO: Find weakest areas
+    # TODO: Prioritize improvements
+    # TODO: Track improvements over time
+    pass
+```
+
+### 5. Integrate with CI/CD
+
+Set up automated evaluation:
+
+```python
+def ci_cd_integration_exercise(framework):
+    """TODO: Integrate with CI/CD"""
+    # TODO: Create evaluation script
+    # TODO: Set up CI/CD pipeline
+    # TODO: Configure failure thresholds
+    # TODO: Generate reports
+    # TODO: Alert on regressions
+    pass
+```
+
+### 6. Reflection questions
+
+After completing exercises, answer:
+
+1. What makes a good test dataset?
+2. How do you balance dataset size with maintainability?
+3. What metrics are most important for your use case?
+4. How do you handle flaky evaluations?
+5. When should you add new test cases?
+6. How do you ensure metrics align with user value?
+7. What's the minimum viable evaluation framework?
+8. How do you detect regressions effectively?
+9. When should you use existing tools vs building custom?
+10. How do you balance evaluation comprehensiveness with speed?
 
 ## Tools & Resources
 
-- [LangSmith Evaluation](https://docs.smith.langchain.com/evaluation)
-- [RAGAS](https://docs.ragas.io/)
-- [Evaluation Metrics Guide](https://www.pinecone.io/learn/llm-evaluation/)
+### Evaluation Frameworks and Platforms
 
+- **[LangSmith](https://www.langchain.com/langsmith)**: Managed evaluation and observability platform
+- **[RAGAS](https://docs.ragas.io/)**: Framework for evaluating RAG systems
+- **[Phoenix](https://github.com/Arize-ai/phoenix)**: Open-source LLM observability and evaluation
+- **[Trulens](https://www.trulens.org/)**: LLM evaluation and monitoring framework
+
+### Libraries
+
+- **[langchain-evaluators](https://python.langchain.com/docs/guides/evaluation/)**: LangChain evaluation utilities
+- **[rouge-score](https://github.com/google-research/google-research/tree/master/rouge)**: ROUGE metric implementation
+- **[nltk](https://www.nltk.org/)**: Natural Language Toolkit (for BLEU)
+
+### Best Practices
+
+- **[Evaluation Best Practices](https://www.pinecone.io/learn/llm-evaluation/)**: Comprehensive evaluation guide
+- **[RAG Evaluation Guide](https://docs.ragas.io/getting-started/concepts/)**: RAG-specific evaluation concepts
+- **[LangSmith Evaluation](https://docs.smith.langchain.com/evaluation)**: LangSmith evaluation documentation
+
+### Research
+
+- **[LLM Evaluation Papers](https://arxiv.org/abs/2310.19736)**: Research on LLM evaluation methods
+- **[RAG Evaluation Research](https://arxiv.org/abs/2312.10997)**: RAG evaluation research

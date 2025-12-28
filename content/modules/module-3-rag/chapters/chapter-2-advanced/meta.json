@@ -1,0 +1,10 @@
+{
+  "id": "chapter-2-advanced-rag",
+  "slug": "advanced",
+  "title": "Advanced RAG Techniques",
+  "description": "Advanced techniques for improving RAG performance: hybrid search, query rewriting, reranking, multi-query, and parent-child chunking.",
+  "order": 2,
+  "moduleId": "module-3-rag"
+}
+
+

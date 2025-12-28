@@ -2,123 +2,397 @@
 id: "lesson-1-deployment-strategies"
 slug: "deployment-strategies"
 title: "Deployment Strategies for AI Applications"
-description: "Learn deployment patterns for AI applications: serverless, containers, API gateways, and scaling strategies."
+description: "Master deployment strategies for AI applications: serverless, containers, edge deployments, API patterns, scaling, and cost optimization for production AI systems."
 order: 1
 chapterId: "chapter-1-deployment"
 moduleId: "module-6-deployment"
 prerequisites: ["lesson-5-production-agents"]
-estimatedMinutes: 9
-tags: ["deployment", "serverless", "containers", "scaling"]
+estimatedMinutes: 18
+tags: ["deployment", "serverless", "containers", "scaling", "infrastructure", "api"]
 difficulty: "intermediate"
 ---
 
 # Deployment Strategies for AI Applications
 
+> **💡** Deploying AI applications is like deploying regular applications, except your application can suddenly cost $1000 per request if someone asks a really complex question, latency varies wildly based on model response time, and you need to handle probabilistic outputs that might change slightly each time. It's regular deployment, but with extra steps and a budget tracker always running in the background." - AI Engineering Best Practice
+
 ## Overview
 
-AI applications have unique deployment requirements: variable latency, high token costs, and need for scalability. This lesson covers deployment strategies and patterns.
+AI applications have unique deployment requirements: variable latency (LLM response times), high and unpredictable token costs, state management for agents, and scalability challenges. Understanding deployment strategies helps you choose the right approach for your AI system and deploy it successfully to production.
 
-## Main Content
+Deployment for AI systems isn't just about getting code running—it's about managing costs, handling variable performance, scaling efficiently, and providing reliable service despite the probabilistic nature of AI outputs.
 
-### Deployment Options
+## Deployment Options
 
-#### 1. Serverless (AWS Lambda, Vercel, etc.)
-**Pros:**
-- Auto-scaling
-- Pay per use
-- No infrastructure management
-- Fast to deploy
+Different deployment options suit different AI application needs. Choose based on traffic patterns, latency requirements, cost constraints, and complexity.
 
-**Cons:**
-- Cold starts (latency spikes)
-- Timeout limits
-- Limited control
-- Can be expensive at scale
+### 1. Serverless (AWS Lambda, Vercel, Azure Functions, etc.)
 
-**Best for:** Simple APIs, low-medium traffic
+Serverless platforms automatically manage infrastructure and scale based on demand.
 
-#### 2. Containers (Docker + Kubernetes/ECS)
-**Pros:**
-- Full control
-- Consistent environment
-- Good for complex apps
-- Better for high traffic
+**Strengths:**
+- **Auto-scaling**: Handles traffic spikes automatically
+- **Pay per use**: Only pay for actual requests (good for low/medium traffic)
+- **No infrastructure management**: Focus on code, not servers
+- **Fast deployment**: Quick to get started
+- **Built-in features**: API Gateway, authentication, monitoring often included
 
-**Cons:**
-- Infrastructure management
-- Scaling configuration needed
-- More complex setup
+**Weaknesses:**
+- **Cold starts**: First request after idle period has high latency (can be 1-10 seconds)
+- **Timeout limits**: Typically 15-30 minutes max execution time (AWS Lambda: 15 min)
+- **Limited control**: Less control over environment and runtime
+- **Can be expensive at scale**: High-traffic applications may cost more than dedicated servers
+- **Memory/CPU limits**: Constrained resources (typically up to 10GB RAM)
+- **Vendor lock-in**: Platform-specific APIs and limitations
 
-**Best for:** Production systems, high traffic, complex architectures
+**Best For:**
+- Simple APIs (RAG queries, embeddings, simple prompts)
+- Low to medium traffic (thousands of requests per day)
+- Variable traffic patterns (spikes are handled automatically)
+- Quick prototypes and MVPs
+- Background jobs and scheduled tasks
 
-#### 3. Edge Deployments (Cloudflare Workers, etc.)
-**Pros:**
-- Very low latency
-- Global distribution
-- Good for simple functions
-
-**Cons:**
-- Limited runtime
-- Not for complex workloads
-
-**Best for:** Simple transformations, caching layers
-
-### API Gateway Patterns
-
-Use API gateways for:
-- Rate limiting
-- Authentication
-- Request routing
-- Monitoring
-- Cost control
+**Example: Vercel Serverless Function**
 
 ```python
-# Example: FastAPI deployment
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+# api/query.py (Vercel serverless function)
+from openai import OpenAI
+import os
 
-app = FastAPI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-class QueryRequest(BaseModel):
-    question: str
-
-@app.post("/query")
-async def query_rag(request: QueryRequest):
-    try:
-        result = rag_system.query(request.question)
-        return {"answer": result["answer"], "sources": result["sources"]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def handler(request):
+    query = request.json.get("query")
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": query}]
+    )
+    
+    return {
+        "statusCode": 200,
+        "body": {
+            "answer": response.choices[0].message.content
+        }
+    }
 ```
 
-## Code Examples
+### 2. Containers (Docker + Kubernetes/ECS/Fargate)
 
-Docker deployment:
+Container-based deployment provides full control and flexibility.
+
+**Strengths:**
+- **Full control**: Complete control over environment and runtime
+- **Consistent environment**: Works the same locally and in production
+- **Complex applications**: Can run complex multi-service architectures
+- **Better for high traffic**: More cost-effective at scale
+- **Long-running processes**: No timeout limits
+- **Resource flexibility**: Configure CPU, memory, GPU as needed
+
+**Weaknesses:**
+- **Infrastructure management**: Need to manage containers, orchestration, scaling
+- **Scaling configuration**: Must configure auto-scaling policies
+- **More complex setup**: Requires Docker, orchestration knowledge
+- **Upfront costs**: Pay for running containers even when idle
+- **Operational overhead**: Monitoring, logging, updates require more work
+
+**Best For:**
+- Production systems with steady traffic
+- High-traffic applications (millions of requests)
+- Complex architectures (agents, multi-step workflows)
+- Applications requiring GPUs or specialized hardware
+- Long-running processes (streaming, agents)
+
+**Example: Dockerfile for AI Application**
 
 ```dockerfile
 FROM python:3.11-slim
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy application code
 COPY . .
 
+# Expose port
 EXPOSE 8000
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-Kubernetes deployment:
+### 3. Edge Deployments (Cloudflare Workers, Vercel Edge, etc.)
+
+Edge deployments run code close to users for lowest latency.
+
+**Strengths:**
+- **Very low latency**: Code runs at edge locations near users
+- **Global distribution**: Automatic global distribution
+- **Simple functions**: Great for lightweight transformations
+- **Caching layers**: Excellent for caching and CDN integration
+- **Cost-effective**: Pay per request, often very cheap
+
+**Weaknesses:**
+- **Limited runtime**: Restricted runtime (JavaScript, WebAssembly, limited Python)
+- **Not for complex workloads**: Can't run heavy LLM inference
+- **Resource constraints**: Very limited CPU and memory
+- **Cold starts**: Still have cold start issues
+- **Vendor limitations**: Platform-specific constraints
+
+**Best For:**
+- Simple transformations and routing
+- Caching layers and API gateways
+- Request preprocessing (validation, formatting)
+- Response post-processing (formatting, filtering)
+- Not suitable for LLM inference directly
+
+**Example: Cloudflare Worker (Edge Function)**
+
+```javascript
+// Edge function for request preprocessing
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    
+    // Validate request
+    if (url.pathname !== '/api/query') {
+      return new Response('Not found', { status: 404 });
+    }
+    
+    // Preprocess request
+    const body = await request.json();
+    if (!body.query || body.query.length > 1000) {
+      return new Response('Invalid query', { status: 400 });
+    }
+    
+    // Forward to backend service
+    const backendResponse = await fetch('https://api.backend.com/query', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    return backendResponse;
+  }
+};
+```
+
+### 4. Hybrid Approaches
+
+Combine multiple deployment strategies for optimal results.
+
+**Patterns:**
+- **Edge + Serverless**: Edge for routing/caching, serverless for processing
+- **Serverless + Containers**: Serverless for APIs, containers for background jobs
+- **Edge + Containers**: Edge for simple operations, containers for complex workloads
+
+**Example:**
+- Edge: Request validation, caching, rate limiting
+- Serverless: Simple RAG queries
+- Containers: Complex agent workflows, batch processing
+
+## API Gateway Patterns
+
+API gateways provide essential features for production AI APIs.
+
+### Why API Gateways Matter
+
+API gateways handle cross-cutting concerns:
+- **Rate limiting**: Prevent abuse and control costs
+- **Authentication/Authorization**: Secure your APIs
+- **Request routing**: Route to different services
+- **Monitoring and logging**: Track usage and performance
+- **Cost control**: Set budgets and limits
+- **Versioning**: Manage API versions
+- **Request/response transformation**: Format data
+
+### FastAPI Deployment Example
+
+FastAPI is excellent for AI APIs—async, fast, and Python-native.
+
+```python
+from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from pydantic import BaseModel, Field
+from typing import Optional
+import time
+import os
+from openai import OpenAI
+
+app = FastAPI(title="RAG API", version="1.0.0")
+
+# Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Rate limiting (simple in-memory, use Redis for production)
+from collections import defaultdict
+from datetime import datetime, timedelta
+
+request_counts = defaultdict(list)
+RATE_LIMIT = 100  # requests per minute
+RATE_LIMIT_WINDOW = 60  # seconds
+
+def rate_limit(request: Request):
+    """Simple rate limiting."""
+    client_ip = request.client.host
+    now = datetime.now()
+    
+    # Clean old requests
+    request_counts[client_ip] = [
+        req_time for req_time in request_counts[client_ip]
+        if now - req_time < timedelta(seconds=RATE_LIMIT_WINDOW)
+    ]
+    
+    # Check limit
+    if len(request_counts[client_ip]) >= RATE_LIMIT:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    
+    # Record request
+    request_counts[client_ip].append(now)
+    return True
+
+# Request/Response models
+class QueryRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=5000, description="User query")
+    model: Optional[str] = Field(default="gpt-4o", description="Model to use")
+    temperature: Optional[float] = Field(default=0.7, ge=0, le=2, description="Temperature")
+    max_tokens: Optional[int] = Field(default=1000, ge=1, le=4000, description="Max tokens")
+
+class QueryResponse(BaseModel):
+    answer: str
+    model: str
+    tokens_used: int
+    latency_ms: float
+    sources: Optional[list] = None
+
+# Health check
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "timestamp": time.time()}
+
+# Main endpoint
+@app.post("/query", response_model=QueryResponse, dependencies=[Depends(rate_limit)])
+async def query_rag(request: QueryRequest):
+    """Query RAG system."""
+    start_time = time.time()
+    
+    try:
+        # Initialize client
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
+        # Call LLM
+        response = client.chat.completions.create(
+            model=request.model,
+            messages=[{"role": "user", "content": request.query}],
+            temperature=request.temperature,
+            max_tokens=request.max_tokens
+        )
+        
+        answer = response.choices[0].message.content
+        tokens_used = response.usage.total_tokens
+        latency_ms = (time.time() - start_time) * 1000
+        
+        return QueryResponse(
+            answer=answer,
+            model=request.model,
+            tokens_used=tokens_used,
+            latency_ms=latency_ms
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+## Code Examples
+
+### Docker Deployment
+
+Complete Docker setup for AI application:
+
+```dockerfile
+# Multi-stage build for smaller image
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# Final stage
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy Python packages from builder
+COPY --from=builder /root/.local /root/.local
+
+# Copy application
+COPY . .
+
+# Make sure scripts in .local are usable
+ENV PATH=/root/.local/bin:$PATH
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+
+# Run application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+```
+
+### Kubernetes Deployment
+
+Production-ready Kubernetes configuration:
 
 ```yaml
+# deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rag-service
+  labels:
+    app: rag-service
 spec:
   replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: rag-service
@@ -132,36 +406,581 @@ spec:
         image: rag-service:latest
         ports:
         - containerPort: 8000
+          name: http
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-keys
+              key: openai-key
+        - name: ENVIRONMENT
+          value: "production"
         resources:
           requests:
             memory: "1Gi"
             cpu: "500m"
           limits:
             memory: "2Gi"
-            cpu: "1000m"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+---
+# service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-service
+spec:
+  selector:
+    app: rag-service
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: LoadBalancer
+---
+# horizontal-pod-autoscaler.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rag-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rag-service
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
 ```
+
+### Serverless Deployment (AWS Lambda)
+
+Lambda function with API Gateway:
+
+```python
+# lambda_function.py
+import json
+import os
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def lambda_handler(event, context):
+    """AWS Lambda handler for RAG queries."""
+    try:
+        # Parse request
+        body = json.loads(event.get("body", "{}"))
+        query = body.get("query")
+        
+        if not query:
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"error": "Missing query parameter"})
+            }
+        
+        # Call LLM
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": query}],
+            max_tokens=1000
+        )
+        
+        answer = response.choices[0].message.content
+        
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({
+                "answer": answer,
+                "tokens_used": response.usage.total_tokens
+            })
+        }
+    
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"error": str(e)})
+        }
+```
+
+## Scaling Strategies
+
+AI applications require different scaling strategies than traditional apps.
+
+### 1. Horizontal Scaling
+
+Scale by adding more instances.
+
+**Considerations:**
+- **Stateless services**: Easier to scale horizontally
+- **Session management**: For agents, may need session affinity
+- **Shared state**: Use Redis/database for shared state
+- **Load balancing**: Distribute requests across instances
+
+### 2. Vertical Scaling
+
+Scale by increasing instance resources (CPU, memory).
+
+**Considerations:**
+- **Cost-effective for small scale**: Fewer instances to manage
+- **Limited by instance size**: Max resources per instance
+- **Better for long-running processes**: Agents, streaming
+- **State management**: Easier for stateful applications
+
+### 3. Queue-Based Scaling
+
+Use queues for async processing and better cost control.
+
+**Pattern:**
+- API receives request, adds to queue
+- Workers process queue items
+- Results stored, user polls or receives callback
+
+**Benefits:**
+- Better cost control (process during off-peak)
+- Handle traffic spikes (queue buffers)
+- Retry logic built-in
+- Prioritization possible
+
+### 4. Auto-Scaling Policies
+
+Configure auto-scaling based on metrics:
+
+**Metrics to consider:**
+- **CPU utilization**: Good for compute-intensive workloads
+- **Memory usage**: Important for LLM inference
+- **Request queue length**: For queue-based systems
+- **Latency**: Scale when latency exceeds threshold
+- **Custom metrics**: Token usage, cost per request
+
+**Example: Kubernetes HPA**
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rag-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rag-service
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Pods
+    pods:
+      metric:
+        name: request_latency_p95
+      target:
+        type: AverageValue
+        averageValue: "500m"  # 500ms
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 4
+        periodSeconds: 30
+      selectPolicy: Max
+```
+
+## Cost Optimization Strategies
+
+AI applications can be expensive—optimize costs proactively.
+
+### 1. Caching
+
+Cache expensive operations:
+- **LLM responses**: Cache common queries
+- **Embeddings**: Cache embedding computations
+- **Retrieval results**: Cache vector search results
+
+### 2. Request Batching
+
+Batch multiple requests to reduce API calls:
+- Combine similar queries
+- Batch embeddings
+- Process in parallel
+
+### 3. Model Selection
+
+Use cheaper models when possible:
+- **Simple queries**: Use GPT-4o-mini instead of GPT-4o
+- **Embeddings**: Use smaller embedding models
+- **Caching**: Cache expensive model outputs
+
+### 4. Rate Limiting and Budgets
+
+Implement rate limits and budgets:
+- Per-user rate limits
+- Daily/monthly budgets
+- Cost alerts and thresholds
+
+### 5. Reserved Capacity
+
+For steady traffic, consider reserved instances (containers/VMs):
+- Lower costs than on-demand
+- Predictable pricing
+- Good for baseline traffic
 
 ## Common Mistakes
 
-1. **No rate limiting**: Users can rack up huge costs
-2. **Ignoring cold starts**: Serverless latency spikes
-3. **Wrong resource limits**: Containers crash or waste money
-4. **No health checks**: Can't detect failures
-5. **No monitoring**: Can't debug production issues
-6. **Token limits**: Not handling context window limits
+### 1. No rate limiting
+
+Deploying without rate limits allows abuse and unexpected costs.
+
+**Problems:**
+- Single user can rack up huge costs
+- No protection against abuse
+- Unexpected bills
+- System overload
+
+**Solutions:**
+- Implement rate limiting (per user, per IP, per API key)
+- Set daily/monthly limits
+- Monitor usage and costs
+- Alert on unusual patterns
+
+Always implement rate limiting—it's essential for cost control.
+
+### 2. Ignoring cold starts
+
+Not accounting for serverless cold starts affects user experience.
+
+**Problems:**
+- High latency for first request (1-10 seconds)
+- Poor user experience
+- Timeouts on cold starts
+- User complaints
+
+**Solutions:**
+- Use provisioned concurrency (AWS Lambda)
+- Keep functions warm (scheduled pings)
+- Use containers for low-latency requirements
+- Set appropriate timeout expectations
+
+Cold starts are a real problem—plan for them or avoid serverless for latency-sensitive APIs.
+
+### 3. Wrong resource limits
+
+Setting incorrect CPU/memory limits causes failures or waste.
+
+**Problems:**
+- Containers crash (OOM)
+- Performance degradation (CPU throttling)
+- Wasted money (over-provisioned)
+- Unpredictable behavior
+
+**Solutions:**
+- Profile application resource usage
+- Set appropriate requests (guaranteed)
+- Set limits higher than requests (burst capacity)
+- Monitor actual usage and adjust
+
+Profile first, then set limits based on data.
+
+### 4. No health checks
+
+Missing health checks prevents detecting failures.
+
+**Problems:**
+- Can't detect unhealthy instances
+- Users routed to failed instances
+- No automatic recovery
+- Silent failures
+
+**Solutions:**
+- Implement `/health` endpoint
+- Configure liveness probes
+- Configure readiness probes
+- Test health check thoroughly
+
+Health checks are essential for reliable deployments.
+
+### 5. No monitoring
+
+Deploying without monitoring means no visibility into production.
+
+**Problems:**
+- Can't debug issues
+- No visibility into performance
+- Can't detect problems
+- Can't optimize
+
+**Solutions:**
+- Monitor latency, errors, costs
+- Set up alerts
+- Track key metrics
+- Use APM tools (Datadog, New Relic, etc.)
+
+You can't improve what you don't measure.
+
+### 6. Token limits not handled
+
+Not handling context window limits causes failures.
+
+**Problems:**
+- Requests fail when context too large
+- Poor error messages
+- No graceful degradation
+- User confusion
+
+**Solutions:**
+- Check token counts before API calls
+- Truncate or summarize context
+- Return clear errors
+- Implement context management
+
+Always handle token limits gracefully.
+
+### 7. No cost monitoring
+
+Deploying without cost monitoring leads to surprise bills.
+
+**Problems:**
+- Unexpected costs
+- Can't optimize spending
+- No budget control
+- Wasted money
+
+**Solutions:**
+- Track costs per request
+- Set up cost alerts
+- Monitor token usage
+- Implement budgets
+
+Monitor costs proactively—AI APIs can be expensive.
+
+### 8. Stateless design issues
+
+Not designing for statelessness makes scaling difficult.
+
+**Problems:**
+- Can't scale horizontally
+- Session management issues
+- State inconsistencies
+- Deployment complexity
+
+**Solutions:**
+- Store state externally (database, Redis)
+- Use stateless authentication (JWTs)
+- Design for horizontal scaling
+- Test with multiple instances
+
+Design for statelessness from the start.
+
+### 9. No deployment strategy
+
+Deploying directly to production without strategy causes downtime.
+
+**Problems:**
+- Downtime during deployments
+- Can't rollback easily
+- No gradual rollout
+- High risk
+
+**Solutions:**
+- Use rolling updates
+- Implement blue/green deployment
+- Use canary releases
+- Test rollback procedures
+
+Have a deployment strategy—don't deploy directly to production.
+
+### 10. Security oversights
+
+Not securing APIs properly exposes vulnerabilities.
+
+**Problems:**
+- API keys exposed
+- No authentication
+- Vulnerable to attacks
+- Data breaches
+
+**Solutions:**
+- Use API keys or OAuth
+- Validate all inputs
+- Use HTTPS
+- Implement rate limiting
+- Regular security audits
+
+Security is not optional—secure your APIs properly.
 
 ## Exercise
 
-1. Deploy RAG service to serverless platform
-2. Measure cold start latency
-3. Deploy same service in container
-4. Compare costs and performance
-5. Add rate limiting and monitoring
-6. Set up auto-scaling
+Complete these exercises to master deployment strategies.
+
+### 1. Deploy to serverless
+
+Deploy AI API to serverless platform:
+
+```python
+def deploy_serverless_exercise():
+    """TODO: Deploy to serverless"""
+    # TODO: Create serverless function
+    # TODO: Configure API Gateway
+    # TODO: Set up environment variables
+    # TODO: Deploy
+    # TODO: Test deployment
+    # TODO: Measure cold start latency
+    pass
+```
+
+### 2. Deploy with Docker
+
+Create Docker deployment:
+
+```dockerfile
+# TODO: Create Dockerfile
+# TODO: Build image
+# TODO: Test locally
+# TODO: Push to registry
+# TODO: Deploy to container platform
+```
+
+### 3. Set up auto-scaling
+
+Configure auto-scaling:
+
+```yaml
+# TODO: Create HPA configuration
+# TODO: Configure metrics
+# TODO: Set min/max replicas
+# TODO: Test scaling behavior
+# TODO: Monitor scaling events
+```
+
+### 4. Implement rate limiting
+
+Add rate limiting:
+
+```python
+def implement_rate_limiting_exercise():
+    """TODO: Implement rate limiting"""
+    # TODO: Choose rate limiting strategy
+    # TODO: Implement per-user limits
+    # TODO: Implement per-IP limits
+    # TODO: Test rate limiting
+    # TODO: Monitor rate limit hits
+    pass
+```
+
+### 5. Add monitoring
+
+Set up monitoring:
+
+```python
+def setup_monitoring_exercise():
+    """TODO: Set up monitoring"""
+    # TODO: Add metrics (latency, errors, costs)
+    # TODO: Set up logging
+    # TODO: Configure alerts
+    # TODO: Create dashboards
+    # TODO: Test monitoring
+    pass
+```
+
+### 6. Compare deployment options
+
+Compare different deployment strategies:
+
+```python
+def compare_deployments_exercise():
+    """TODO: Compare deployment options"""
+    # TODO: Deploy same app to serverless
+    # TODO: Deploy same app to containers
+    # TODO: Measure latency
+    # TODO: Measure costs
+    # TODO: Compare pros/cons
+    # TODO: Document findings
+    pass
+```
+
+### 7. Reflection questions
+
+After completing exercises, answer:
+
+1. When should you use serverless vs containers?
+2. How do you handle cold starts in serverless?
+3. What metrics are most important for AI APIs?
+4. How do you optimize costs for AI deployments?
+5. What's the best scaling strategy for your use case?
+6. How do you handle state in stateless deployments?
+7. What security measures are essential?
+8. How do you monitor AI API costs effectively?
+9. What's your deployment strategy for zero downtime?
+10. How do you choose between deployment options?
 
 ## Tools & Resources
 
-- [FastAPI Deployment](https://fastapi.tiangolo.com/deployment/)
-- [Docker Documentation](https://docs.docker.com/)
-- [Kubernetes Basics](https://kubernetes.io/docs/tutorials/)
+### Deployment Platforms
 
+- **[Vercel](https://vercel.com/)**: Serverless deployment for Next.js and Python
+- **[AWS Lambda](https://aws.amazon.com/lambda/)**: Serverless compute
+- **[Google Cloud Run](https://cloud.google.com/run)**: Managed containers
+- **[Railway](https://railway.app/)**: Simple container deployment
+- **[Fly.io](https://fly.io/)**: Global app deployment
+
+### Container Platforms
+
+- **[Docker](https://www.docker.com/)**: Container platform
+- **[Kubernetes](https://kubernetes.io/)**: Container orchestration
+- **[AWS ECS](https://aws.amazon.com/ecs/)**: Managed containers
+- **[Azure Container Instances](https://azure.microsoft.com/en-us/products/container-instances)**: Serverless containers
+
+### API Frameworks
+
+- **[FastAPI](https://fastapi.tiangolo.com/)**: Modern Python API framework
+- **[Flask](https://flask.palletsprojects.com/)**: Lightweight Python framework
+- **[Express.js](https://expressjs.com/)**: Node.js framework
+
+### Documentation
+
+- **[FastAPI Deployment](https://fastapi.tiangolo.com/deployment/)**: FastAPI deployment guide
+- **[Docker Documentation](https://docs.docker.com/)**: Docker guides
+- **[Kubernetes Basics](https://kubernetes.io/docs/tutorials/)**: Kubernetes tutorials

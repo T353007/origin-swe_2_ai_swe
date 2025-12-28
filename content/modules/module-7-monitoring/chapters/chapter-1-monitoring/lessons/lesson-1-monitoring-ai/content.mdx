@@ -2,190 +2,1096 @@
 id: "lesson-1-monitoring-ai"
 slug: "monitoring-ai"
 title: "Monitoring AI Systems"
-description: "Learn what to monitor in AI systems: latency, cost, quality metrics, and how to set up effective monitoring."
+description: "Master monitoring for AI systems: quality metrics, cost tracking, latency monitoring, token usage, alerting strategies, and observability for production AI applications."
 order: 1
 chapterId: "chapter-1-monitoring"
 moduleId: "module-7-monitoring"
 prerequisites: ["lesson-1-deployment-strategies"]
-estimatedMinutes: 8
-tags: ["monitoring", "observability", "metrics", "latency"]
+estimatedMinutes: 17
+tags: ["monitoring", "observability", "metrics", "latency", "cost-tracking", "quality"]
 difficulty: "intermediate"
 ---
 
 # Monitoring AI Systems
 
+> **💡** Monitoring AI systems is like monitoring regular applications, except you need to track probabilistic quality metrics, token costs that can spike unexpectedly, latency that varies wildly based on model response time, and outputs that might be 'correct' but still slightly different each time. It's monitoring, but for systems where 'working correctly' is a probability distribution, not a binary state." - AI Engineering Best Practice
+
 ## Overview
 
-AI systems require specialized monitoring beyond traditional application metrics. You need to track quality, costs, latency, and token usage to ensure reliable production operation.
+AI systems require specialized monitoring beyond traditional application metrics. You need to track quality (not just errors), costs (token usage can be expensive), latency (varies significantly), and user experience. Without proper monitoring, you can't detect regressions, optimize costs, or ensure quality in production.
 
-## Main Content
+Monitoring for AI systems is about visibility—understanding how your system performs, costs, and behaves in production. It's what enables you to catch issues early, optimize performance, and maintain quality as your system evolves.
 
-### What to Monitor
+## Why Monitoring Matters for AI Systems
 
-#### 1. Quality Metrics
-- **Answer relevance**: Does the answer address the question?
-- **Answer accuracy**: Is the answer factually correct?
-- **Hallucination rate**: How often does the system invent facts?
-- **User satisfaction**: User ratings, feedback
+AI systems present unique monitoring challenges:
 
-#### 2. Cost Metrics
-- **Token usage**: Input/output tokens per request
-- **API costs**: Cost per request, daily/monthly totals
-- **Cost per user**: Track costs by user/tenant
-- **Cost trends**: Detect cost anomalies
+**1. Quality is Probabilistic**
+- Outputs vary even with same input
+- Quality is a spectrum, not binary
+- Need to track quality metrics over time
+- Traditional error monitoring isn't enough
 
-#### 3. Latency Metrics
-- **Response time**: End-to-end latency
-- **Time to first token**: Streaming latency
-- **Retrieval time**: Vector search latency
-- **LLM call time**: API response time
+**2. Costs Can Explode**
+- Token usage can vary dramatically
+- Single request can cost dollars
+- Costs scale with usage
+- Need proactive cost monitoring
 
-#### 4. Operational Metrics
-- **Request rate**: Requests per second
-- **Error rate**: Failed requests percentage
-- **Success rate**: Successful completions
-- **Queue depth**: Pending requests
+**3. Latency Varies Widely**
+- LLM response times vary (500ms to 30s+)
+- Retrieval latency depends on database
+- End-to-end latency is unpredictable
+- User experience depends on latency
 
-### Monitoring Implementation
+**4. Quality Degrades Gradually**
+- Model drift over time
+- Prompt effectiveness changes
+- Retrieval quality degrades
+- Need to detect gradual changes
+
+## What to Monitor
+
+Comprehensive monitoring covers quality, cost, latency, and operational metrics.
+
+### 1. Quality Metrics
+
+Track output quality to ensure system maintains standards.
+
+**Answer Relevance**
+- Does the answer address the question?
+- Is the answer on-topic?
+- Measured via LLM-as-judge or user feedback
+
+**Answer Accuracy**
+- Is the answer factually correct?
+- Are citations/sources accurate?
+- Measured via evaluation or human review
+
+**Hallucination Rate**
+- How often does the system invent facts?
+- Rate of unsupported claims
+- Critical for production systems
+
+**Completeness**
+- Does the answer cover all aspects?
+- Is information missing?
+- Measured via evaluation
+
+**User Satisfaction**
+- User ratings (thumbs up/down)
+- User feedback and comments
+- Retention and engagement metrics
+
+**Example: Quality Metrics Implementation**
+
+```python
+from typing import Dict, List, Any, Optional
+from datetime import datetime
+import statistics
+
+class QualityMonitor:
+    """Monitor quality metrics for AI systems."""
+    
+    def __init__(self):
+        self.quality_scores: List[Dict[str, Any]] = []
+        self.hallucinations: int = 0
+        self.total_responses: int = 0
+    
+    def record_quality_score(
+        self,
+        request_id: str,
+        relevance_score: float,
+        accuracy_score: float,
+        completeness_score: float,
+        has_hallucination: bool = False
+    ):
+        """Record quality scores for a response."""
+        self.total_responses += 1
+        
+        if has_hallucination:
+            self.hallucinations += 1
+        
+        self.quality_scores.append({
+            "request_id": request_id,
+            "timestamp": datetime.now().isoformat(),
+            "relevance": relevance_score,
+            "accuracy": accuracy_score,
+            "completeness": completeness_score,
+            "has_hallucination": has_hallucination,
+            "overall_score": (relevance_score + accuracy_score + completeness_score) / 3
+        })
+    
+    def get_quality_stats(self) -> Dict[str, Any]:
+        """Get quality statistics."""
+        if not self.quality_scores:
+            return {}
+        
+        recent_scores = self.quality_scores[-100:]  # Last 100 responses
+        
+        relevance_scores = [s["relevance"] for s in recent_scores]
+        accuracy_scores = [s["accuracy"] for s in recent_scores]
+        completeness_scores = [s["completeness"] for s in recent_scores]
+        overall_scores = [s["overall_score"] for s in recent_scores]
+        
+        return {
+            "total_responses": self.total_responses,
+            "hallucination_rate": self.hallucinations / self.total_responses if self.total_responses > 0 else 0,
+            "avg_relevance": statistics.mean(relevance_scores),
+            "avg_accuracy": statistics.mean(accuracy_scores),
+            "avg_completeness": statistics.mean(completeness_scores),
+            "avg_overall_score": statistics.mean(overall_scores),
+            "p95_relevance": statistics.quantiles(relevance_scores, n=20)[18] if len(relevance_scores) >= 20 else max(relevance_scores),
+            "p95_accuracy": statistics.quantiles(accuracy_scores, n=20)[18] if len(accuracy_scores) >= 20 else max(accuracy_scores),
+        }
+```
+
+### 2. Cost Metrics
+
+Track costs to prevent budget overruns and optimize spending.
+
+**Token Usage**
+- Input tokens per request
+- Output tokens per request
+- Total tokens per request
+- Token usage trends
+
+**API Costs**
+- Cost per request
+- Daily/monthly totals
+- Cost by model (if using multiple)
+- Cost trends over time
+
+**Cost per User/Tenant**
+- Track costs by user or tenant
+- Identify high-cost users
+- Enable cost allocation
+- Detect abuse
+
+**Cost Anomalies**
+- Unusual cost spikes
+- Unexpected cost increases
+- Budget threshold alerts
+- Cost efficiency metrics
+
+**Example: Cost Monitoring Implementation**
+
+```python
+from typing import Dict, Any, Optional
+from datetime import datetime, timedelta
+from collections import defaultdict
+
+class CostMonitor:
+    """Monitor costs for AI systems."""
+    
+    # Model pricing (2024-2025, approximate)
+    PRICING = {
+        "gpt-4o": {"input": 2.50 / 1_000_000, "output": 10.00 / 1_000_000},
+        "gpt-4o-mini": {"input": 0.15 / 1_000_000, "output": 0.60 / 1_000_000},
+        "gpt-4-turbo": {"input": 10.00 / 1_000_000, "output": 30.00 / 1_000_000},
+        "text-embedding-3-small": {"input": 0.02 / 1_000_000, "output": 0.02 / 1_000_000},
+    }
+    
+    def __init__(self, daily_budget: Optional[float] = None):
+        self.daily_budget = daily_budget
+        self.cost_history: List[Dict[str, Any]] = []
+        self.daily_costs: Dict[str, float] = defaultdict(float)
+        self.user_costs: Dict[str, float] = defaultdict(float)
+        self.model_costs: Dict[str, float] = defaultdict(float)
+    
+    def record_request(
+        self,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        user_id: Optional[str] = None
+    ):
+        """Record cost for a request."""
+        if model not in self.PRICING:
+            # Default pricing
+            input_cost = (input_tokens / 1_000_000) * 2.50
+            output_cost = (output_tokens / 1_000_000) * 10.00
+        else:
+            pricing = self.PRICING[model]
+            input_cost = (input_tokens / 1_000_000) * pricing["input"]
+            output_cost = (output_tokens / 1_000_000) * pricing["output"]
+        
+        total_cost = input_cost + output_cost
+        today = datetime.now().date().isoformat()
+        
+        self.cost_history.append({
+            "timestamp": datetime.now().isoformat(),
+            "model": model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cost": total_cost,
+            "user_id": user_id
+        })
+        
+        self.daily_costs[today] += total_cost
+        self.model_costs[model] += total_cost
+        
+        if user_id:
+            self.user_costs[user_id] += total_cost
+    
+    def get_cost_stats(self) -> Dict[str, Any]:
+        """Get cost statistics."""
+        today = datetime.now().date().isoformat()
+        today_cost = self.daily_costs.get(today, 0.0)
+        
+        total_cost = sum(self.daily_costs.values())
+        avg_daily_cost = statistics.mean(list(self.daily_costs.values())) if self.daily_costs else 0.0
+        
+        # Budget status
+        budget_status = "ok"
+        if self.daily_budget:
+            if today_cost >= self.daily_budget:
+                budget_status = "exceeded"
+            elif today_cost >= self.daily_budget * 0.8:
+                budget_status = "warning"
+        
+        return {
+            "today_cost": today_cost,
+            "total_cost": total_cost,
+            "avg_daily_cost": avg_daily_cost,
+            "budget_status": budget_status,
+            "budget_remaining": (self.daily_budget - today_cost) if self.daily_budget else None,
+            "cost_by_model": dict(self.model_costs),
+            "top_users": dict(sorted(self.user_costs.items(), key=lambda x: x[1], reverse=True)[:10])
+        }
+```
+
+### 3. Latency Metrics
+
+Track latency to ensure good user experience.
+
+**Response Time**
+- End-to-end request latency
+- P50, P95, P99 percentiles
+- Average latency
+- Latency distribution
+
+**Time to First Token (TTFT)**
+- For streaming responses
+- First byte latency
+- Perceived responsiveness
+
+**Component Latency**
+- Retrieval time (vector search)
+- LLM API call time
+- Embedding generation time
+- Pre/post-processing time
+
+**Latency by Model**
+- Compare latency across models
+- Detect model-specific issues
+- Optimize model selection
+
+**Example: Latency Monitoring Implementation**
 
 ```python
 import time
-from functools import wraps
-from typing import Dict, Any
-import logging
+import statistics
+from typing import Dict, List, Any
+from collections import defaultdict
 
-class AIMonitor:
+class LatencyMonitor:
+    """Monitor latency metrics for AI systems."""
+    
     def __init__(self):
-        self.metrics = {
-            "requests": 0,
-            "errors": 0,
-            "total_tokens": 0,
-            "total_cost": 0.0,
-            "total_latency": 0.0
-        }
+        self.latency_history: List[Dict[str, Any]] = []
+        self.component_latencies: Dict[str, List[float]] = defaultdict(list)
     
-    def track_request(self, func):
-        """Decorator to track AI system requests."""
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            start_time = time.time()
-            self.metrics["requests"] += 1
-            
-            try:
-                result = func(*args, **kwargs)
-                
-                # Track tokens if available
-                if hasattr(result, "usage"):
-                    tokens = result.usage.total_tokens
-                    self.metrics["total_tokens"] += tokens
-                    self.metrics["total_cost"] += self._calculate_cost(tokens)
-                
-                latency = time.time() - start_time
-                self.metrics["total_latency"] += latency
-                
-                logging.info(f"Request completed: {latency:.2f}s, tokens: {tokens}")
-                return result
-                
-            except Exception as e:
-                self.metrics["errors"] += 1
-                logging.error(f"Request failed: {e}")
-                raise
+    def record_latency(
+        self,
+        request_id: str,
+        total_latency: float,
+        component_latencies: Dict[str, float] = None
+    ):
+        """Record latency for a request."""
+        self.latency_history.append({
+            "request_id": request_id,
+            "timestamp": datetime.now().isoformat(),
+            "total_latency": total_latency,
+            "component_latencies": component_latencies or {}
+        })
         
-        return wrapper
+        # Track component latencies
+        if component_latencies:
+            for component, latency in component_latencies.items():
+                self.component_latencies[component].append(latency)
     
-    def _calculate_cost(self, tokens: int) -> float:
-        """Calculate cost based on tokens."""
-        # Simplified: adjust for your pricing
-        return (tokens / 1000) * 0.002
-    
-    def get_stats(self) -> Dict[str, Any]:
-        """Get monitoring statistics."""
-        requests = self.metrics["requests"]
-        if requests == 0:
-            return self.metrics
+    def get_latency_stats(self, window_size: int = 100) -> Dict[str, Any]:
+        """Get latency statistics."""
+        if not self.latency_history:
+            return {}
         
-        return {
-            **self.metrics,
-            "avg_latency": self.metrics["total_latency"] / requests,
-            "error_rate": self.metrics["errors"] / requests,
-            "avg_tokens_per_request": self.metrics["total_tokens"] / requests,
-            "avg_cost_per_request": self.metrics["total_cost"] / requests
+        recent = self.latency_history[-window_size:]
+        latencies = [r["total_latency"] for r in recent]
+        
+        stats = {
+            "total_requests": len(self.latency_history),
+            "avg_latency": statistics.mean(latencies),
+            "median_latency": statistics.median(latencies),
+            "min_latency": min(latencies),
+            "max_latency": max(latencies),
         }
-
-# Usage
-monitor = AIMonitor()
-
-@monitor.track_request
-def query_rag(question: str):
-    # Your RAG implementation
-    return rag_system.query(question)
+        
+        # Percentiles
+        if len(latencies) >= 20:
+            stats["p95_latency"] = statistics.quantiles(latencies, n=20)[18]
+        if len(latencies) >= 100:
+            stats["p99_latency"] = statistics.quantiles(latencies, n=100)[98]
+        
+        # Component latency stats
+        component_stats = {}
+        for component, comp_latencies in self.component_latencies.items():
+            if comp_latencies:
+                recent_comp = comp_latencies[-window_size:]
+                component_stats[component] = {
+                    "avg": statistics.mean(recent_comp),
+                    "p95": statistics.quantiles(recent_comp, n=20)[18] if len(recent_comp) >= 20 else max(recent_comp)
+                }
+        
+        stats["component_latencies"] = component_stats
+        return stats
 ```
 
-## Code Examples
+### 4. Operational Metrics
 
-Structured logging for AI systems:
+Track system health and operational status.
+
+**Request Rate**
+- Requests per second/minute/hour
+- Request volume trends
+- Peak usage times
+- Traffic patterns
+
+**Error Rate**
+- Failed requests percentage
+- Error types and frequencies
+- Error trends
+- Error by endpoint
+
+**Success Rate**
+- Successful completions percentage
+- Completion rate trends
+- Success by model/endpoint
+
+**Queue Depth**
+- Pending requests
+- Queue wait times
+- Backlog size
+
+**System Health**
+- API availability
+- Database health
+- External service status
+- Resource utilization
+
+## Monitoring Implementation
+
+Comprehensive monitoring implementation combining all metrics.
+
+### Complete Monitoring System
+
+```python
+from functools import wraps
+from typing import Dict, Any, Optional, Callable
+import uuid
+import time
+from datetime import datetime
+
+class AIMonitoringSystem:
+    """Complete monitoring system for AI applications."""
+    
+    def __init__(
+        self,
+        daily_budget: Optional[float] = None,
+        enable_quality_monitoring: bool = True
+    ):
+        self.cost_monitor = CostMonitor(daily_budget=daily_budget)
+        self.latency_monitor = LatencyMonitor()
+        self.quality_monitor = QualityMonitor() if enable_quality_monitoring else None
+        
+        self.request_count = 0
+        self.error_count = 0
+        self.request_history: List[Dict[str, Any]] = []
+    
+    def track_request(
+        self,
+        user_id: Optional[str] = None,
+        track_quality: bool = False
+    ):
+        """Decorator to track AI system requests."""
+        def decorator(func: Callable) -> Callable:
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                request_id = str(uuid.uuid4())
+                start_time = time.time()
+                component_times = {}
+                
+                self.request_count += 1
+                
+                try:
+                    # Execute function
+                    result = func(*args, **kwargs)
+                    
+                    # Calculate latency
+                    total_latency = time.time() - start_time
+                    
+                    # Track component latencies if available
+                    if hasattr(result, "component_times"):
+                        component_times = result.component_times
+                    
+                    # Track token usage and cost
+                    if hasattr(result, "usage"):
+                        usage = result.usage
+                        model = getattr(result, "model", "unknown")
+                        
+                        self.cost_monitor.record_request(
+                            model=model,
+                            input_tokens=usage.prompt_tokens,
+                            output_tokens=usage.completion_tokens,
+                            user_id=user_id
+                        )
+                        
+                        tokens_used = usage.total_tokens
+                    else:
+                        tokens_used = 0
+                    
+                    # Record latency
+                    self.latency_monitor.record_latency(
+                        request_id=request_id,
+                        total_latency=total_latency,
+                        component_latencies=component_times
+                    )
+                    
+                    # Track quality if enabled
+                    if track_quality and self.quality_monitor:
+                        # Evaluate quality (simplified - in production use proper evaluation)
+                        quality_scores = self._evaluate_quality(result, args[0] if args else "")
+                        
+                        self.quality_monitor.record_quality_score(
+                            request_id=request_id,
+                            relevance_score=quality_scores.get("relevance", 0.5),
+                            accuracy_score=quality_scores.get("accuracy", 0.5),
+                            completeness_score=quality_scores.get("completeness", 0.5),
+                            has_hallucination=quality_scores.get("has_hallucination", False)
+                        )
+                    
+                    # Log request
+                    self._log_request(
+                        request_id=request_id,
+                        user_id=user_id,
+                        latency=total_latency,
+                        tokens=tokens_used,
+                        success=True
+                    )
+                    
+                    return result
+                
+                except Exception as e:
+                    self.error_count += 1
+                    total_latency = time.time() - start_time
+                    
+                    # Log error
+                    self._log_request(
+                        request_id=request_id,
+                        user_id=user_id,
+                        latency=total_latency,
+                        tokens=0,
+                        success=False,
+                        error=str(e)
+                    )
+                    
+                    raise
+            
+            return wrapper
+        return decorator
+    
+    def _evaluate_quality(self, result: Any, query: str) -> Dict[str, float]:
+        """Evaluate quality (simplified - use proper evaluation in production)."""
+        # In production, use LLM-as-judge or evaluation framework
+        return {
+            "relevance": 0.8,
+            "accuracy": 0.8,
+            "completeness": 0.8,
+            "has_hallucination": False
+        }
+    
+    def _log_request(
+        self,
+        request_id: str,
+        user_id: Optional[str],
+        latency: float,
+        tokens: int,
+        success: bool,
+        error: Optional[str] = None
+    ):
+        """Log request details."""
+        self.request_history.append({
+            "request_id": request_id,
+            "timestamp": datetime.now().isoformat(),
+            "user_id": user_id,
+            "latency": latency,
+            "tokens": tokens,
+            "success": success,
+            "error": error
+        })
+        
+        # Keep only recent history (last 1000 requests)
+        if len(self.request_history) > 1000:
+            self.request_history = self.request_history[-1000:]
+    
+    def get_comprehensive_stats(self) -> Dict[str, Any]:
+        """Get comprehensive monitoring statistics."""
+        cost_stats = self.cost_monitor.get_cost_stats()
+        latency_stats = self.latency_monitor.get_latency_stats()
+        
+        stats = {
+            "requests": {
+                "total": self.request_count,
+                "errors": self.error_count,
+                "success_rate": (self.request_count - self.error_count) / self.request_count if self.request_count > 0 else 0.0,
+                "error_rate": self.error_count / self.request_count if self.request_count > 0 else 0.0
+            },
+            "cost": cost_stats,
+            "latency": latency_stats
+        }
+        
+        if self.quality_monitor:
+            stats["quality"] = self.quality_monitor.get_quality_stats()
+        
+        return stats
+
+# Usage
+monitor = AIMonitoringSystem(daily_budget=100.0, enable_quality_monitoring=True)
+
+@monitor.track_request(user_id="user123", track_quality=True)
+def query_rag(question: str):
+    """Query RAG system with monitoring."""
+    # Your RAG implementation
+    result = rag_system.query(question)
+    return result
+
+# Get stats
+stats = monitor.get_comprehensive_stats()
+print(f"Success rate: {stats['requests']['success_rate']:.2%}")
+print(f"Today's cost: ${stats['cost']['today_cost']:.2f}")
+print(f"Avg latency: {stats['latency']['avg_latency']:.2f}s")
+```
+
+## Alerting Strategies
+
+Set up alerts to detect issues proactively.
+
+### Alert Types
+
+**1. Cost Alerts**
+- Daily budget exceeded
+- Unusual cost spikes
+- Cost per request threshold
+- Budget warning (80% of budget)
+
+**2. Quality Alerts**
+- Quality score below threshold
+- Hallucination rate spike
+- Relevance drop
+- User satisfaction drop
+
+**3. Latency Alerts**
+- P95 latency above threshold
+- Average latency spike
+- Timeout rate increase
+- Component latency issue
+
+**4. Error Alerts**
+- Error rate above threshold
+- Specific error type spike
+- Availability issues
+- API failures
+
+**Example: Alerting System**
+
+```python
+class AlertManager:
+    """Manage alerts for monitoring system."""
+    
+    def __init__(self):
+        self.alert_thresholds = {
+            "error_rate": 0.05,  # 5%
+            "p95_latency": 10.0,  # 10 seconds
+            "quality_score": 0.7,  # 0.7
+            "daily_budget": 0.8,  # 80% of budget
+        }
+        self.alert_history: List[Dict[str, Any]] = []
+    
+    def check_alerts(self, stats: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Check if any alerts should be triggered."""
+        alerts = []
+        
+        # Error rate alert
+        error_rate = stats["requests"].get("error_rate", 0)
+        if error_rate > self.alert_thresholds["error_rate"]:
+            alerts.append({
+                "type": "error_rate",
+                "severity": "high",
+                "message": f"Error rate {error_rate:.2%} exceeds threshold {self.alert_thresholds['error_rate']:.2%}",
+                "value": error_rate,
+                "threshold": self.alert_thresholds["error_rate"]
+            })
+        
+        # Latency alert
+        p95_latency = stats["latency"].get("p95_latency", 0)
+        if p95_latency > self.alert_thresholds["p95_latency"]:
+            alerts.append({
+                "type": "latency",
+                "severity": "medium",
+                "message": f"P95 latency {p95_latency:.2f}s exceeds threshold {self.alert_thresholds['p95_latency']:.2f}s",
+                "value": p95_latency,
+                "threshold": self.alert_thresholds["p95_latency"]
+            })
+        
+        # Quality alert
+        if "quality" in stats:
+            avg_quality = stats["quality"].get("avg_overall_score", 1.0)
+            if avg_quality < self.alert_thresholds["quality_score"]:
+                alerts.append({
+                    "type": "quality",
+                    "severity": "high",
+                    "message": f"Quality score {avg_quality:.2f} below threshold {self.alert_thresholds['quality_score']:.2f}",
+                    "value": avg_quality,
+                    "threshold": self.alert_thresholds["quality_score"]
+                })
+        
+        # Budget alert
+        cost_stats = stats["cost"]
+        if cost_stats.get("budget_status") == "warning":
+            alerts.append({
+                "type": "budget",
+                "severity": "medium",
+                "message": f"Daily budget {cost_stats['today_cost']:.2f} approaching limit",
+                "value": cost_stats["today_cost"],
+                "threshold": cost_stats.get("budget_remaining", 0)
+            })
+        elif cost_stats.get("budget_status") == "exceeded":
+            alerts.append({
+                "type": "budget",
+                "severity": "high",
+                "message": f"Daily budget exceeded: {cost_stats['today_cost']:.2f}",
+                "value": cost_stats["today_cost"],
+                "threshold": cost_stats.get("budget_remaining", 0)
+            })
+        
+        # Store alerts
+        for alert in alerts:
+            self.alert_history.append({
+                **alert,
+                "timestamp": datetime.now().isoformat()
+            })
+        
+        return alerts
+    
+    def send_alerts(self, alerts: List[Dict[str, Any]]):
+        """Send alerts via configured channels."""
+        for alert in alerts:
+            # In production, send via email, Slack, PagerDuty, etc.
+            print(f"ALERT [{alert['severity'].upper()}]: {alert['message']}")
+```
+
+## Structured Logging
+
+Implement structured logging for better observability.
+
+### Structured Logging Implementation
 
 ```python
 import json
 import logging
 from datetime import datetime
+from typing import Dict, Any, Optional
 
-class AILogger:
-    def __init__(self):
-        self.logger = logging.getLogger("ai_system")
+class StructuredLogger:
+    """Structured logging for AI systems."""
+    
+    def __init__(self, service_name: str = "ai_system"):
+        self.service_name = service_name
+        self.logger = logging.getLogger(service_name)
+        self.logger.setLevel(logging.INFO)
+        
+        # JSON formatter
         handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        handler.setFormatter(formatter)
+        handler.setFormatter(StructuredFormatter())
         self.logger.addHandler(handler)
     
-    def log_request(self, request_id: str, query: str, **kwargs):
+    def log_request(
+        self,
+        request_id: str,
+        query: str,
+        user_id: Optional[str] = None,
+        metadata: Dict[str, Any] = None
+    ):
         """Log request details."""
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
-            "request_id": request_id,
+            "level": "INFO",
+            "service": self.service_name,
             "type": "request",
+            "request_id": request_id,
             "query": query,
-            **kwargs
+            "user_id": user_id,
+            **(metadata or {})
         }
         self.logger.info(json.dumps(log_entry))
     
-    def log_response(self, request_id: str, answer: str, tokens: int, latency: float):
+    def log_response(
+        self,
+        request_id: str,
+        answer: str,
+        tokens: int,
+        latency: float,
+        model: Optional[str] = None,
+        metadata: Dict[str, Any] = None
+    ):
         """Log response details."""
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
-            "request_id": request_id,
+            "level": "INFO",
+            "service": self.service_name,
             "type": "response",
-            "answer": answer,
+            "request_id": request_id,
+            "answer_length": len(answer),
             "tokens": tokens,
-            "latency_ms": latency * 1000
+            "latency_ms": latency * 1000,
+            "model": model,
+            **(metadata or {})
         }
         self.logger.info(json.dumps(log_entry))
+    
+    def log_error(
+        self,
+        request_id: str,
+        error: str,
+        error_type: str,
+        metadata: Dict[str, Any] = None
+    ):
+        """Log error details."""
+        log_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "level": "ERROR",
+            "service": self.service_name,
+            "type": "error",
+            "request_id": request_id,
+            "error": error,
+            "error_type": error_type,
+            **(metadata or {})
+        }
+        self.logger.error(json.dumps(log_entry))
+
+class StructuredFormatter(logging.Formatter):
+    """Formatter that preserves JSON structure."""
+    def format(self, record):
+        # If message is already JSON, return as-is
+        if isinstance(record.msg, dict) or (isinstance(record.msg, str) and record.msg.startswith("{")):
+            return record.msg
+        return super().format(record)
 ```
 
 ## Common Mistakes
 
-1. **Only monitoring errors**: Missing quality and cost issues
-2. **No token tracking**: Costs spiral out of control
-3. **No latency monitoring**: Slow responses hurt UX
-4. **No alerting**: Issues go undetected
-5. **Logging everything**: Too much noise, hard to debug
-6. **Not correlating metrics**: Can't understand root causes
+### 1. Only monitoring errors
+
+Monitoring only errors misses quality and cost issues.
+
+**Problems:**
+- Quality degrades unnoticed
+- Costs spiral out of control
+- User experience issues undetected
+- Can't optimize effectively
+
+**Solutions:**
+- Monitor quality metrics
+- Track costs proactively
+- Monitor latency and user experience
+- Track comprehensive metrics
+
+Monitor quality and costs, not just errors.
+
+### 2. No token tracking
+
+Not tracking token usage leads to unexpected costs.
+
+**Problems:**
+- No visibility into costs
+- Budget overruns
+- Can't optimize token usage
+- Unexpected bills
+
+**Solutions:**
+- Track tokens per request
+- Calculate costs in real-time
+- Monitor token trends
+- Set up cost alerts
+
+Always track token usage—it's your primary cost driver.
+
+### 3. No latency monitoring
+
+Not monitoring latency hurts user experience.
+
+**Problems:**
+- Slow responses go undetected
+- Poor user experience
+- Can't optimize performance
+- User complaints
+
+**Solutions:**
+- Track end-to-end latency
+- Monitor component latencies
+- Set latency thresholds
+- Alert on latency spikes
+
+Monitor latency—it directly impacts user experience.
+
+### 4. No alerting
+
+Monitoring without alerting means issues go undetected.
+
+**Problems:**
+- Issues discovered late
+- No proactive response
+- Extended downtime
+- User impact
+
+**Solutions:**
+- Set up alerts for key metrics
+- Configure alert thresholds
+- Use multiple alert channels
+- Test alerting regularly
+
+Monitoring without alerting is like a smoke detector without an alarm.
+
+### 5. Logging everything
+
+Logging too much creates noise and hides important information.
+
+**Problems:**
+- Too much data to process
+- Hard to find issues
+- Storage costs
+- Performance impact
+
+**Solutions:**
+- Log structured, relevant information
+- Use log levels appropriately
+- Filter logs by importance
+- Aggregate and summarize
+
+Log intelligently—more isn't always better.
+
+### 6. Not correlating metrics
+
+Not correlating metrics makes debugging difficult.
+
+**Problems:**
+- Can't understand root causes
+- Difficult to debug issues
+- Miss patterns
+- Slow problem resolution
+
+**Solutions:**
+- Correlate metrics by request ID
+- Track metrics together
+- Use distributed tracing
+- Analyze metric relationships
+
+Correlate metrics to understand system behavior.
+
+### 7. No historical tracking
+
+Not tracking metrics over time misses trends.
+
+**Problems:**
+- Can't detect gradual degradation
+- Miss regression trends
+- No historical context
+- Can't measure improvements
+
+**Solutions:**
+- Store metric history
+- Track trends over time
+- Compare current vs historical
+- Analyze long-term patterns
+
+Track metrics over time to detect trends and regressions.
+
+### 8. Ignoring quality metrics
+
+Only monitoring operational metrics misses quality issues.
+
+**Problems:**
+- Quality degrades unnoticed
+- User satisfaction drops
+- Can't detect prompt/model issues
+- Poor production quality
+
+**Solutions:**
+- Monitor quality metrics
+- Track user satisfaction
+- Evaluate output quality
+- Set quality thresholds
+
+Quality metrics are as important as operational metrics.
+
+### 9. No cost budgets
+
+Not setting cost budgets leads to overspending.
+
+**Problems:**
+- Unlimited costs
+- Budget overruns
+- No cost control
+- Financial surprises
+
+**Solutions:**
+- Set daily/monthly budgets
+- Configure budget alerts
+- Track cost trends
+- Implement cost limits
+
+Set budgets and monitor costs proactively.
+
+### 10. Monitoring too late
+
+Setting up monitoring after deployment misses early issues.
+
+**Problems:**
+- Issues go undetected
+- No baseline metrics
+- Can't detect regressions
+- Reactive problem solving
+
+**Solutions:**
+- Set up monitoring early
+- Establish baselines
+- Monitor from day one
+- Proactive approach
+
+Set up monitoring before deployment—not after.
 
 ## Exercise
 
-1. Add monitoring to your AI system
-2. Track tokens, costs, and latency
-3. Set up structured logging
-4. Create monitoring dashboard
-5. Set up alerts for anomalies
-6. Analyze metrics to identify issues
+Complete these exercises to master AI system monitoring.
+
+### 1. Implement basic monitoring
+
+Create monitoring system:
+
+```python
+class MonitoringExercise:
+    """TODO: Implement basic monitoring"""
+    
+    def track_request(self, func):
+        """TODO: Track request metrics"""
+        # TODO: Track latency
+        # TODO: Track tokens
+        # TODO: Track errors
+        pass
+    
+    def get_stats(self):
+        """TODO: Return statistics"""
+        pass
+```
+
+### 2. Add cost tracking
+
+Implement cost monitoring:
+
+```python
+class CostTrackingExercise:
+    """TODO: Implement cost tracking"""
+    
+    def track_cost(self, model, tokens):
+        """TODO: Track costs"""
+        # TODO: Calculate cost
+        # TODO: Track by model
+        # TODO: Track by user
+        # TODO: Check budget
+        pass
+    
+    def get_cost_stats(self):
+        """TODO: Return cost statistics"""
+        pass
+```
+
+### 3. Set up alerting
+
+Implement alerting system:
+
+```python
+class AlertingExercise:
+    """TODO: Implement alerting"""
+    
+    def check_alerts(self, stats):
+        """TODO: Check for alerts"""
+        # TODO: Cost alerts
+        # TODO: Latency alerts
+        # TODO: Quality alerts
+        # TODO: Error alerts
+        pass
+    
+    def send_alert(self, alert):
+        """TODO: Send alert"""
+        pass
+```
+
+### 4. Create monitoring dashboard
+
+Build monitoring dashboard:
+
+```python
+def create_dashboard_exercise(monitor):
+    """TODO: Create monitoring dashboard"""
+    # TODO: Display key metrics
+    # TODO: Show trends
+    # TODO: Visualize costs
+    # TODO: Show alerts
+    pass
+```
+
+### 5. Reflection questions
+
+After completing exercises, answer:
+
+1. What metrics are most important for your AI system?
+2. How do you balance monitoring comprehensiveness with performance?
+3. What alert thresholds make sense?
+4. How do you track quality in production?
+5. What cost monitoring is essential?
+6. How do you correlate metrics effectively?
+7. What's the right level of logging?
+8. How do you detect gradual quality degradation?
+9. What monitoring tools are best for AI systems?
+10. How do you set up monitoring from day one?
 
 ## Tools & Resources
 
-- [LangSmith Monitoring](https://www.langchain.com/langsmith)
-- [OpenTelemetry](https://opentelemetry.io/)
-- [Prometheus](https://prometheus.io/)
-- [Grafana](https://grafana.com/)
+### Monitoring Platforms
 
+- **[LangSmith](https://www.langchain.com/langsmith)**: LangChain's observability platform
+- **[Weights & Biases](https://wandb.ai/)**: Experiment tracking and monitoring
+- **[Datadog](https://www.datadoghq.com/)**: Application performance monitoring
+- **[New Relic](https://newrelic.com/)**: Observability platform
+
+### Open Source Tools
+
+- **[Prometheus](https://prometheus.io/)**: Metrics and alerting
+- **[Grafana](https://grafana.com/)**: Visualization and dashboards
+- **[OpenTelemetry](https://opentelemetry.io/)**: Observability framework
+- **[Phoenix](https://github.com/Arize-ai/phoenix)**: LLM observability
+
+### Documentation
+
+- **[OpenTelemetry Python](https://opentelemetry.io/docs/languages/python/)**: Python observability
+- **[Prometheus Best Practices](https://prometheus.io/docs/practices/)**: Monitoring best practices

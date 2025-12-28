@@ -2,170 +2,1012 @@
 id: "lesson-1-eval-fundamentals"
 slug: "eval-fundamentals"
 title: "Evaluation Fundamentals"
-description: "Understand why evaluations matter for AI systems, types of evaluations, and key metrics for measuring AI system quality."
+description: "Master the fundamentals of AI system evaluation: why evaluations matter, types of evaluations, key metrics, and how to build evaluation frameworks for production AI systems."
 order: 1
 chapterId: "chapter-1-evaluations"
 moduleId: "module-5-evaluations"
-prerequisites: ["lesson-5-basic-rag"]
-estimatedMinutes: 9
-tags: ["evaluation", "testing", "metrics", "quality"]
+prerequisites: []
+estimatedMinutes: 16
+tags: ["evaluation", "testing", "metrics", "quality", "frameworks"]
 difficulty: "intermediate"
 ---
 
 # Evaluation Fundamentals
 
+> **💡** Evaluating AI systems is like testing software, except the software is probabilistic, the test outputs change slightly each run, and 'it works on my machine' becomes 'it worked that one time with temperature 0.' Traditional unit tests won't cut it—you need evaluations that account for the probabilistic nature of AI systems while still catching regressions. Without evaluations, you're flying blind." - AI Engineering Best Practice
+
 ## Overview
 
-Evaluations are crucial for AI systems because outputs are probabilistic and non-deterministic. Without systematic evaluation, you can't know if your system is improving or breaking.
+Evaluations are critical for AI systems because outputs are probabilistic and non-deterministic. Unlike traditional software where the same input always produces the same output, AI systems can produce different outputs for the same input. Without systematic evaluation, you can't know if your system is improving, regressing, or how it performs in production.
 
-## Main Content
+Evaluation is what separates production AI systems from prototypes. A prototype might "work" for a few manual tests, but production systems need systematic, automated evaluations that catch regressions, measure improvements, and provide confidence in system quality.
 
-### Why Evaluations Matter
+## Why Evaluations Matter
 
-**Without evaluations:**
-- Can't measure if changes improve quality
-- Breaking changes go undetected
-- No confidence in system reliability
-- Can't compare different approaches
+Understanding why evaluations are essential is the first step toward building reliable AI systems.
 
-**With evaluations:**
-- Catch regressions before deployment
-- Measure improvements objectively
-- Build confidence in system quality
-- Make data-driven decisions
+### The Problem Without Evaluations
 
-### Types of Evaluations
+**Without evaluations, you:**
+- **Can't measure improvements**: Made a change to your prompt? No way to know if it's better
+- **Miss regressions**: Changed your chunking strategy? Could have broken retrieval without knowing
+- **Have no confidence**: Does your system actually work well? Hard to say
+- **Can't compare approaches**: Should you use GPT-4 or Claude? No objective way to decide
+- **Deploy blindly**: Every deployment is a gamble
+- **Waste time**: Spend weeks optimizing something that wasn't the bottleneck
+- **Can't debug**: When users report issues, you have no systematic way to reproduce them
 
-#### 1. Unit Tests (Component-Level)
-Test individual components in isolation:
-- Embedding quality
-- Chunking correctness
-- Retrieval precision
-- Individual prompt outputs
+**Real-world impact:**
+- A small prompt change degrades answer quality for 20% of queries—you never notice
+- A chunking strategy change breaks retrieval for specific document types—users complain, you don't know why
+- You optimize latency but don't realize accuracy dropped—you ship a worse system
+- You add a new model but don't compare it properly—you deploy something that's actually worse
 
-#### 2. Integration Tests (System-Level)
-Test complete workflows:
-- End-to-end RAG pipeline
-- Agent task completion
-- Multi-step processes
+### The Benefits With Evaluations
 
-#### 3. End-to-End Tests (User-Level)
-Test from user perspective:
-- Complete user queries
-- Real-world scenarios
-- Expected outputs
+**With evaluations, you:**
+- **Catch regressions**: Automated tests fail when quality drops
+- **Measure improvements**: Data shows if changes actually help
+- **Build confidence**: Know your system quality metrics
+- **Make data-driven decisions**: Compare approaches objectively
+- **Debug systematically**: Reproduce and fix issues methodically
+- **Optimize effectively**: Focus on what actually matters
+- **Deploy safely**: Run evaluations before and after deployment
 
-### Evaluation Metrics
+**Real-world impact:**
+- Automated evaluation catches a prompt regression before deployment—you fix it
+- Evaluation shows that a new chunking strategy improves retrieval accuracy by 15%—you ship it confidently
+- Metrics show latency optimization didn't hurt accuracy—you optimize with confidence
+- Comparison evaluation shows new model is 10% better—data-driven decision to switch
 
-**Accuracy Metrics:**
-- **Exact match**: Output exactly matches expected
-- **Semantic similarity**: Meaning matches (using embeddings)
-- **LLM-as-judge**: LLM evaluates if answer is correct
+### The Evaluation Mindset
 
-**Quality Metrics:**
-- **Relevance**: Answer addresses the question
-- **Completeness**: Answer covers all aspects
-- **Coherence**: Answer is well-structured
-- **Factuality**: Answer is factually correct
+Evaluations require a mindset shift:
 
-**Operational Metrics:**
-- **Latency**: Response time
+**Traditional Software:**
+- Tests are deterministic: same input → same output
+- Pass/fail is binary
+- Write tests once, they work forever
+- Edge cases are rare and specific
+
+**AI Systems:**
+- Evaluations are probabilistic: same input → different outputs
+- Quality is a spectrum: scores range from 0-1
+- Evaluations need periodic review as systems evolve
+- Edge cases are everywhere—every input is potentially an edge case
+
+**Key insight:** Evaluations aren't just tests—they're measurement systems that help you understand, improve, and maintain AI system quality over time.
+
+## Types of Evaluations
+
+Different types of evaluations serve different purposes. Understanding when to use each is crucial.
+
+### 1. Unit Tests (Component-Level)
+
+Test individual components in isolation to ensure they work correctly.
+
+**What to test:**
+- **Embedding quality**: Do embeddings capture semantic similarity?
+- **Chunking correctness**: Are documents chunked appropriately?
+- **Retrieval precision**: Does retrieval return relevant results?
+- **Individual prompts**: Does a prompt produce expected outputs?
+- **Tool execution**: Do tools work correctly?
+- **Parsing logic**: Is structured output parsing correct?
+
+**Example:**
+```python
+def test_chunking():
+    """Test that chunking preserves important information."""
+    document = "Long document with key information..."
+    chunks = chunk_document(document, chunk_size=500)
+    
+    # Verify chunks are appropriate size
+    assert all(len(chunk) <= 500 for chunk in chunks)
+    
+    # Verify key information is preserved
+    assert any("key information" in chunk for chunk in chunks)
+```
+
+**When to use:**
+- Testing isolated components
+- Catching component-level regressions
+- Validating utility functions
+- Testing data processing pipelines
+
+### 2. Integration Tests (System-Level)
+
+Test complete workflows and interactions between components.
+
+**What to test:**
+- **End-to-end RAG pipeline**: Query → Retrieval → Generation
+- **Agent workflows**: Task → Planning → Tool Execution → Response
+- **Multi-step processes**: Complex workflows with multiple steps
+- **Component interactions**: How components work together
+
+**Example:**
+```python
+def test_rag_pipeline():
+    """Test complete RAG pipeline."""
+    query = "What is RAG?"
+    result = rag_pipeline.query(query)
+    
+    # Verify result is relevant
+    assert result is not None
+    assert len(result) > 0
+    
+    # Verify result mentions RAG
+    assert "RAG" in result or "retrieval" in result.lower()
+```
+
+**When to use:**
+- Testing complete workflows
+- Validating system integration
+- Catching integration-level issues
+- Testing component interactions
+
+### 3. End-to-End Tests (User-Level)
+
+Test from the user's perspective with real-world scenarios.
+
+**What to test:**
+- **Complete user queries**: Real questions users would ask
+- **Real-world scenarios**: Actual use cases
+- **Expected outputs**: What users expect to see
+- **User experience**: Latency, quality, completeness
+
+**Example:**
+```python
+def test_user_query():
+    """Test a real user query scenario."""
+    query = "How do I reset my password?"
+    response = system.query(query)
+    
+    # Verify response addresses the question
+    assert response is not None
+    assert any(word in response.lower() for word in ["password", "reset"])
+    
+    # Verify response is actionable
+    assert len(response.split()) > 10  # Not too short
+```
+
+**When to use:**
+- Validating user-facing functionality
+- Testing real-world scenarios
+- Measuring user experience
+- Ensuring system meets requirements
+
+### 4. Performance Tests
+
+Test system performance characteristics: latency, throughput, cost.
+
+**What to test:**
+- **Latency**: Response time under load
+- **Throughput**: Queries per second
 - **Cost**: Token usage and API costs
-- **Success rate**: Percentage of successful queries
+- **Resource usage**: Memory, CPU, API rate limits
+
+**When to use:**
+- Validating performance requirements
+- Identifying bottlenecks
+- Optimizing for cost
+- Load testing
+
+### 5. Quality Tests
+
+Test output quality: accuracy, relevance, coherence, factuality.
+
+**What to test:**
+- **Accuracy**: Correctness of outputs
+- **Relevance**: Output addresses the query
+- **Completeness**: Output covers all aspects
+- **Coherence**: Output is well-structured
+- **Factuality**: Output is factually correct
+
+**When to use:**
+- Measuring quality improvements
+- Catching quality regressions
+- Comparing different approaches
+- Validating quality requirements
+
+## Evaluation Metrics
+
+Different metrics measure different aspects of AI system quality. Choose metrics that align with your goals.
+
+### Accuracy Metrics
+
+Measure how correct outputs are.
+
+**1. Exact Match**
+
+Output exactly matches expected answer (case-insensitive).
+
+```python
+def exact_match(expected: str, actual: str) -> float:
+    """Exact match score (1.0 if match, 0.0 otherwise)."""
+    return 1.0 if expected.lower().strip() == actual.lower().strip() else 0.0
+```
+
+**Pros:** Simple, fast, deterministic
+**Cons:** Too strict for AI systems (misses semantically correct but different phrasings)
+**When to use:** When exact match is required (structured outputs, specific formats)
+
+**2. Semantic Similarity**
+
+Measure semantic similarity using embeddings.
+
+```python
+from openai import OpenAI
+import numpy as np
+from numpy.linalg import norm
+
+def semantic_similarity(expected: str, actual: str, embedding_model: str = "text-embedding-3-small") -> float:
+    """Calculate semantic similarity using embeddings."""
+    client = OpenAI()
+    
+    # Get embeddings
+    expected_embedding = client.embeddings.create(
+        model=embedding_model,
+        input=expected
+    ).data[0].embedding
+    
+    actual_embedding = client.embeddings.create(
+        model=embedding_model,
+        input=actual
+    ).data[0].embedding
+    
+    # Cosine similarity
+    cosine = np.dot(expected_embedding, actual_embedding) / (
+        norm(expected_embedding) * norm(actual_embedding)
+    )
+    
+    return float(cosine)
+```
+
+**Pros:** Captures semantic equivalence, more forgiving than exact match
+**Cons:** Can give high scores to related but incorrect answers
+**When to use:** When semantic equivalence matters more than exact wording
+
+**3. LLM-as-Judge**
+
+Use an LLM to evaluate if the answer is correct.
+
+```python
+def llm_as_judge(expected: str, actual: str, query: str, model: str = "gpt-4o") -> float:
+    """Use LLM to judge if answer is correct."""
+    client = OpenAI()
+    
+    prompt = f"""You are evaluating an AI system's response.
+
+Query: {query}
+Expected Answer: {expected}
+Actual Answer: {actual}
+
+Rate how well the actual answer addresses the query compared to the expected answer.
+Return a score from 0.0 to 1.0, where:
+- 1.0 = Perfect match or equivalent
+- 0.8-0.9 = Mostly correct with minor issues
+- 0.6-0.7 = Partially correct but missing important aspects
+- 0.4-0.5 = Somewhat relevant but incorrect or incomplete
+- 0.0-0.3 = Incorrect or irrelevant
+
+Return only the score as a float."""
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0
+    )
+    
+    try:
+        score = float(response.choices[0].message.content.strip())
+        return max(0.0, min(1.0, score))  # Clamp to [0, 1]
+    except:
+        return 0.5  # Default if parsing fails
+```
+
+**Pros:** Flexible, can evaluate complex criteria, understands context
+**Cons:** Expensive, can be inconsistent, requires prompt engineering
+**When to use:** When you need nuanced evaluation of quality, complex criteria
+
+### Quality Metrics
+
+Measure different aspects of output quality.
+
+**1. Relevance**
+
+Does the answer address the question?
+
+**2. Completeness**
+
+Does the answer cover all aspects of the question?
+
+**3. Coherence**
+
+Is the answer well-structured and logical?
+
+**4. Factuality**
+
+Is the answer factually correct?
+
+**5. Helpfulness**
+
+Is the answer helpful to the user?
+
+These are often evaluated using LLM-as-judge with specific prompts for each dimension.
+
+### Operational Metrics
+
+Measure system performance and efficiency.
+
+**1. Latency**
+
+Time to generate response (p50, p95, p99).
+
+**2. Cost**
+
+Token usage and API costs per query.
+
+**3. Success Rate**
+
+Percentage of queries that produce valid responses (non-errors).
+
+**4. Error Rate**
+
+Percentage of queries that fail or error.
+
+**5. Throughput**
+
+Queries processed per second.
 
 ## Code Examples
 
-Simple evaluation framework:
+### Basic Evaluation Framework
+
+A simple but functional evaluation framework:
 
 ```python
-from typing import List, Dict
+from typing import List, Dict, Callable, Any, Optional
 import json
+import time
+from dataclasses import dataclass
+
+@dataclass
+class TestCase:
+    """Represents a single test case."""
+    query: str
+    expected: str
+    metadata: Dict[str, Any] = None
+    context: str = None  # Additional context for evaluation
 
 class EvalFramework:
+    """Basic evaluation framework for AI systems."""
+    
     def __init__(self):
-        self.test_cases = []
+        self.test_cases: List[TestCase] = []
+        self.scoring_functions: Dict[str, Callable] = {}
     
-    def add_test_case(self, query: str, expected: str, metadata: Dict = None):
-        """Add a test case."""
-        self.test_cases.append({
-            "query": query,
-            "expected": expected,
-            "metadata": metadata or {}
-        })
+    def add_test_case(
+        self,
+        query: str,
+        expected: str,
+        metadata: Dict = None,
+        context: str = None
+    ):
+        """Add a test case to the evaluation suite."""
+        self.test_cases.append(TestCase(
+            query=query,
+            expected=expected,
+            metadata=metadata or {},
+            context=context
+        ))
     
-    def evaluate(self, system_func) -> Dict:
+    def register_scorer(self, name: str, scorer: Callable[[str, str], float]):
+        """Register a scoring function."""
+        self.scoring_functions[name] = scorer
+    
+    def evaluate(
+        self,
+        system_func: Callable[[str], str],
+        scorer_name: str = "exact_match",
+        verbose: bool = False
+    ) -> Dict[str, Any]:
         """Evaluate system on all test cases."""
+        if scorer_name not in self.scoring_functions:
+            raise ValueError(f"Scorer '{scorer_name}' not found")
+        
+        scorer = self.scoring_functions[scorer_name]
+        results = []
+        
+        for i, test_case in enumerate(self.test_cases):
+            if verbose:
+                print(f"Evaluating test case {i+1}/{len(self.test_cases)}: {test_case.query[:50]}...")
+            
+            try:
+                start_time = time.time()
+                actual = system_func(test_case.query)
+                latency = time.time() - start_time
+                
+                score = scorer(test_case.expected, actual)
+                
+                results.append({
+                    "query": test_case.query,
+                    "expected": test_case.expected,
+                    "actual": actual,
+                    "score": score,
+                    "passed": score >= 0.8,  # Threshold for passing
+                    "latency": latency,
+                    "metadata": test_case.metadata
+                })
+            except Exception as e:
+                results.append({
+                    "query": test_case.query,
+                    "expected": test_case.expected,
+                    "actual": None,
+                    "score": 0.0,
+                    "passed": False,
+                    "error": str(e),
+                    "metadata": test_case.metadata
+                })
+        
+        # Calculate aggregate metrics
+        passed = sum(1 for r in results if r.get("passed", False))
+        total = len(results)
+        avg_score = sum(r["score"] for r in results) / total if total > 0 else 0.0
+        avg_latency = sum(r.get("latency", 0) for r in results) / total if total > 0 else 0.0
+        
+        return {
+            "total": total,
+            "passed": passed,
+            "failed": total - passed,
+            "pass_rate": passed / total if total > 0 else 0.0,
+            "average_score": avg_score,
+            "average_latency": avg_latency,
+            "results": results,
+            "scorer": scorer_name
+        }
+
+# Usage
+framework = EvalFramework()
+
+# Register scorers
+def exact_match_scorer(expected: str, actual: str) -> float:
+    """Exact match scorer."""
+    return 1.0 if expected.lower().strip() == actual.lower().strip() else 0.0
+
+framework.register_scorer("exact_match", exact_match_scorer)
+
+# Add test cases
+framework.add_test_case(
+    query="What is RAG?",
+    expected="RAG is Retrieval-Augmented Generation, a technique that combines retrieval with generation.",
+    metadata={"category": "definition", "difficulty": "easy"}
+)
+
+framework.add_test_case(
+    query="How does chunking work?",
+    expected="Chunking is the process of breaking documents into smaller pieces for retrieval.",
+    metadata={"category": "explanation", "difficulty": "medium"}
+)
+
+# Evaluate system
+def my_system(query: str) -> str:
+    """Your AI system (simplified)."""
+    # Your system implementation
+    return f"Answer to: {query}"
+
+results = framework.evaluate(my_system, scorer_name="exact_match", verbose=True)
+print(f"Pass rate: {results['pass_rate']:.2%}")
+print(f"Average score: {results['average_score']:.2f}")
+```
+
+### Production-Ready Evaluation Framework
+
+A more comprehensive framework with multiple scorers, metrics, and reporting:
+
+```python
+import json
+import time
+from typing import List, Dict, Callable, Any, Optional
+from dataclasses import dataclass, field
+from datetime import datetime
+import statistics
+
+@dataclass
+class EvaluationResult:
+    """Result of a single evaluation."""
+    query: str
+    expected: str
+    actual: str
+    scores: Dict[str, float]  # Multiple scores
+    passed: bool
+    latency: float
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    error: Optional[str] = None
+
+class ProductionEvalFramework:
+    """Production-ready evaluation framework."""
+    
+    def __init__(self):
+        self.test_cases: List[TestCase] = []
+        self.scorers: Dict[str, Callable] = {}
+        self.metrics: List[str] = ["pass_rate", "average_score", "p95_latency"]
+    
+    def add_test_case(self, query: str, expected: str, **kwargs):
+        """Add test case with metadata."""
+        self.test_cases.append(TestCase(query=query, expected=expected, **kwargs))
+    
+    def register_scorer(self, name: str, scorer: Callable[[str, str], float]):
+        """Register scoring function."""
+        self.scorers[name] = scorer
+    
+    def evaluate(
+        self,
+        system_func: Callable[[str], str],
+        scorer_names: List[str] = None,
+        threshold: float = 0.8
+    ) -> Dict[str, Any]:
+        """Evaluate with multiple scorers."""
+        if scorer_names is None:
+            scorer_names = list(self.scorers.keys())
+        
+        # Validate scorers
+        for name in scorer_names:
+            if name not in self.scorers:
+                raise ValueError(f"Scorer '{name}' not found")
+        
         results = []
         
         for test_case in self.test_cases:
             try:
-                actual = system_func(test_case["query"])
-                score = self._score(test_case["expected"], actual)
-                results.append({
-                    "query": test_case["query"],
-                    "expected": test_case["expected"],
-                    "actual": actual,
-                    "score": score,
-                    "passed": score > 0.8
-                })
+                start_time = time.time()
+                actual = system_func(test_case.query)
+                latency = time.time() - start_time
+                
+                # Calculate all scores
+                scores = {}
+                for scorer_name in scorer_names:
+                    scorer = self.scorers[scorer_name]
+                    scores[scorer_name] = scorer(test_case.expected, actual)
+                
+                # Determine if passed (all scores above threshold)
+                passed = all(score >= threshold for score in scores.values())
+                
+                results.append(EvaluationResult(
+                    query=test_case.query,
+                    expected=test_case.expected,
+                    actual=actual,
+                    scores=scores,
+                    passed=passed,
+                    latency=latency,
+                    metadata=test_case.metadata or {}
+                ))
             except Exception as e:
-                results.append({
-                    "query": test_case["query"],
-                    "error": str(e),
-                    "passed": False
-                })
+                results.append(EvaluationResult(
+                    query=test_case.query,
+                    expected=test_case.expected,
+                    actual="",
+                    scores={name: 0.0 for name in scorer_names},
+                    passed=False,
+                    latency=0.0,
+                    metadata=test_case.metadata or {},
+                    error=str(e)
+                ))
+        
+        # Calculate aggregate metrics
+        return self._calculate_metrics(results, scorer_names)
+    
+    def _calculate_metrics(
+        self,
+        results: List[EvaluationResult],
+        scorer_names: List[str]
+    ) -> Dict[str, Any]:
+        """Calculate aggregate metrics."""
+        total = len(results)
+        passed = sum(1 for r in results if r.passed)
+        
+        metrics = {
+            "total": total,
+            "passed": passed,
+            "failed": total - passed,
+            "pass_rate": passed / total if total > 0 else 0.0,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Average scores per scorer
+        for scorer_name in scorer_names:
+            scores = [r.scores[scorer_name] for r in results]
+            metrics[f"avg_{scorer_name}"] = statistics.mean(scores) if scores else 0.0
+            metrics[f"median_{scorer_name}"] = statistics.median(scores) if scores else 0.0
+            metrics[f"min_{scorer_name}"] = min(scores) if scores else 0.0
+            metrics[f"max_{scorer_name}"] = max(scores) if scores else 0.0
+        
+        # Latency metrics
+        latencies = [r.latency for r in results if r.latency > 0]
+        if latencies:
+            metrics["avg_latency"] = statistics.mean(latencies)
+            metrics["p50_latency"] = statistics.median(latencies)
+            metrics["p95_latency"] = statistics.quantiles(latencies, n=20)[18] if len(latencies) >= 20 else max(latencies)
+            metrics["p99_latency"] = statistics.quantiles(latencies, n=100)[98] if len(latencies) >= 100 else max(latencies)
+        
+        # Error rate
+        errors = sum(1 for r in results if r.error)
+        metrics["error_rate"] = errors / total if total > 0 else 0.0
+        
+        metrics["results"] = [
+            {
+                "query": r.query,
+                "expected": r.expected,
+                "actual": r.actual,
+                "scores": r.scores,
+                "passed": r.passed,
+                "latency": r.latency,
+                "error": r.error
+            }
+            for r in results
+        ]
+        
+        return metrics
+    
+    def save_results(self, results: Dict[str, Any], filepath: str):
+        """Save evaluation results to JSON."""
+        with open(filepath, "w") as f:
+            json.dump(results, f, indent=2)
+    
+    def compare_results(
+        self,
+        results_a: Dict[str, Any],
+        results_b: Dict[str, Any],
+        metric: str = "pass_rate"
+    ) -> Dict[str, Any]:
+        """Compare two evaluation results."""
+        value_a = results_a.get(metric, 0)
+        value_b = results_b.get(metric, 0)
+        
+        improvement = value_b - value_a
+        improvement_pct = (improvement / value_a * 100) if value_a > 0 else 0
         
         return {
-            "total": len(self.test_cases),
-            "passed": sum(1 for r in results if r.get("passed", False)),
-            "results": results
+            "metric": metric,
+            "before": value_a,
+            "after": value_b,
+            "improvement": improvement,
+            "improvement_percent": improvement_pct,
+            "better": value_b > value_a
         }
-    
-    def _score(self, expected: str, actual: str) -> float:
-        """Simple scoring (can be improved with semantic similarity)."""
-        if expected.lower() == actual.lower():
-            return 1.0
-        # Simple word overlap
-        expected_words = set(expected.lower().split())
-        actual_words = set(actual.lower().split())
-        overlap = len(expected_words & actual_words)
-        total = len(expected_words | actual_words)
-        return overlap / total if total > 0 else 0.0
-
-# Usage
-eval_framework = EvalFramework()
-eval_framework.add_test_case(
-    query="What is RAG?",
-    expected="RAG is Retrieval-Augmented Generation"
-)
-
-results = eval_framework.evaluate(my_rag_system.query)
-print(f"Passed: {results['passed']}/{results['total']}")
 ```
 
 ## Common Mistakes
 
-1. **No evaluation**: Deploying without testing
-2. **Only manual testing**: Can't scale, inconsistent
-3. **Wrong metrics**: Metrics that don't reflect user value
-4. **Flaky tests**: Non-deterministic evaluations fail randomly
-5. **No baseline**: Can't measure improvements
-6. **Testing on training data**: Biased results
-7. **Ignoring edge cases**: System fails on unexpected inputs
+### 1. No evaluation at all
+
+Deploying AI systems without any evaluation is the most common and dangerous mistake.
+
+**Problems:**
+- No way to measure quality
+- Regressions go undetected
+- Can't optimize effectively
+- No confidence in system
+
+**Solutions:**
+- Start with basic evaluation framework
+- Add test cases for critical functionality
+- Run evaluations before deployment
+- Build evaluation culture
+
+Even simple evaluations are better than none. Start small and expand.
+
+### 2. Only manual testing
+
+Relying solely on manual testing doesn't scale and is inconsistent.
+
+**Problems:**
+- Doesn't scale to many test cases
+- Inconsistent evaluation criteria
+- Can't run continuously
+- Time-consuming
+
+**Solutions:**
+- Automate evaluations
+- Create test case suites
+- Run evaluations in CI/CD
+- Use consistent metrics
+
+Automation enables scale and consistency.
+
+### 3. Wrong metrics
+
+Using metrics that don't align with user value or system goals.
+
+**Problems:**
+- Optimize for wrong thing
+- Misleading quality signals
+- Users unhappy despite good metrics
+- Waste effort on irrelevant optimizations
+
+**Solutions:**
+- Choose metrics that reflect user value
+- Validate metrics correlate with user satisfaction
+- Use multiple metrics
+- Review metrics regularly
+
+Metrics should measure what matters to users, not just what's easy to measure.
+
+### 4. Flaky evaluations
+
+Non-deterministic evaluations that fail randomly make evaluation results unreliable.
+
+**Problems:**
+- Can't trust results
+- False positives/negatives
+- Wastes time debugging
+- Undermines confidence
+
+**Solutions:**
+- Use deterministic scorers when possible
+- Set appropriate thresholds
+- Average multiple runs for probabilistic scorers
+- Handle flakiness explicitly
+
+Flaky evaluations are worse than no evaluations—they give false confidence.
+
+### 5. No baseline
+
+Deploying evaluations without establishing baseline metrics.
+
+**Problems:**
+- Can't measure improvements
+- Don't know if changes help
+- No reference point
+- Hard to set goals
+
+**Solutions:**
+- Establish baseline before changes
+- Track metrics over time
+- Compare against baseline
+- Set improvement goals
+
+Baselines provide context for understanding changes.
+
+### 6. Testing on training data
+
+Using data the system was trained on for evaluation gives biased results.
+
+**Problems:**
+- Inflated performance metrics
+- Doesn't reflect real-world performance
+- False confidence
+- Poor generalization
+
+**Solutions:**
+- Use separate test sets
+- Never evaluate on training data
+- Use held-out data
+- Create realistic test cases
+
+Test on data the system hasn't seen.
+
+### 7. Ignoring edge cases
+
+Only testing common cases misses failure modes.
+
+**Problems:**
+- System fails on edge cases
+- Poor user experience
+- Production incidents
+- Hard to debug
+
+**Solutions:**
+- Include edge case test cases
+- Test with diverse inputs
+- Test boundary conditions
+- Test error scenarios
+
+Edge cases are where systems break.
+
+### 8. Not tracking metrics over time
+
+Evaluating once without tracking changes over time.
+
+**Problems:**
+- Can't detect gradual degradation
+- Miss regression trends
+- No historical context
+- Can't measure long-term impact
+
+**Solutions:**
+- Track metrics over time
+- Store evaluation results
+- Visualize trends
+- Set up alerts for regressions
+
+Tracking enables detecting trends and regressions.
+
+### 9. Over-relying on LLM-as-judge
+
+Using LLM-as-judge for everything without validation.
+
+**Problems:**
+- Expensive
+- Can be inconsistent
+- Requires prompt engineering
+- May not align with user judgment
+
+**Solutions:**
+- Use LLM-as-judge selectively
+- Validate against human judgment
+- Use multiple evaluation methods
+- Optimize prompts for consistency
+
+LLM-as-judge is powerful but should be used thoughtfully.
+
+### 10. Not evaluating in production
+
+Only evaluating in development misses production realities.
+
+**Problems:**
+- Production performance differs
+- Real user queries differ from test cases
+- Production issues go undetected
+- Can't measure production quality
+
+**Solutions:**
+- Set up production evaluation
+- Sample production queries
+- Track production metrics
+- Compare dev vs production
+
+Production evaluation reveals real-world performance.
 
 ## Exercise
 
-1. Create evaluation framework with test cases
-2. Implement multiple scoring methods (exact match, semantic similarity)
-3. Run evaluations on your RAG system
-4. Identify failure cases and improve system
-5. Set up continuous evaluation pipeline
-6. Track evaluation metrics over time
+Complete these exercises to master evaluation fundamentals.
+
+### 1. Build basic evaluation framework
+
+Create a simple evaluation framework:
+
+```python
+class BasicEvalFramework:
+    """TODO: Build basic evaluation framework"""
+    
+    def __init__(self):
+        """TODO: Initialize framework"""
+        # TODO: Test case storage
+        # TODO: Scorer registration
+        pass
+    
+    def add_test_case(self, query, expected):
+        """TODO: Add test case"""
+        pass
+    
+    def evaluate(self, system_func):
+        """TODO: Evaluate system"""
+        # TODO: Run all test cases
+        # TODO: Calculate scores
+        # TODO: Aggregate metrics
+        pass
+```
+
+### 2. Implement multiple scorers
+
+Create different scoring methods:
+
+```python
+def exact_match_scorer(expected, actual):
+    """TODO: Implement exact match"""
+    pass
+
+def semantic_similarity_scorer(expected, actual):
+    """TODO: Implement semantic similarity"""
+    # TODO: Use embeddings
+    # TODO: Calculate cosine similarity
+    pass
+
+def llm_as_judge_scorer(expected, actual, query):
+    """TODO: Implement LLM-as-judge"""
+    # TODO: Create evaluation prompt
+    # TODO: Call LLM
+    # TODO: Parse score
+    pass
+```
+
+### 3. Create test case suite
+
+Build comprehensive test cases:
+
+```python
+def create_test_suite(framework):
+    """TODO: Create test case suite"""
+    # TODO: Add diverse test cases
+    # TODO: Include edge cases
+    # TODO: Add metadata
+    # TODO: Cover different categories
+    pass
+```
+
+### 4. Compare evaluation methods
+
+Compare different evaluation approaches:
+
+```python
+def compare_scorers(framework, system_func):
+    """TODO: Compare different scorers"""
+    # TODO: Run evaluations with multiple scorers
+    # TODO: Compare results
+    # TODO: Identify differences
+    # TODO: Analyze when each works best
+    pass
+```
+
+### 5. Track metrics over time
+
+Implement metric tracking:
+
+```python
+class MetricTracker:
+    """TODO: Track metrics over time"""
+    
+    def record_evaluation(self, results):
+        """TODO: Record evaluation results"""
+        pass
+    
+    def get_trends(self, metric):
+        """TODO: Get metric trends"""
+        pass
+    
+    def detect_regressions(self, threshold):
+        """TODO: Detect metric regressions"""
+        pass
+```
+
+### 6. Test edge cases
+
+Create edge case test suite:
+
+```python
+def create_edge_case_suite(framework):
+    """TODO: Create edge case test suite"""
+    # TODO: Empty queries
+    # TODO: Very long queries
+    # TODO: Special characters
+    # TODO: Ambiguous queries
+    # TODO: Multi-part questions
+    # TODO: Error scenarios
+    pass
+```
+
+### 7. Reflection questions
+
+After completing exercises, answer:
+
+1. What makes a good evaluation metric?
+2. When should you use exact match vs semantic similarity?
+3. What are the trade-offs of LLM-as-judge?
+4. How do you handle flaky evaluations?
+5. What test cases are most important?
+6. How do you detect regressions?
+7. How often should you run evaluations?
+8. What metrics should you track over time?
+9. How do you validate that metrics align with user value?
+10. What's the minimum viable evaluation framework?
 
 ## Tools & Resources
 
-- [LangSmith](https://www.langchain.com/langsmith)
-- [Phoenix](https://github.com/Arize-ai/phoenix)
-- [RAGAS](https://docs.ragas.io/) - RAG evaluation framework
-- [Evaluation Best Practices](https://www.pinecone.io/learn/llm-evaluation/)
+### Evaluation Frameworks
 
+- **[LangSmith](https://www.langchain.com/langsmith)**: LangChain's evaluation and observability platform
+- **[RAGAS](https://docs.ragas.io/)**: Framework for evaluating RAG systems
+- **[Phoenix](https://github.com/Arize-ai/phoenix)**: Open-source LLM observability platform
+- **[Trulens](https://www.trulens.org/)**: LLM evaluation and monitoring
+
+### Research and Best Practices
+
+- **[Evaluation Best Practices](https://www.pinecone.io/learn/llm-evaluation/)**: Comprehensive guide to LLM evaluation
+- **[RAG Evaluation](https://docs.ragas.io/getting-started/concepts/)**: RAG-specific evaluation concepts
+- **[LLM Evaluation Papers](https://arxiv.org/abs/2310.19736)**: Research on LLM evaluation methods
+
+### Documentation
+
+- **[OpenAI Evals](https://github.com/openai/evals)**: OpenAI's evaluation framework
+- **[LangChain Evaluation](https://python.langchain.com/docs/guides/evaluation/)**: LangChain evaluation guide
+- **[Anthropic Evals](https://docs.anthropic.com/claude/docs/evals)**: Claude evaluation documentation

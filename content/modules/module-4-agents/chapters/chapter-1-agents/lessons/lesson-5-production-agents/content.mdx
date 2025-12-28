@@ -1,186 +1,1174 @@
 ---
 id: "lesson-5-production-agents"
 slug: "production-agents"
-title: "Agent Production Challenges"
-description: "Handle common production challenges: infinite loops, cost management, tool failures, and monitoring agent behavior."
+title: "Production Agent Patterns"
+description: "Master production-ready agent patterns: infinite loop prevention, cost management, error handling, monitoring, observability, and deployment strategies for production AI agents."
 order: 5
 chapterId: "chapter-1-agents"
 moduleId: "module-4-agents"
 prerequisites: ["lesson-4-error-handling"]
-estimatedMinutes: 8
-tags: ["agents", "production", "loops", "cost-management"]
+estimatedMinutes: 18
+tags: ["agents", "production", "loops", "cost-management", "monitoring", "observability"]
 difficulty: "advanced"
 ---
 
-# Agent Production Challenges
+# Production Agent Patterns
+
+> **💡** "Moving agents from prototype to production is like moving a pet hamster to the wild—suddenly you realize it needs guards against predators, food management, and a way to find its way home. Production agents need loop prevention, cost controls, error handling, and monitoring. Without these, your agent will either cost you thousands or get stuck in an infinite loop trying to find the answer to life, the universe, and everything." - AI Engineering Best Practice
 
 ## Overview
 
-Agents face unique production challenges: infinite loops, token blowups, tool failures, and unpredictable behavior. This lesson covers strategies to handle these challenges.
+Building agents that work in production requires handling challenges that don't appear in prototypes: infinite loops, token cost explosions, tool failures, unpredictable behavior, monitoring, and observability. This lesson covers production-ready patterns and strategies for deploying reliable, cost-effective, and maintainable agents.
 
-## Main Content
+The difference between a prototype agent and a production agent is the difference between "it works on my machine" and "it works for thousands of users, handles errors gracefully, stays within budget, and provides visibility into its behavior." Production agents need safeguards, monitoring, and robust error handling.
 
-### Preventing Infinite Loops
+## Production Challenges
 
-Agents can get stuck in loops trying to solve impossible tasks:
+Agents face unique challenges in production that traditional software doesn't:
+
+### 1. Infinite Loops
+
+Agents can get stuck repeating the same actions or reasoning endlessly, consuming resources and failing to complete tasks.
+
+**Common causes:**
+- Tasks with no solution (agent keeps trying)
+- Circular reasoning patterns
+- Repeated tool calls that don't progress
+- No loop detection or iteration limits
+
+**Impact:**
+- Wastes tokens (hundreds of thousands, costing hundreds of dollars)
+- Degrades user experience (slow or unresponsive)
+- Consumes compute resources
+- Can cause system failures
+
+### 2. Token Cost Explosion
+
+Agent runs can consume massive amounts of tokens, leading to unexpectedly high costs.
+
+**Common causes:**
+- Long conversation histories
+- Multiple tool calls accumulating context
+- No token budgets or limits
+- Inefficient prompt design
+- No conversation summarization
+
+**Impact:**
+- Costs can be 10-100x higher than expected
+- Budget overruns
+- Unpredictable pricing
+- Can make product unprofitable
+
+### 3. Tool Failures
+
+Tools can fail for many reasons: network issues, API errors, timeouts, invalid inputs.
+
+**Common causes:**
+- Network timeouts
+- API rate limits
+- Invalid tool arguments from LLM
+- External service failures
+- Authentication errors
+
+**Impact:**
+- Agent stops working
+- Poor user experience
+- No error recovery
+- Production incidents
+
+### 4. Unpredictable Behavior
+
+Agents can behave unpredictably, making different decisions for similar inputs.
+
+**Common causes:**
+- Probabilistic LLM outputs
+- Temperature settings too high
+- Inconsistent tool descriptions
+- Ambiguous user inputs
+
+**Impact:**
+- Inconsistent user experience
+- Difficult to debug
+- Hard to reproduce issues
+- Quality varies
+
+### 5. Lack of Observability
+
+Without proper monitoring, you can't understand what agents are doing or why they fail.
+
+**Common causes:**
+- No logging of agent decisions
+- No metrics on tool usage
+- No visibility into token consumption
+- No error tracking
+
+**Impact:**
+- Can't debug production issues
+- Can't optimize costs
+- Can't improve agent behavior
+- No visibility into failures
+
+## Loop Prevention
+
+Preventing infinite loops is critical for production agents. Implement multiple layers of protection.
+
+### Loop Detection Strategies
+
+**1. Iteration Limits**
+
+Simple but essential: set a maximum number of iterations per agent run.
 
 ```python
 class LoopPrevention:
-    def __init__(self, max_iterations: int = 10, max_tokens: int = 10000):
+    def __init__(self, max_iterations: int = 15, max_execution_time: int = 300):
         self.max_iterations = max_iterations
-        self.max_tokens = max_tokens
+        self.max_execution_time = max_execution_time
         self.iteration_count = 0
-        self.total_tokens = 0
-        self.previous_actions = []
+        self.start_time = None
     
-    def check_loop(self, current_action: str) -> tuple[bool, str]:
-        """Check if agent is in a loop."""
-        self.iteration_count += 1
+    def check_limits(self) -> tuple[bool, str]:
+        """Check if agent has exceeded limits."""
+        if self.start_time is None:
+            self.start_time = time.time()
         
         # Check iteration limit
-        if self.iteration_count > self.max_iterations:
-            return True, "Max iterations reached"
+        if self.iteration_count >= self.max_iterations:
+            return True, f"Max iterations ({self.max_iterations}) reached"
         
-        # Check token limit
-        if self.total_tokens > self.max_tokens:
-            return True, "Token limit exceeded"
+        # Check execution time limit
+        elapsed = time.time() - self.start_time
+        if elapsed > self.max_execution_time:
+            return True, f"Max execution time ({self.max_execution_time}s) exceeded"
         
-        # Check for repeated actions
-        if len(self.previous_actions) >= 3:
-            last_three = self.previous_actions[-3:]
-            if len(set(last_three)) == 1:  # Same action 3 times
-                return True, "Repeated actions detected"
+        return False, ""
+    
+    def increment(self):
+        """Increment iteration counter."""
+        self.iteration_count += 1
+```
+
+**2. Action Repetition Detection**
+
+Detect when the agent repeats the same action multiple times.
+
+```python
+class ActionRepetitionDetector:
+    def __init__(self, repetition_threshold: int = 3):
+        self.repetition_threshold = repetition_threshold
+        self.recent_actions = []
+        self.action_counts = {}
+    
+    def check_repetition(self, current_action: str) -> tuple[bool, str]:
+        """Check if action is being repeated too often."""
+        self.recent_actions.append(current_action)
         
-        # Check for circular patterns
-        if len(self.previous_actions) >= 5:
-            pattern = self.previous_actions[-3:]
-            if pattern == self.previous_actions[-6:-3]:
-                return True, "Circular pattern detected"
+        # Keep only recent actions (last 10)
+        if len(self.recent_actions) > 10:
+            self.recent_actions.pop(0)
         
-        self.previous_actions.append(current_action)
+        # Count occurrences in recent actions
+        recent_count = self.recent_actions.count(current_action)
+        
+        if recent_count >= self.repetition_threshold:
+            return True, f"Action '{current_action}' repeated {recent_count} times"
+        
+        # Check for same action in last N actions
+        if len(self.recent_actions) >= self.repetition_threshold:
+            last_n = self.recent_actions[-self.repetition_threshold:]
+            if len(set(last_n)) == 1:  # All same
+                return True, f"Same action '{current_action}' {self.repetition_threshold} times in a row"
+        
         return False, ""
 ```
 
-### Cost Management
+**3. Circular Pattern Detection**
 
-Agents can consume huge amounts of tokens:
+Detect when the agent cycles through a sequence of actions.
+
+```python
+class CircularPatternDetector:
+    def __init__(self, pattern_length: int = 3):
+        self.pattern_length = pattern_length
+        self.action_history = []
+    
+    def check_circular_pattern(self, current_action: str) -> tuple[bool, str]:
+        """Check for circular action patterns."""
+        self.action_history.append(current_action)
+        
+        # Need enough history to detect patterns
+        if len(self.action_history) < self.pattern_length * 2:
+            return False, ""
+        
+        # Check if last pattern_length actions repeat
+        recent_pattern = self.action_history[-self.pattern_length:]
+        previous_pattern = self.action_history[-self.pattern_length * 2:-self.pattern_length]
+        
+        if recent_pattern == previous_pattern:
+            return True, f"Circular pattern detected: {recent_pattern}"
+        
+        return False, ""
+```
+
+**4. Progress Tracking**
+
+Track whether the agent is making progress toward its goal.
+
+```python
+class ProgressTracker:
+    def __init__(self):
+        self.states = []
+        self.no_progress_threshold = 5
+    
+    def check_progress(self, current_state: dict) -> tuple[bool, str]:
+        """Check if agent is making progress."""
+        self.states.append(current_state)
+        
+        # Keep only recent states
+        if len(self.states) > self.no_progress_threshold:
+            self.states.pop(0)
+        
+        # Check if state has changed (simplified - in production use more sophisticated comparison)
+        if len(self.states) >= self.no_progress_threshold:
+            recent_states = self.states[-self.no_progress_threshold:]
+            if len(set(str(s) for s in recent_states)) == 1:
+                return True, "No progress detected in recent iterations"
+        
+        return False, ""
+```
+
+### Complete Loop Prevention System
+
+Combine all strategies for robust loop prevention:
+
+```python
+import time
+from typing import Dict, List, Tuple
+
+class ProductionLoopPrevention:
+    """Complete loop prevention system for production agents."""
+    
+    def __init__(
+        self,
+        max_iterations: int = 15,
+        max_execution_time: int = 300,
+        repetition_threshold: int = 3,
+        pattern_length: int = 3
+    ):
+        self.max_iterations = max_iterations
+        self.max_execution_time = max_execution_time
+        self.repetition_threshold = repetition_threshold
+        self.pattern_length = pattern_length
+        
+        self.iteration_count = 0
+        self.start_time = None
+        self.recent_actions: List[str] = []
+        self.action_history: List[str] = []
+        self.states: List[Dict] = []
+    
+    def check_all(self, current_action: str, current_state: Dict = None) -> Tuple[bool, str]:
+        """Check all loop prevention mechanisms."""
+        if self.start_time is None:
+            self.start_time = time.time()
+        
+        self.iteration_count += 1
+        self.recent_actions.append(current_action)
+        self.action_history.append(current_action)
+        if current_state:
+            self.states.append(current_state)
+        
+        # Check iteration limit
+        if self.iteration_count > self.max_iterations:
+            return True, f"Max iterations ({self.max_iterations}) reached"
+        
+        # Check execution time
+        elapsed = time.time() - self.start_time
+        if elapsed > self.max_execution_time:
+            return True, f"Max execution time ({self.max_execution_time}s) exceeded"
+        
+        # Check repetition
+        if len(self.recent_actions) >= self.repetition_threshold:
+            last_n = self.recent_actions[-self.repetition_threshold:]
+            if len(set(last_n)) == 1:
+                return True, f"Action '{current_action}' repeated {self.repetition_threshold} times"
+        
+        # Check circular pattern
+        if len(self.action_history) >= self.pattern_length * 2:
+            recent_pattern = self.action_history[-self.pattern_length:]
+            previous_pattern = self.action_history[-self.pattern_length * 2:-self.pattern_length]
+            if recent_pattern == previous_pattern:
+                return True, f"Circular pattern: {recent_pattern}"
+        
+        # Check progress (simplified)
+        if len(self.states) >= 5:
+            recent_states = self.states[-5:]
+            if len(set(str(s) for s in recent_states)) == 1:
+                return True, "No progress detected"
+        
+        return False, ""
+    
+    def reset(self):
+        """Reset state (for new agent run)."""
+        self.iteration_count = 0
+        self.start_time = None
+        self.recent_actions = []
+        self.action_history = []
+        self.states = []
+```
+
+## Cost Management
+
+Agent runs can be expensive. Implement cost tracking and budgets to prevent budget overruns.
+
+### Cost Tracking
+
+Track token usage and calculate costs in real-time:
 
 ```python
 class CostTracker:
-    def __init__(self, budget: float = 10.0):
+    """Track token usage and costs for agent runs."""
+    
+    # Model pricing (2024-2025, approximate)
+    PRICING = {
+        "gpt-4o": {
+            "input": 2.50 / 1_000_000,  # $2.50 per million input tokens
+            "output": 10.00 / 1_000_000,  # $10.00 per million output tokens
+        },
+        "gpt-4o-mini": {
+            "input": 0.15 / 1_000_000,
+            "output": 0.60 / 1_000_000,
+        },
+        "gpt-4-turbo": {
+            "input": 10.00 / 1_000_000,
+            "output": 30.00 / 1_000_000,
+        },
+        "claude-3-5-sonnet": {
+            "input": 3.00 / 1_000_000,
+            "output": 15.00 / 1_000_000,
+        }
+    }
+    
+    def __init__(self, model: str = "gpt-4o", budget: float = 1.0):
+        self.model = model
         self.budget = budget
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
         self.spent = 0.0
         self.request_count = 0
+        self.cost_history = []
     
-    def track_request(self, tokens: int, cost_per_1k: float = 0.03):
-        """Track token usage and cost."""
-        cost = (tokens / 1000) * cost_per_1k
+    def track_request(self, input_tokens: int, output_tokens: int):
+        """Track a single request's token usage."""
+        if self.model not in self.PRICING:
+            # Default pricing if model not found
+            input_cost = (input_tokens / 1_000_000) * 2.50
+            output_cost = (output_tokens / 1_000_000) * 10.00
+        else:
+            pricing = self.PRICING[self.model]
+            input_cost = (input_tokens / 1_000_000) * pricing["input"]
+            output_cost = (output_tokens / 1_000_000) * pricing["output"]
+        
+        cost = input_cost + output_cost
+        
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += output_tokens
         self.spent += cost
         self.request_count += 1
+        
+        self.cost_history.append({
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cost": cost,
+            "timestamp": time.time()
+        })
     
-    def can_proceed(self) -> tuple[bool, str]:
-        """Check if agent can continue."""
-        if self.spent >= self.budget:
-            return False, f"Budget exceeded: ${self.spent:.2f}"
+    def can_proceed(self, estimated_additional_cost: float = 0.0) -> Tuple[bool, str]:
+        """Check if agent can continue given budget constraints."""
+        total_estimated = self.spent + estimated_additional_cost
+        
+        if total_estimated >= self.budget:
+            return False, f"Budget exceeded: ${self.spent:.4f} spent, ${total_estimated:.4f} estimated"
         
         remaining = self.budget - self.spent
-        if remaining < 0.10:  # Less than 10 cents
-            return False, f"Low budget remaining: ${remaining:.2f}"
+        if remaining < 0.01:  # Less than 1 cent
+            return False, f"Budget nearly exhausted: ${remaining:.4f} remaining"
         
-        return True, f"Budget OK: ${remaining:.2f} remaining"
+        return True, f"Budget OK: ${remaining:.4f} remaining"
+    
+    def get_stats(self) -> Dict:
+        """Get cost tracking statistics."""
+        return {
+            "model": self.model,
+            "budget": self.budget,
+            "spent": self.spent,
+            "remaining": self.budget - self.spent,
+            "total_input_tokens": self.total_input_tokens,
+            "total_output_tokens": self.total_output_tokens,
+            "total_tokens": self.total_input_tokens + self.total_output_tokens,
+            "request_count": self.request_count,
+            "avg_cost_per_request": self.spent / self.request_count if self.request_count > 0 else 0,
+            "avg_tokens_per_request": (self.total_input_tokens + self.total_output_tokens) / self.request_count if self.request_count > 0 else 0
+        }
 ```
 
-### Handling Tool Failures
+### Conversation Summarization
+
+Reduce token usage by summarizing long conversation histories:
 
 ```python
-class RobustAgent:
-    def __init__(self):
-        self.tools = {}
-        self.max_retries = 3
+class ConversationSummarizer:
+    """Summarize conversation history to reduce token usage."""
     
-    def execute_tool_safely(self, tool_name: str, args: dict):
-        """Execute tool with retries and error handling."""
+    def __init__(self, max_history_length: int = 10, summary_threshold: int = 20):
+        self.max_history_length = max_history_length
+        self.summary_threshold = summary_threshold
+    
+    def should_summarize(self, conversation: List[Dict]) -> bool:
+        """Check if conversation should be summarized."""
+        return len(conversation) > self.summary_threshold
+    
+    def summarize(self, conversation: List[Dict], llm_client) -> str:
+        """Summarize conversation history."""
+        # Extract key information from conversation
+        # In production, use LLM to create summary
+        summary = f"Previous conversation summary: {len(conversation)} messages exchanged. Key topics discussed: [extract topics]. Current context: [last few messages]"
+        return summary
+    
+    def compress_conversation(self, conversation: List[Dict]) -> List[Dict]:
+        """Compress conversation by summarizing old messages."""
+        if not self.should_summarize(conversation):
+            return conversation
+        
+        # Keep recent messages, summarize older ones
+        recent = conversation[-self.max_history_length:]
+        older = conversation[:-self.max_history_length]
+        
+        # Summarize older messages (simplified - in production use LLM)
+        summary = {
+            "role": "system",
+            "content": f"Summary of {len(older)} previous messages: [summary]"
+        }
+        
+        return [summary] + recent
+```
+
+## Error Handling and Resilience
+
+Production agents must handle failures gracefully and recover when possible.
+
+### Tool Failure Handling
+
+```python
+import time
+from typing import Optional, Dict, Any
+import random
+
+class RobustToolExecutor:
+    """Execute tools with retries, error handling, and resilience."""
+    
+    def __init__(
+        self,
+        max_retries: int = 3,
+        initial_backoff: float = 0.5,
+        max_backoff: float = 5.0,
+        timeout: float = 30.0
+    ):
+        self.max_retries = max_retries
+        self.initial_backoff = initial_backoff
+        self.max_backoff = max_backoff
+        self.timeout = timeout
+        self.tool_failures = {}
+    
+    def execute_with_retry(
+        self,
+        tool_name: str,
+        tool_func: callable,
+        args: dict,
+        retryable_errors: List[str] = None
+    ) -> Dict[str, Any]:
+        """Execute tool with retry logic."""
+        if retryable_errors is None:
+            retryable_errors = ["timeout", "rate_limit", "network_error", "service_unavailable"]
+        
+        last_error = None
+        
         for attempt in range(self.max_retries):
             try:
-                result = self.tools[tool_name](**args)
-                return {"success": True, "result": result}
+                # Execute tool (in production, add timeout handling)
+                result = tool_func(**args)
+                
+                # Reset failure count on success
+                if tool_name in self.tool_failures:
+                    del self.tool_failures[tool_name]
+                
+                return {
+                    "success": True,
+                    "result": result,
+                    "attempts": attempt + 1,
+                    "error": None
+                }
+            
             except Exception as e:
-                if attempt == self.max_retries - 1:
+                error_str = str(e).lower()
+                last_error = str(e)
+                
+                # Check if error is retryable
+                is_retryable = any(err in error_str for err in retryable_errors)
+                
+                if not is_retryable or attempt == self.max_retries - 1:
+                    # Non-retryable error or final attempt
+                    self._track_failure(tool_name)
                     return {
                         "success": False,
-                        "error": str(e),
-                        "tool": tool_name
+                        "result": None,
+                        "attempts": attempt + 1,
+                        "error": last_error,
+                        "retryable": is_retryable
                     }
-                time.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                
+                # Exponential backoff
+                backoff = min(
+                    self.initial_backoff * (2 ** attempt),
+                    self.max_backoff
+                )
+                # Add jitter
+                backoff += random.uniform(0, 0.1 * backoff)
+                
+                time.sleep(backoff)
         
-        return {"success": False, "error": "Max retries exceeded"}
+        self._track_failure(tool_name)
+        return {
+            "success": False,
+            "result": None,
+            "attempts": self.max_retries,
+            "error": f"Max retries ({self.max_retries}) exceeded: {last_error}",
+            "retryable": True
+        }
+    
+    def _track_failure(self, tool_name: str):
+        """Track tool failures for monitoring."""
+        if tool_name not in self.tool_failures:
+            self.tool_failures[tool_name] = 0
+        self.tool_failures[tool_name] += 1
+    
+    def get_failure_stats(self) -> Dict[str, int]:
+        """Get tool failure statistics."""
+        return self.tool_failures.copy()
+```
+
+## Monitoring and Observability
+
+Production agents need comprehensive monitoring to understand behavior and debug issues.
+
+### Agent Metrics
+
+Track key metrics for agent runs:
+
+```python
+import time
+from typing import Dict, List
+from datetime import datetime
+
+class AgentMetrics:
+    """Collect and track agent metrics."""
+    
+    def __init__(self):
+        self.run_id = None
+        self.start_time = None
+        self.end_time = None
+        self.iterations = 0
+        self.tool_calls = []
+        self.tokens_used = {"input": 0, "output": 0}
+        self.errors = []
+        self.final_status = None
+    
+    def start_run(self, run_id: str, task: str):
+        """Start tracking a new agent run."""
+        self.run_id = run_id
+        self.start_time = time.time()
+        self.end_time = None
+        self.iterations = 0
+        self.tool_calls = []
+        self.tokens_used = {"input": 0, "output": 0}
+        self.errors = []
+        self.final_status = None
+        self.task = task
+    
+    def record_iteration(self, iteration_data: Dict):
+        """Record data for an iteration."""
+        self.iterations += 1
+        if "tool_call" in iteration_data:
+            self.tool_calls.append({
+                "iteration": self.iterations,
+                "tool": iteration_data["tool_call"],
+                "timestamp": time.time()
+            })
+        if "tokens" in iteration_data:
+            self.tokens_used["input"] += iteration_data["tokens"].get("input", 0)
+            self.tokens_used["output"] += iteration_data["tokens"].get("output", 0)
+    
+    def record_error(self, error: str, context: Dict = None):
+        """Record an error."""
+        self.errors.append({
+            "error": error,
+            "context": context,
+            "iteration": self.iterations,
+            "timestamp": time.time()
+        })
+    
+    def end_run(self, status: str, result: Any = None):
+        """End tracking for a run."""
+        self.end_time = time.time()
+        self.final_status = status
+        self.result = result
+    
+    def get_metrics(self) -> Dict:
+        """Get all metrics for the run."""
+        duration = (self.end_time or time.time()) - (self.start_time or time.time())
+        
+        return {
+            "run_id": self.run_id,
+            "task": self.task,
+            "status": self.final_status,
+            "duration_seconds": duration,
+            "iterations": self.iterations,
+            "tokens_used": self.tokens_used.copy(),
+            "total_tokens": self.tokens_used["input"] + self.tokens_used["output"],
+            "tool_calls": len(self.tool_calls),
+            "tool_call_details": self.tool_calls.copy(),
+            "errors": len(self.errors),
+            "error_details": self.errors.copy(),
+            "success_rate": 1.0 if len(self.errors) == 0 else max(0, 1.0 - (len(self.errors) / self.iterations)),
+            "start_time": datetime.fromtimestamp(self.start_time).isoformat() if self.start_time else None,
+            "end_time": datetime.fromtimestamp(self.end_time).isoformat() if self.end_time else None
+        }
 ```
 
 ## Code Examples
 
-Complete production-ready agent:
+### Complete Production-Ready Agent
+
+A complete production agent with all safeguards:
 
 ```python
+import time
+import uuid
+from typing import Dict, List, Any, Optional
+from openai import OpenAI
+
 class ProductionAgent:
-    def __init__(self, max_iterations=10, budget=10.0):
-        self.loop_prevention = LoopPrevention(max_iterations)
-        self.cost_tracker = CostTracker(budget)
-        self.tools = {}
+    """Production-ready agent with all safeguards and monitoring."""
     
-    def run(self, task: str) -> dict:
-        """Run agent with production safeguards."""
-        iterations = 0
+    def __init__(
+        self,
+        model: str = "gpt-4o",
+        max_iterations: int = 15,
+        max_execution_time: int = 300,
+        budget: float = 1.0,
+        max_retries: int = 3
+    ):
+        self.client = OpenAI()
+        self.model = model
+        self.loop_prevention = ProductionLoopPrevention(
+            max_iterations=max_iterations,
+            max_execution_time=max_execution_time
+        )
+        self.cost_tracker = CostTracker(model=model, budget=budget)
+        self.tool_executor = RobustToolExecutor(max_retries=max_retries)
+        self.metrics = AgentMetrics()
+        self.tools = {}
+        self.conversation_summarizer = ConversationSummarizer()
+    
+    def register_tool(self, name: str, func: callable, description: str):
+        """Register a tool."""
+        self.tools[name] = {
+            "func": func,
+            "description": description
+        }
+    
+    def run(self, task: str) -> Dict[str, Any]:
+        """Run agent with all production safeguards."""
+        run_id = str(uuid.uuid4())
+        self.metrics.start_run(run_id, task)
+        self.loop_prevention.reset()
         
-        while iterations < self.loop_prevention.max_iterations:
-            # Check loop prevention
-            in_loop, reason = self.loop_prevention.check_loop("current_action")
-            if in_loop:
-                return {"error": f"Loop detected: {reason}"}
-            
-            # Check budget
-            can_proceed, budget_msg = self.cost_tracker.can_proceed()
-            if not can_proceed:
-                return {"error": budget_msg}
-            
-            # Execute agent step
-            try:
-                result = self._agent_step(task)
+        messages = [
+            {"role": "user", "content": task}
+        ]
+        
+        try:
+            while True:
+                # Check loop prevention
+                current_action = "llm_call"  # Simplified
+                in_loop, loop_reason = self.loop_prevention.check_all(current_action)
+                if in_loop:
+                    self.metrics.record_error(f"Loop detected: {loop_reason}")
+                    self.metrics.end_run("loop_detected")
+                    return {
+                        "success": False,
+                        "error": f"Loop detected: {loop_reason}",
+                        "metrics": self.metrics.get_metrics()
+                    }
+                
+                # Check budget
+                can_proceed, budget_msg = self.cost_tracker.can_proceed(estimated_additional_cost=0.01)
+                if not can_proceed:
+                    self.metrics.record_error(f"Budget exceeded: {budget_msg}")
+                    self.metrics.end_run("budget_exceeded")
+                    return {
+                        "success": False,
+                        "error": budget_msg,
+                        "metrics": self.metrics.get_metrics()
+                    }
+                
+                # Summarize conversation if needed
+                messages = self.conversation_summarizer.compress_conversation(messages)
+                
+                # Call LLM
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    tools=self._get_tool_definitions() if self.tools else None
+                )
+                
+                assistant_message = response.choices[0].message
+                messages.append(assistant_message)
                 
                 # Track tokens
-                if "tokens" in result:
-                    self.cost_tracker.track_request(result["tokens"])
+                usage = response.usage
+                self.cost_tracker.track_request(usage.prompt_tokens, usage.completion_tokens)
+                self.metrics.record_iteration({
+                    "tokens": {
+                        "input": usage.prompt_tokens,
+                        "output": usage.completion_tokens
+                    }
+                })
                 
-                # Check if complete
-                if result.get("complete", False):
-                    return {"success": True, "result": result["output"]}
+                # Handle tool calls
+                if assistant_message.tool_calls:
+                    for tool_call in assistant_message.tool_calls:
+                        function_name = tool_call.function.name
+                        function_args = json.loads(tool_call.function.arguments)
+                        
+                        # Execute tool with retries
+                        tool_result = self.tool_executor.execute_with_retry(
+                            tool_name=function_name,
+                            tool_func=self.tools[function_name]["func"],
+                            args=function_args
+                        )
+                        
+                        if tool_result["success"]:
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": str(tool_result["result"])
+                            })
+                        else:
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": f"Error: {tool_result['error']}"
+                            })
+                            self.metrics.record_error(f"Tool {function_name} failed: {tool_result['error']}")
+                    
+                    continue  # Continue loop to get final response
                 
-                iterations += 1
-            except Exception as e:
-                return {"error": f"Agent error: {e}"}
+                # Final response received
+                final_answer = assistant_message.content
+                self.metrics.end_run("success", final_answer)
+                
+                return {
+                    "success": True,
+                    "result": final_answer,
+                    "metrics": self.metrics.get_metrics()
+                }
         
-        return {"error": "Max iterations reached"}
+        except Exception as e:
+            self.metrics.record_error(str(e))
+            self.metrics.end_run("error")
+            return {
+                "success": False,
+                "error": str(e),
+                "metrics": self.metrics.get_metrics()
+            }
+    
+    def _get_tool_definitions(self) -> List[Dict]:
+        """Get OpenAI-compatible tool definitions."""
+        # Implementation
+        return []
 ```
 
 ## Common Mistakes
 
-1. **No loop prevention**: Agents run forever
-2. **No budget limits**: Costs spiral out of control
-3. **No tool error handling**: Single failure crashes agent
-4. **No monitoring**: Can't debug production issues
-5. **No timeout**: Agents hang indefinitely
-6. **Token blowups**: Long runs consume too many tokens
+### 1. No loop prevention
+
+Deploying agents without loop prevention leads to infinite runs, massive costs, and system failures.
+
+**Problems:**
+- Agents run indefinitely
+- Token costs explode
+- System resources exhausted
+- Poor user experience
+
+**Solutions:**
+- Always set max_iterations (10-20 typical)
+- Set max_execution_time (e.g., 5 minutes)
+- Implement repetition detection
+- Detect circular patterns
+- Track progress
+
+Never deploy agents without loop prevention. It's not optional.
+
+### 2. No cost tracking or budgets
+
+Without cost tracking, agent runs can cost hundreds or thousands of dollars unexpectedly.
+
+**Problems:**
+- No visibility into costs
+- Budget overruns
+- Unexpected bills
+- Can't optimize costs
+
+**Solutions:**
+- Track tokens for every request
+- Calculate costs in real-time
+- Set per-run budgets
+- Alert on high costs
+- Monitor cost trends
+
+Set budgets aggressively—it's better to fail fast than spend $1000 on a single run.
+
+### 3. Poor error handling
+
+Agents that crash on first error provide poor user experience and aren't production-ready.
+
+**Problems:**
+- Single tool failure stops agent
+- No retry logic
+- Errors not communicated to users
+- No error recovery
+
+**Solutions:**
+- Retry transient errors (timeouts, rate limits)
+- Handle tool failures gracefully
+- Return errors to LLM for adaptation
+- Log all errors for debugging
+- Implement circuit breakers for failing tools
+
+Production agents must be resilient to failures.
+
+### 4. No monitoring or observability
+
+Without monitoring, you can't understand agent behavior, debug issues, or improve performance.
+
+**Problems:**
+- Can't debug production issues
+- No visibility into token usage
+- Can't identify bottlenecks
+- No metrics on success/failure rates
+
+**Solutions:**
+- Log all agent decisions
+- Track tool usage and success rates
+- Monitor token consumption
+- Track execution times
+- Record errors and failures
+- Use tools like LangSmith, Weights & Biases, or custom logging
+
+You can't improve what you don't measure.
+
+### 5. No conversation management
+
+Long conversation histories consume massive tokens and degrade performance.
+
+**Problems:**
+- Token costs grow linearly with conversation length
+- Context window limits reached
+- Performance degrades with long histories
+- Can't handle long-running conversations
+
+**Solutions:**
+- Summarize conversation history
+- Keep only recent messages
+- Implement sliding window
+- Use external state storage
+- Clear irrelevant context
+
+For long conversations, summarize early and often.
+
+### 6. No timeout handling
+
+Agents can hang indefinitely waiting for tools or LLM responses.
+
+**Problems:**
+- Tools hang without timeouts
+- Users wait indefinitely
+- Resources locked up
+- Poor user experience
+
+**Solutions:**
+- Set timeouts for all tool executions
+- Set timeouts for LLM calls
+- Use async execution with timeouts
+- Cancel long-running operations
+- Return timeout errors gracefully
+
+Every external call needs a timeout.
+
+### 7. Ignoring tool failure patterns
+
+Repeated tool failures indicate systemic issues that need attention.
+
+**Problems:**
+- Same tool fails repeatedly
+- No alerting on failure patterns
+- Can't identify problematic tools
+- Users experience consistent failures
+
+**Solutions:**
+- Track tool failure rates
+- Alert on high failure rates
+- Implement circuit breakers
+- Disable failing tools temporarily
+- Investigate root causes
+
+Monitor tool health and take action on patterns.
+
+### 8. No testing with edge cases
+
+Testing only with happy paths misses production failures.
+
+**Problems:**
+- Edge cases cause production failures
+- Unexpected behavior in production
+- Poor error handling revealed late
+- Difficult to debug
+
+**Solutions:**
+- Test with impossible tasks
+- Test with failing tools
+- Test with budget limits
+- Test with network failures
+- Test with invalid inputs
+- Test with long-running tasks
+
+Test edge cases aggressively—they will happen in production.
+
+### 9. Not optimizing token usage
+
+Inefficient prompt design and conversation management wastes tokens and money.
+
+**Problems:**
+- Unnecessary tokens in prompts
+- No conversation summarization
+- Verbose tool descriptions
+- Redundant context
+
+**Solutions:**
+- Optimize prompt length
+- Summarize conversations
+- Keep tool descriptions concise
+- Remove redundant context
+- Use cheaper models when possible
+- Monitor and optimize token usage
+
+Token optimization directly reduces costs.
+
+### 10. Deploying without gradual rollout
+
+Deploying new agents to all users immediately risks widespread failures.
+
+**Problems:**
+- Bugs affect all users
+- Cost issues impact entire system
+- Difficult to rollback
+- No ability to compare performance
+
+**Solutions:**
+- Start with small percentage of traffic
+- Gradually increase rollout
+- Monitor metrics at each stage
+- Compare old vs new performance
+- Have rollback plan ready
+
+Always roll out gradually and monitor closely.
 
 ## Exercise
 
-1. Implement loop detection
-2. Add cost tracking and budgets
-3. Add tool error handling with retries
-4. Set up monitoring and logging
-5. Test with edge cases (impossible tasks, failing tools)
-6. Measure costs and optimize
+Complete these exercises to master production agent patterns.
+
+### 1. Implement loop prevention
+
+Build comprehensive loop prevention:
+
+```python
+class LoopPreventionExercise:
+    """TODO: Implement loop prevention"""
+    
+    def __init__(self):
+        """TODO: Initialize loop prevention"""
+        # TODO: Iteration limits
+        # TODO: Time limits
+        # TODO: Repetition detection
+        # TODO: Circular pattern detection
+        # TODO: Progress tracking
+        pass
+    
+    def check_loops(self, current_action, current_state):
+        """TODO: Check all loop conditions"""
+        pass
+```
+
+### 2. Build cost tracking system
+
+Implement cost tracking and budgets:
+
+```python
+class CostTrackingExercise:
+    """TODO: Build cost tracking system"""
+    
+    def track_request(self, tokens):
+        """TODO: Track token usage and costs"""
+        pass
+    
+    def check_budget(self):
+        """TODO: Check budget constraints"""
+        pass
+    
+    def get_cost_stats(self):
+        """TODO: Return cost statistics"""
+        pass
+```
+
+### 3. Implement error handling
+
+Add robust error handling:
+
+```python
+class ErrorHandlingExercise:
+    """TODO: Implement error handling"""
+    
+    def execute_with_retry(self, tool_func, args):
+        """TODO: Execute with retry logic"""
+        # TODO: Retry transient errors
+        # TODO: Exponential backoff
+        # TODO: Error classification
+        # TODO: Failure tracking
+        pass
+```
+
+### 4. Build monitoring system
+
+Create comprehensive monitoring:
+
+```python
+class MonitoringExercise:
+    """TODO: Build monitoring system"""
+    
+    def track_run(self, run_id, task):
+        """TODO: Start tracking agent run"""
+        pass
+    
+    def record_metrics(self, metrics):
+        """TODO: Record metrics during run"""
+        pass
+    
+    def get_metrics(self):
+        """TODO: Return metrics"""
+        pass
+```
+
+### 5. Test with edge cases
+
+Test production patterns with edge cases:
+
+```python
+def test_edge_cases_exercise(agent):
+    """TODO: Test with edge cases"""
+    # TODO: Test with impossible tasks
+    # TODO: Test with failing tools
+    # TODO: Test with budget limits
+    # TODO: Test with network failures
+    # TODO: Test with long-running tasks
+    # TODO: Verify all safeguards work
+    pass
+```
+
+### 6. Optimize token usage
+
+Implement conversation summarization:
+
+```python
+class TokenOptimizationExercise:
+    """TODO: Optimize token usage"""
+    
+    def summarize_conversation(self, conversation):
+        """TODO: Summarize conversation history"""
+        pass
+    
+    def compress_messages(self, messages):
+        """TODO: Compress message history"""
+        pass
+```
+
+### 7. Build production agent
+
+Create complete production agent:
+
+```python
+class ProductionAgentExercise:
+    """TODO: Build production-ready agent"""
+    
+    def __init__(self):
+        """TODO: Initialize with all features"""
+        # TODO: Loop prevention
+        # TODO: Cost tracking
+        # TODO: Error handling
+        # TODO: Monitoring
+        # TODO: Tool execution
+        pass
+    
+    def run(self, task):
+        """TODO: Run with all safeguards"""
+        pass
+```
+
+### 8. Reflection questions
+
+After completing exercises, answer:
+
+1. What loop prevention mechanisms are essential?
+2. How do you balance cost control with agent capability?
+3. What error handling is critical for production?
+4. How do you monitor agent behavior effectively?
+5. What metrics are most important for agent operations?
+6. How do you optimize token usage without losing context?
+7. What testing is essential before production deployment?
+8. How do you handle tool failures gracefully?
+9. What gradual rollout strategy makes sense for agents?
+10. How do you balance safety constraints with agent flexibility?
 
 ## Tools & Resources
 
-- [LangChain Agents](https://python.langchain.com/docs/modules/agents/)
-- [Cost Optimization](https://platform.openai.com/docs/guides/rate-limits/usage-policies)
+### Monitoring and Observability
 
+- **[LangSmith](https://smith.langchain.com/)**: LangChain's observability platform for agents
+- **[Weights & Biases](https://wandb.ai/)**: Experiment tracking and monitoring
+- **[OpenAI Usage Dashboard](https://platform.openai.com/usage)**: Track API usage and costs
+- **[Datadog AI Monitoring](https://www.datadoghq.com/product/monitor-ai/)**: Production monitoring for AI systems
+
+### Cost Management
+
+- **[OpenAI Pricing](https://openai.com/api/pricing/)**: Current model pricing
+- **[Anthropic Pricing](https://www.anthropic.com/pricing)**: Claude model pricing
+- **[Token Usage Tracking](https://platform.openai.com/docs/guides/rate-limits/usage-policies)**: Best practices for tracking usage
+
+### Best Practices
+
+- **[Production AI Systems](https://platform.openai.com/docs/guides/production-best-practices)**: OpenAI production guidelines
+- **[LangChain Production Guide](https://python.langchain.com/docs/guides/production/)**: Production deployment patterns
+- **[Agent Reliability Patterns](https://www.patterns.dev/patterns/agent-reliability/)**: Common reliability patterns
+
+### Research and Examples
+
+- **[Agent Reliability Research](https://arxiv.org/abs/2402.07551)**: Research on agent reliability
+- **[Production Agent Examples](https://github.com/langchain-ai/langchain/tree/master/templates)**: Production-ready examples

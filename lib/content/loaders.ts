@@ -233,7 +233,14 @@ export function getNextLesson(
     return null;
   }
 
-  return allLessons[currentIndex + 1];
+  const nextLesson = allLessons[currentIndex + 1];
+  
+  // Safety check: don't return the same lesson as next
+  if (nextLesson && nextLesson.id === currentLesson.id) {
+    return null;
+  }
+
+  return nextLesson;
 }
 
 export function getPrevLesson(
@@ -246,6 +253,13 @@ export function getPrevLesson(
     return null;
   }
 
-  return allLessons[currentIndex - 1];
+  const prevLesson = allLessons[currentIndex - 1];
+  
+  // Safety check: don't return the same lesson as previous
+  if (prevLesson && prevLesson.id === currentLesson.id) {
+    return null;
+  }
+
+  return prevLesson;
 }
 

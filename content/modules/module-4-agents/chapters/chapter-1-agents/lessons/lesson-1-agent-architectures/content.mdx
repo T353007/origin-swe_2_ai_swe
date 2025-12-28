@@ -2,206 +2,946 @@
 id: "lesson-1-agent-architectures"
 slug: "agent-architectures"
 title: "AI Agent Architectures"
-description: "Understand different agent architectures: ReAct, Plan-and-Execute, and when to use each pattern for building AI agents."
+description: "Understand different agent architectures: ReAct, Plan-and-Execute, ReWOO, Multi-Agent, and Reflexion. Learn when to use each pattern for building production AI agents."
 order: 1
 chapterId: "chapter-1-agents"
 moduleId: "module-4-agents"
 prerequisites: ["lesson-2-function-calling"]
-estimatedMinutes: 9
-tags: ["agents", "architectures", "react", "planning"]
+estimatedMinutes: 16
+tags: ["agents", "architectures", "react", "planning", "multi-agent"]
 difficulty: "intermediate"
 ---
 
 # AI Agent Architectures
 
+> **💡** Building an AI agent is like training a new employee—except the employee is a probabilistic language model, the training happens at inference time, and the employee sometimes gets stuck in reasoning loops. It's the future of work, just... different." - AI Engineering Best Practice
+
 ## Overview
 
-AI agents are systems that can reason, plan, and use tools to accomplish complex tasks. Understanding different agent architectures helps you build effective agents for your use cases.
+AI agents are LLM-powered systems that can reason, plan, and use tools to accomplish complex tasks autonomously. Understanding different agent architectures is crucial for building effective production agents. This lesson covers the major agent architectures, when to use each, and how to implement them.
 
-## Main Content
+## What Are AI Agents?
 
-### What Are AI Agents?
+AI agents are autonomous systems that combine LLMs with tool-use capabilities to complete multi-step tasks. Unlike simple LLM calls, agents can:
 
-Agents are LLM-powered systems that:
 - **Reason** about tasks and break them into steps
-- **Plan** their approach to solving problems
-- **Use tools** to interact with external systems
+- **Plan** their approach to solving problems  
+- **Use tools** to interact with external systems (APIs, databases, file systems, etc.)
 - **Iterate** based on tool outputs until the task is complete
+- **Adapt** when things don't go as planned
 
-### Agent Architectures
+**Key difference from regular LLM calls:** Agents maintain state, make decisions, and take actions over multiple steps, while regular LLM calls are stateless single-turn interactions.
 
-#### 1. ReAct (Reasoning + Acting)
+**When to use agents:**
+- Tasks requiring multiple steps or decisions
+- Tasks that need to interact with external systems
+- Tasks where the approach isn't known ahead of time
+- Tasks requiring exploration or search
+- Complex workflows that benefit from autonomous execution
 
-ReAct agents alternate between reasoning and taking actions:
+**When NOT to use agents:**
+- Simple single-step tasks (regular LLM call is better)
+- Tasks with fixed, known steps (workflow engine is better)
+- Tasks requiring strict control and determinism
+- Cost-sensitive applications (agents use more tokens)
+
+## Agent Architectures
+
+Different agent architectures solve different problems. Understanding when to use each is critical for production systems.
+
+### 1. ReAct (Reasoning + Acting)
+
+**The most common agent architecture** (2024-2025). ReAct agents alternate between reasoning (Thought) and taking actions, using the observation from actions to inform the next thought.
+
+**How It Works:**
 
 ```
 Thought: I need to search for information about RAG
 Action: search
 Action Input: "What is RAG in AI?"
-Observation: RAG is Retrieval-Augmented Generation...
+Observation: RAG is Retrieval-Augmented Generation, a technique that...
 Thought: Now I have the information, I can answer the question
 Action: final_answer
-Action Input: "RAG is Retrieval-Augmented Generation..."
+Action Input: "RAG is Retrieval-Augmented Generation, a technique that combines retrieval with generation..."
 ```
 
-**Pros**: Simple, works well for many tasks
-**Cons**: Can get stuck in loops, limited planning
+**Flow:**
+1. Agent receives task
+2. Agent reasons (Thought) about what to do next
+3. Agent chooses an action (Action) with inputs (Action Input)
+4. Tool executes and returns observation
+5. Agent reasons about observation and decides next step
+6. Repeat until task complete (Final Answer)
 
-#### 2. Plan-and-Execute
+**Strengths:**
+- Simple to implement and understand
+- Flexible and adaptive
+- Works well for many tasks
+- Handles unexpected situations well
+- Fast for simple tasks (no planning overhead)
 
-Agent first creates a plan, then executes it:
+**Weaknesses:**
+- Can get stuck in loops (same action repeatedly)
+- Limited planning capability
+- May take inefficient paths
+- Token usage can explode for complex tasks
+- No explicit planning phase
+
+**Best For:**
+- Simple to moderately complex tasks
+- Tasks requiring adaptability
+- Quick response needs
+- Exploratory tasks
+- When planning overhead isn't worth it
+
+### 2. Plan-and-Execute
+
+Agent first creates a detailed plan, then executes it step-by-step. The planning phase happens once, then the agent follows the plan.
+
+**How It Works:**
 
 ```
+Planning Phase:
 Plan:
 1. Search for information about RAG
-2. Extract key concepts
-3. Format answer
+2. Extract key concepts from search results
+3. Format answer with examples
+4. Verify answer completeness
 
-Execution:
-Step 1: search("RAG")
-Step 2: extract_concepts(...)
-Step 3: format_answer(...)
+Execution Phase:
+Step 1: search("What is RAG in AI?")
+Step 2: extract_concepts(search_results)
+Step 3: format_answer(concepts)
+Step 4: verify_answer(formatted_answer)
 ```
 
-**Pros**: Better for complex multi-step tasks
-**Cons**: Plan may become outdated, more complex
+**Flow:**
+1. Agent receives task
+2. Agent creates detailed plan (planning LLM call)
+3. Agent executes plan step by step (execution LLM calls with tools)
+4. Each step may use tools
+5. Agent follows plan to completion
 
-#### 3. ReWOO (Relevant Object)
+**Strengths:**
+- Better for complex multi-step tasks
+- More efficient execution (plan once, execute)
+- Clearer execution flow
+- Better for tasks with clear structure
+- Can use different models for planning vs execution
 
-Advanced architecture that uses object decomposition for better planning.
+**Weaknesses:**
+- Plan may become outdated during execution
+- More complex to implement
+- Higher latency (planning overhead)
+- May over-plan simple tasks
+- Less adaptable to unexpected situations
 
-### Building a Simple Agent
+**Best For:**
+- Complex, multi-step tasks
+- Tasks requiring coordination of multiple tools
+- Long-running workflows
+- Tasks with clear structure
+- When planning benefits outweigh overhead
+
+### 3. ReWOO (Relevant Object Decomposition)
+
+Advanced architecture that decomposes tasks into relevant objects, improving planning and reducing hallucinations.
+
+**How It Works:**
+1. Decompose task into relevant objects/entities
+2. Create separate plans for each object
+3. Execute plans in parallel or sequence
+4. Combine results
+
+**Strengths:**
+- Better planning for complex tasks
+- Reduces hallucinations
+- More efficient execution
+- Good for object-oriented tasks
+
+**Weaknesses:**
+- More complex implementation
+- Requires task decomposition capability
+- May be overkill for simple tasks
+
+**Best For:**
+- Complex tasks with multiple entities
+- Research and analysis tasks
+- When object decomposition is natural
+
+### 4. Multi-Agent Systems
+
+Multiple specialized agents work together, each with specific roles and capabilities.
+
+**How It Works:**
+1. Multiple agents with different roles
+2. Agents communicate and coordinate
+3. Specialized agents for specific tasks
+4. Supervisor agent coordinates workflow
+
+**Architecture Types:**
+- **Hierarchical**: Supervisor → Worker agents
+- **Collaborative**: Peer agents work together
+- **Sequential**: Agents in pipeline
+- **Competitive**: Multiple agents, best result wins
+
+**Strengths:**
+- Specialization improves quality
+- Can handle complex, diverse tasks
+- Fault tolerance (one agent fails, others continue)
+- Parallel execution possible
+
+**Weaknesses:**
+- Complex coordination
+- Higher latency
+- More expensive (multiple LLM calls)
+- Communication overhead
+
+**Best For:**
+- Complex tasks requiring multiple skills
+- Tasks with distinct phases
+- When specialization improves quality
+- Large-scale systems
+
+### 5. Reflexion (Self-Reflection)
+
+Agents reflect on their performance and improve their approach.
+
+**How It Works:**
+1. Attempt task
+2. Reflect on results
+3. Identify mistakes
+4. Retry with improved strategy
+
+**Strengths:**
+- Self-improving behavior
+- Better error recovery
+- Adapts to failures
+
+**Weaknesses:**
+- More iterations = more tokens
+- Can be slow
+- Reflection quality varies
+
+**Best For:**
+- Tasks where mistakes are costly
+- When quality > speed
+- Learning/improvement scenarios
+
+## Building Agents with LangChain
+
+LangChain provides high-level abstractions for building agents quickly:
+
+**ReAct Agent with LangChain:**
 
 ```python
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_openai_tools_agent, AgentExecutor
 from langchain_core.tools import Tool
 from langchain_core.prompts import ChatPromptTemplate
+import os
 
-llm = ChatOpenAI(model="gpt-4", temperature=0)
+# Initialize LLM
+llm = ChatOpenAI(
+    model="gpt-4o",  # Current model (2024-2025)
+    temperature=0,
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
 # Define tools
-def search(query: str) -> str:
-    # Your search implementation
-    return "Search results..."
+def search_tool(query: str) -> str:
+    """Search for information (mock implementation)."""
+    # In production, implement actual search
+    return f"Search results for: {query}"
 
-def calculator(expression: str) -> str:
+def calculator_tool(expression: str) -> str:
+    """Perform calculations safely."""
     try:
-        result = eval(expression)
+        # Use restricted eval or math parser in production
+        result = eval(expression, {"__builtins__": {}}, {"abs": abs, "round": round})
         return str(result)
-    except:
-        return "Invalid expression"
+    except Exception as e:
+        return f"Error: {str(e)}"
 
+# Create tool list
 tools = [
     Tool(
         name="Search",
-        func=search,
-        description="Search for information"
+        func=search_tool,
+        description="Search for information on the web. Input should be a search query string."
     ),
     Tool(
         name="Calculator",
-        func=calculator,
-        description="Perform calculations"
+        func=calculator_tool,
+        description="Perform mathematical calculations. Input should be a valid Python expression."
     )
 ]
 
-# Create agent
+# Create agent prompt
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful assistant"),
+    ("system", """You are a helpful assistant that can use tools to answer questions.
+Use the available tools to complete tasks. Think step by step and explain your reasoning."""),
     ("human", "{input}"),
     ("placeholder", "{agent_scratchpad}")
 ])
 
+# Create agent
 agent = create_openai_tools_agent(llm, tools, prompt)
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
+# Create executor with constraints
+agent_executor = AgentExecutor(
+    agent=agent,
+    tools=tools,
+    verbose=True,
+    max_iterations=15,  # Prevent infinite loops
+    max_execution_time=300,  # 5 minute timeout
+    handle_parsing_errors=True  # Handle tool call parsing errors
+)
 
 # Use agent
-result = agent_executor.invoke({"input": "What is 25 * 4? Then search for information about RAG."})
+result = agent_executor.invoke({
+    "input": "What is 25 * 4? Then search for information about RAG."
+})
+
+print(result["output"])
+```
+
+**Plan-and-Execute Agent:**
+
+```python
+from langchain.agents import create_react_agent, AgentExecutor
+from langchain_core.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
+
+# Planning LLM (can be different model)
+planner_llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def create_plan(task: str, tools: list) -> str:
+    """Create execution plan for task."""
+    tool_names = [tool.name for tool in tools]
+    tool_descriptions = "\n".join([f"- {tool.name}: {tool.description}" for tool in tools])
+    
+    prompt = f"""Create a step-by-step plan to accomplish this task.
+
+Task: {task}
+
+Available tools:
+{tool_descriptions}
+
+Create a numbered plan with specific steps. Each step should specify which tool to use and what input to provide.
+"""
+    
+    response = planner_llm.invoke(prompt)
+    return response.content
+
+# Execution agent (ReAct)
+executor_llm = ChatOpenAI(model="gpt-4o", temperature=0)
+executor_agent = create_react_agent(executor_llm, tools, prompt)
+executor = AgentExecutor(agent=executor_agent, tools=tools)
+
+def plan_and_execute(task: str, tools: list):
+    """Plan-and-Execute agent."""
+    # Planning phase
+    plan = create_plan(task, tools)
+    print(f"Plan:\n{plan}\n")
+    
+    # Execution phase
+    execution_prompt = f"""Execute this plan step by step.
+
+Plan:
+{plan}
+
+Task: {task}
+
+Execute each step using the available tools.
+"""
+    
+    result = executor.invoke({"input": execution_prompt})
+    return result
 ```
 
 ## Code Examples
 
-Custom ReAct agent:
+### Custom ReAct Agent (From Scratch)
+
+Building a ReAct agent from scratch gives you full control:
 
 ```python
 from openai import OpenAI
 import json
+import re
+from typing import Dict, List, Callable, Optional
+import os
 
-class SimpleAgent:
-    def __init__(self):
-        self.client = OpenAI()
-        self.tools = {
-            "search": self._search_tool,
-            "calculator": self._calculator_tool
+class CustomReActAgent:
+    """Custom ReAct agent implementation."""
+    
+    def __init__(
+        self,
+        model: str = "gpt-4o",
+        max_iterations: int = 10,
+        max_execution_time: int = 300
+    ):
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.model = model
+        self.max_iterations = max_iterations
+        self.max_execution_time = max_execution_time
+        self.tools: Dict[str, Callable] = {}
+        self.conversation_history: List[Dict] = []
+    
+    def register_tool(self, name: str, func: Callable, description: str):
+        """Register a tool for the agent to use."""
+        self.tools[name] = {
+            "func": func,
+            "description": description
         }
     
-    def _search_tool(self, query: str) -> str:
-        # Implementation
-        return f"Results for: {query}"
-    
-    def _calculator_tool(self, expression: str) -> str:
-        try:
-            return str(eval(expression))
-        except:
-            return "Error"
-    
-    def run(self, task: str, max_iterations: int = 10) -> str:
-        """Run agent with ReAct pattern."""
-        prompt = f"""You are a helpful assistant. Use available tools to complete the task.
+    def _build_prompt(self, task: str, observation: Optional[str] = None) -> str:
+        """Build the agent prompt."""
+        tool_descriptions = "\n".join([
+            f"- {name}: {info['description']}"
+            for name, info in self.tools.items()
+        ])
+        
+        prompt = f"""You are a helpful assistant that can use tools to complete tasks.
 
 Available tools:
-- search(query): Search for information
-- calculator(expression): Perform calculations
+{tool_descriptions}
 
 Task: {task}
 
-Think step by step. Use format:
-Thought: [your reasoning]
+Use this format:
+Thought: [your reasoning about what to do next]
 Action: [tool_name]
-Action Input: [tool_input]
+Action Input: [tool_input_as_json_string]
+
+When you have the final answer, use:
+Final Answer: [your final answer]
+
+Previous observations will be provided if available.
 """
+
+        if observation:
+            prompt += f"\n\nPrevious observation: {observation}"
         
-        for i in range(max_iterations):
+        return prompt
+    
+    def _parse_action(self, text: str) -> Optional[Dict]:
+        """Parse action from agent response."""
+        # Look for Action and Action Input
+        action_match = re.search(r'Action:\s*(\w+)', text)
+        input_match = re.search(r'Action Input:\s*(.+)', text, re.DOTALL)
+        
+        if action_match and input_match:
+            action_name = action_match.group(1).strip()
+            action_input = input_match.group(1).strip()
+            
+            # Try to parse JSON input
+            try:
+                action_input = json.loads(action_input)
+            except:
+                pass  # Keep as string if not JSON
+            
+            return {
+                "action": action_name,
+                "input": action_input,
+                "thought": text.split("Action:")[0].replace("Thought:", "").strip()
+            }
+        
+        return None
+    
+    def _execute_tool(self, action_name: str, action_input) -> str:
+        """Execute a tool and return result."""
+        if action_name not in self.tools:
+            return f"Error: Tool '{action_name}' not found"
+        
+        try:
+            tool_func = self.tools[action_name]["func"]
+            
+            # Handle different input types
+            if isinstance(action_input, dict):
+                result = tool_func(**action_input)
+            elif isinstance(action_input, list):
+                result = tool_func(*action_input)
+            else:
+                result = tool_func(action_input)
+            
+            return str(result)
+        except Exception as e:
+            return f"Error executing tool: {str(e)}"
+    
+    def run(self, task: str) -> Dict:
+        """Run the agent to complete a task."""
+        conversation = []
+        iteration = 0
+        
+        while iteration < self.max_iterations:
+            # Build prompt
+            observation = conversation[-1].get("observation") if conversation else None
+            prompt = self._build_prompt(task, observation)
+            
+            # Add conversation history
+            messages = [{"role": "user", "content": prompt}]
+            
+            # Get LLM response
             response = self.client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
+                model=self.model,
+                messages=messages,
                 temperature=0
             )
             
             text = response.choices[0].message.content
+            conversation.append({"response": text})
             
-            # Parse action (simplified)
-            if "Action:" in text and "Action Input:" in text:
-                # Extract and execute tool
-                # Simplified parsing
-                pass
-            elif "Final Answer:" in text:
-                return text.split("Final Answer:")[-1].strip()
+            # Check for final answer
+            if "Final Answer:" in text:
+                final_answer = text.split("Final Answer:")[-1].strip()
+                return {
+                    "answer": final_answer,
+                    "conversation": conversation,
+                    "iterations": iteration + 1
+                }
+            
+            # Parse and execute action
+            action = self._parse_action(text)
+            if action:
+                observation = self._execute_tool(action["action"], action["input"])
+                conversation.append({
+                    "action": action["action"],
+                    "action_input": action["input"],
+                    "observation": observation
+                })
+            else:
+                # If can't parse action, treat as observation
+                conversation.append({"observation": "Could not parse action"})
+            
+            iteration += 1
         
-        return "Max iterations reached"
+        return {
+            "answer": "Max iterations reached",
+            "conversation": conversation,
+            "iterations": iteration
+        }
+
+# Usage
+agent = CustomReActAgent()
+
+# Register tools
+def search(query: str) -> str:
+    return f"Search results for: {query}"
+
+def calculator(expression: str) -> str:
+    try:
+        result = eval(expression, {"__builtins__": {}}, {})
+        return str(result)
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+agent.register_tool("search", search, "Search for information on the web")
+agent.register_tool("calculator", calculator, "Perform mathematical calculations")
+
+# Run agent
+result = agent.run("What is 25 * 4? Then search for information about RAG.")
+print(result["answer"])
+```
+
+### Production-Ready Agent with Error Handling
+
+Complete agent implementation with error handling, logging, and safety features:
+
+```python
+import logging
+import time
+from typing import Dict, List, Any, Optional
+from openai import OpenAI
+import os
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class ProductionAgent:
+    """Production-ready agent with error handling and safety features."""
+    
+    def __init__(
+        self,
+        model: str = "gpt-4o",
+        max_iterations: int = 15,
+        max_execution_time: int = 300,
+        enable_safety: bool = True
+    ):
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.model = model
+        self.max_iterations = max_iterations
+        self.max_execution_time = max_execution_time
+        self.enable_safety = enable_safety
+        self.tools: Dict[str, Dict] = {}
+        self.stats = {
+            "total_runs": 0,
+            "total_iterations": 0,
+            "total_tokens": 0,
+            "errors": 0
+        }
+    
+    def register_tool(self, name: str, func: Callable, description: str, schema: Optional[Dict] = None):
+        """Register tool with schema validation."""
+        self.tools[name] = {
+            "func": func,
+            "description": description,
+            "schema": schema
+        }
+    
+    def _validate_action(self, action_name: str, action_input: Any) -> bool:
+        """Validate action before execution (safety check)."""
+        if not self.enable_safety:
+            return True
+        
+        # Check if tool exists
+        if action_name not in self.tools:
+            logger.warning(f"Tool '{action_name}' not found")
+            return False
+        
+        # Add more validation as needed
+        return True
+    
+    def run(self, task: str) -> Dict[str, Any]:
+        """Run agent with full error handling."""
+        start_time = time.time()
+        self.stats["total_runs"] += 1
+        
+        try:
+            # Agent execution loop
+            # ... (similar to CustomReActAgent but with error handling)
+            pass
+        except Exception as e:
+            logger.error(f"Agent execution failed: {e}")
+            self.stats["errors"] += 1
+            return {
+                "answer": f"Error: {str(e)}",
+                "success": False,
+                "error": str(e)
+            }
+        finally:
+            execution_time = time.time() - start_time
+            logger.info(f"Agent execution completed in {execution_time:.2f}s")
+        
+        return {
+            "answer": "...",
+            "success": True,
+            "execution_time": execution_time
+        }
+    
+    def get_stats(self) -> Dict:
+        """Get agent statistics."""
+        return self.stats.copy()
 ```
 
 ## Common Mistakes
 
-1. **Infinite loops**: No max iterations or loop detection
-2. **Wrong tool descriptions**: Agent can't choose correct tools
-3. **No error handling**: Tool failures crash the agent
-4. **Too many tools**: Agent gets confused with too many options
-5. **No planning**: Complex tasks need planning, not just ReAct
-6. **Token blowups**: Long agent runs consume many tokens
+### 1. Infinite loops and lack of constraints
+
+Agents can get stuck in loops, repeatedly trying the same action or reasoning endlessly. Without max iterations, execution timeouts, or loop detection, agents can run indefinitely, wasting tokens and resources.
+
+**Always set:**
+- `max_iterations` (10-20 is typical)
+- `max_execution_time` (e.g., 5 minutes)
+- Loop detection (track recent actions, detect repetitions)
+
+Without constraints, agents will consume unlimited resources.
+
+### 2. Poor tool descriptions
+
+Tool descriptions are critical: agents rely on them to choose tools. Vague or inaccurate descriptions lead to wrong tool selection.
+
+**Tool descriptions should:**
+- Clearly explain what the tool does
+- Specify what input it expects
+- Explain when to use it
+- Include examples if helpful
+
+Test tool descriptions: if agents frequently choose wrong tools, improve descriptions.
+
+### 3. No error handling
+
+Tool failures, parsing errors, network issues, and API errors can crash agents. Without error handling, one failure stops the entire agent.
+
+**Always handle:**
+- Tool execution errors
+- Tool call parsing errors
+- API rate limits
+- Network timeouts
+- Invalid tool inputs
+
+Return meaningful error messages to the agent so it can adapt. Implement retry logic for transient errors.
+
+### 4. Too many tools
+
+Agents can get confused with too many tools (typically more than 10-15 tools). More tools mean more choices, which can lead to poor decisions, increased token usage (tool descriptions in context), and slower execution.
+
+**Solutions:**
+- Limit tools to what's necessary for the task
+- Group related tools
+- Use tool hierarchies
+- Create specialized agents for different tool sets
+
+Quality over quantity.
+
+### 5. Wrong architecture for the task
+
+Using ReAct for complex multi-step tasks that need planning, or using Plan-and-Execute for simple tasks that need quick responses, leads to poor performance.
+
+**Match architecture to task:**
+- ReAct: Simple/adaptive tasks
+- Plan-and-Execute: Complex structured tasks
+- Multi-Agent: Diverse skills needed
+
+Evaluate your task requirements and choose accordingly. Don't default to ReAct for everything.
+
+### 6. Token explosion
+
+Long agent runs accumulate conversation history, tool descriptions, and intermediate results, leading to massive token usage and costs.
+
+**Solutions:**
+- Implement conversation summarization for long runs
+- Optimize tool descriptions
+- Limit conversation history
+- Use streaming for long outputs
+- Monitor token usage
+- Set token budgets and limits
+
+### 7. No loop detection
+
+Agents can repeat the same actions or get stuck in reasoning loops without detection. This wastes tokens and prevents progress.
+
+**Implement loop detection:**
+- Track recent actions
+- Detect repeated action sequences
+- Identify stuck patterns
+- Break loops by changing strategy or stopping
+
+Simple loop detection (e.g., "same action 3 times in a row") prevents most issues.
+
+### 8. Ignoring tool output validation
+
+Agents may receive unexpected or invalid tool outputs that break subsequent reasoning. Without validation, agents make decisions based on bad data.
+
+**Validate tool outputs:**
+- Check for expected format
+- Handle errors gracefully
+- Validate data types
+- Sanitize outputs
+- Provide defaults for missing data
+
+Tool outputs should be reliable and predictable.
+
+### 9. No monitoring or observability
+
+Running agents without monitoring means you don't know how they're performing, what's failing, or how much they cost.
+
+**Implement:**
+- Logging of all actions and decisions
+- Token usage tracking
+- Execution time monitoring
+- Error tracking
+- Performance metrics
+
+Use tools like LangSmith, Weights & Biases, or custom logging.
+
+### 10. Not testing with diverse scenarios
+
+Testing agents only with simple, expected scenarios misses edge cases and failure modes.
+
+**Always test:**
+- Simple tasks
+- Complex tasks
+- Ambiguous tasks
+- Tasks with missing information
+- Tasks requiring multiple tools
+- Error scenarios
+- Edge cases
+
+Comprehensive testing prevents production issues.
 
 ## Exercise
 
-1. Build a simple ReAct agent with 2-3 tools
-2. Test with various tasks (simple, complex, ambiguous)
-3. Add loop detection and max iterations
-4. Compare ReAct vs Plan-and-Execute for same task
-5. Measure token usage and costs
-6. Add error handling for tool failures
+Complete these exercises to master agent architectures.
+
+### 1. Build a simple ReAct agent
+
+Create a basic ReAct agent:
+
+```python
+def build_react_agent_exercise():
+    """TODO: Build a ReAct agent"""
+    # TODO: Set up LLM client
+    # TODO: Define 2-3 tools (search, calculator, etc.)
+    # TODO: Implement ReAct loop (thought → action → observation)
+    # TODO: Parse agent responses (action, action input)
+    # TODO: Execute tools and return observations
+    # TODO: Handle final answer
+    pass
+```
+
+### 2. Test with various tasks
+
+Evaluate agent with different task types:
+
+```python
+def test_agent_tasks_exercise(agent):
+    """TODO: Test agent with various tasks"""
+    # TODO: Simple tasks (single tool, clear goal)
+    # TODO: Complex tasks (multiple tools, multi-step)
+    # TODO: Ambiguous tasks (unclear requirements)
+    # TODO: Tasks with missing information
+    # TODO: Tasks requiring reasoning
+    # TODO: Measure success rate for each type
+    pass
+```
+
+### 3. Add safety features
+
+Implement loop detection and constraints:
+
+```python
+def add_safety_features_exercise(agent):
+    """TODO: Add safety features"""
+    # TODO: Implement max_iterations limit
+    # TODO: Add max_execution_time timeout
+    # TODO: Implement loop detection (track recent actions)
+    # TODO: Detect repeated action sequences
+    # TODO: Break loops when detected
+    # TODO: Test with tasks that might cause loops
+    pass
+```
+
+### 4. Compare architectures
+
+Compare ReAct vs Plan-and-Execute:
+
+```python
+def compare_architectures_exercise(tasks: List[str]):
+    """TODO: Compare ReAct vs Plan-and-Execute"""
+    # TODO: Build ReAct agent
+    # TODO: Build Plan-and-Execute agent
+    # TODO: Run both on same tasks
+    # TODO: Compare: execution time, token usage, success rate
+    # TODO: Identify which architecture works better for each task type
+    # TODO: Document findings
+    pass
+```
+
+### 5. Measure token usage and costs
+
+Track resource consumption:
+
+```python
+def measure_resources_exercise(agent):
+    """TODO: Measure token usage and costs"""
+    # TODO: Track tokens used per agent run
+    # TODO: Calculate costs (based on model pricing)
+    # TODO: Identify high-cost operations
+    # TODO: Compare costs for different architectures
+    # TODO: Optimize to reduce costs
+    pass
+```
+
+### 6. Add error handling
+
+Implement robust error handling:
+
+```python
+def add_error_handling_exercise(agent):
+    """TODO: Add error handling"""
+    # TODO: Handle tool execution errors
+    # TODO: Handle tool call parsing errors
+    # TODO: Handle API errors (rate limits, timeouts)
+    # TODO: Handle invalid tool inputs
+    # TODO: Return meaningful error messages to agent
+    # TODO: Test with error scenarios
+    pass
+```
+
+### 7. Build production-ready agent
+
+Create a complete production system:
+
+```python
+class ProductionAgentExercise:
+    """TODO: Build production-ready agent"""
+    
+    def __init__(self):
+        """TODO: Initialize with all features"""
+        # TODO: LLM configuration
+        # TODO: Tool registration
+        # TODO: Safety constraints
+        # TODO: Error handling
+        # TODO: Logging and monitoring
+        pass
+    
+    def run(self, task: str) -> Dict:
+        """TODO: Run agent with full features"""
+        pass
+    
+    def get_stats(self) -> Dict:
+        """TODO: Return statistics"""
+        pass
+```
+
+### 8. Test with edge cases
+
+Evaluate agent robustness:
+
+```python
+def test_edge_cases_exercise(agent):
+    """TODO: Test with edge cases"""
+    # TODO: Empty or invalid tasks
+    # TODO: Tasks with no solution
+    # TODO: Tasks requiring unavailable tools
+    # TODO: Tasks with contradictory requirements
+    # TODO: Very long tasks
+    # TODO: Tasks with malicious inputs (if applicable)
+    # TODO: Verify agent handles all cases gracefully
+    pass
+```
+
+### 9. Reflection questions
+
+After completing the exercises, answer these questions:
+
+1. When should you use ReAct vs Plan-and-Execute architecture?
+2. How do you prevent agents from getting stuck in loops?
+3. What's the optimal number of tools for an agent?
+4. How do you balance agent capability with token costs?
+5. What error handling is essential for production agents?
+6. How do you measure if an agent is performing well?
+7. What safety features are critical for production agents?
+8. How do you debug agent failures and poor decisions?
+9. When should you use multi-agent systems vs single agents?
+10. What monitoring and observability do agents need?
 
 ## Tools & Resources
 
-- [LangChain Agents](https://python.langchain.com/docs/modules/agents/)
-- [ReAct Paper](https://arxiv.org/abs/2210.03629)
-- [AutoGPT Architecture](https://github.com/Significant-Gravitas/AutoGPT)
+### Libraries and Frameworks
 
+- **[LangChain Agents](https://python.langchain.com/docs/modules/agents/)**: High-level agent abstractions
+- **[LangGraph](https://langchain-ai.github.io/langgraph/)**: Stateful agent workflows (2024)
+- **[AutoGen](https://microsoft.github.io/autogen/)**: Multi-agent conversation framework
+- **[CrewAI](https://github.com/joaomdmoura/crewAI)**: Framework for orchestrating role-playing agents
+
+### Research Papers
+
+- **[ReAct Paper](https://arxiv.org/abs/2210.03629)**: Original ReAct architecture paper
+- **[Plan-and-Execute Agents](https://arxiv.org/abs/2305.04091)**: Plan-and-Execute paper
+- **[Reflexion](https://arxiv.org/abs/2303.11366)**: Self-reflective agents
+- **[ReWOO](https://arxiv.org/abs/2305.18323)**: Relevant Object Decomposition
+
+### Example Projects
+
+- **[AutoGPT](https://github.com/Significant-Gravitas/AutoGPT)**: Autonomous GPT-4 agent
+- **[BabyAGI](https://github.com/yoheinakajima/babyagi)**: Task-driven autonomous agent
+- **[LangChain Agent Examples](https://github.com/langchain-ai/langchain/tree/master/templates)**: Production examples
+
+### Documentation
+
+- **[OpenAI Function Calling](https://platform.openai.com/docs/guides/function-calling)**: Tool/function calling guide
+- **[Anthropic Tool Use](https://docs.anthropic.com/claude/docs/tool-use)**: Claude tool use documentation
+- **[LangChain Agent Guide](https://python.langchain.com/docs/modules/agents/)**: Comprehensive agent guide

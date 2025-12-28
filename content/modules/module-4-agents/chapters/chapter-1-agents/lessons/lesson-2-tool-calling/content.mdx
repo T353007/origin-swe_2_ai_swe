@@ -2,39 +2,273 @@
 id: "lesson-2-tool-calling"
 slug: "tool-calling"
 title: "Tool Integration Patterns"
-description: "Learn how to enable LLMs to call functions and tools, implement tool definitions, and handle tool execution in agent systems."
+description: "Master tool calling (function calling) to enable LLMs to interact with external systems. Learn tool definition, execution patterns, error handling, and production best practices."
 order: 2
 chapterId: "chapter-1-agents"
 moduleId: "module-4-agents"
 prerequisites: ["lesson-1-agent-architectures"]
-estimatedMinutes: 8
-tags: ["tool-calling", "function-calling", "tools", "agents"]
+estimatedMinutes: 17
+tags: ["tool-calling", "function-calling", "tools", "agents", "integration"]
 difficulty: "intermediate"
 ---
 
 # Tool Integration Patterns
 
+> **💡** Tool calling is like giving an LLM a Swiss Army knife—except instead of a knife, you're giving it access to your database, APIs, and file system. The LLM might not know how to use it perfectly, but with good descriptions, it'll figure it out. Mostly." - AI Engineering Best Practice
+
 ## Overview
 
-Tool calling (function calling) allows LLMs to interact with external systems by defining functions they can invoke. This enables agents to perform actions beyond text generation.
+Tool calling (also called function calling) enables LLMs to interact with external systems by defining functions they can invoke during conversations. This is the foundation of AI agents—without tool calling, agents are just chat interfaces. Mastering tool calling is essential for building production AI systems.
 
-## Main Content
+Tool calling has evolved significantly. In 2023, OpenAI introduced function calling, which was later renamed to "tools" and standardized across providers. Today (2024-2025), tool calling is a first-class feature in GPT-4o, Claude 3.5, and Gemini models.
 
-### How Tool Calling Works
+## How Tool Calling Works
 
-1. **Define tools**: Describe available functions to the LLM
-2. **LLM decides**: Model chooses which tool(s) to call
-3. **Execute tool**: Run the function with provided parameters
-4. **Return result**: Pass tool output back to LLM
-5. **Generate response**: LLM uses tool results to answer
+Tool calling enables a 5-step interaction cycle between LLMs and external systems:
 
-### Tool Definition
+### The Tool Calling Flow
+
+```
+1. Define Tools → 2. LLM Decides → 3. Execute Tool → 4. Return Result → 5. Generate Response
+     ↑                                                                          |
+     └──────────────────────────────────────────────────────────────────────────┘
+                          (Loop if more tools needed)
+```
+
+**Step 1: Define Tools**
+
+You provide the LLM with tool definitions describing available functions. Each tool has:
+- **Name**: Unique identifier for the tool
+- **Description**: What the tool does (critical for LLM to choose correctly)
+- **Parameters**: JSON Schema defining inputs the tool accepts
+
+**Step 2: LLM Decides**
+
+The LLM analyzes the user's request and available tools, then decides:
+- Whether to call a tool (or multiple tools in parallel)
+- Which tool(s) to call
+- What arguments to pass
+
+**Step 3: Execute Tool**
+
+Your system executes the actual function with the arguments the LLM provided. This happens outside the LLM—it could call an API, query a database, read a file, etc.
+
+**Step 4: Return Result**
+
+Tool execution results are returned to the LLM. Results can be:
+- Success with data
+- Error messages
+- Structured information
+
+**Step 5: Generate Response**
+
+The LLM uses tool results (along with conversation history) to generate a final response. It may also decide to call additional tools if needed.
+
+### Why Tool Calling Matters
+
+**Without tool calling:**
+- LLMs can only generate text
+- No access to real-time data
+- No ability to take actions
+- Limited to training data knowledge (which may be outdated)
+- Can't interact with your systems
+
+**With tool calling:**
+- LLMs can access real-time information (APIs, databases)
+- Can perform actions (send emails, create records, update systems)
+- Can integrate with your infrastructure
+- Can handle complex workflows
+- Enables autonomous agent behavior
+
+## Tool Definition
+
+Tool definitions use JSON Schema to describe functions. The schema is critical—poor schemas lead to incorrect tool calls.
+
+### Basic Tool Definition
 
 ```python
 from openai import OpenAI
+import json
+import os
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# Define tools using the "tools" parameter (2024-2025 API)
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a specific location. Use this when users ask about weather conditions, temperature, or forecast.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, or city and country. Examples: 'San Francisco, CA', 'London, UK', 'Tokyo, Japan'"
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "Temperature unit preference. Defaults to fahrenheit if not specified."
+                    }
+                },
+                "required": ["location"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_knowledge_base",
+            "description": "Search the internal knowledge base for information. Use this when users ask questions that might be answered by company documentation or internal resources.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query string. Should be specific and focused on what information is needed."
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return. Defaults to 5.",
+                        "minimum": 1,
+                        "maximum": 20
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    }
+]
+```
+
+### Tool Description Best Practices
+
+Tool descriptions are critical—they're how the LLM understands when to use each tool.
+
+**Good descriptions:**
+- Clear and specific about what the tool does
+- Explain when to use the tool
+- Include examples when helpful
+- Specify edge cases or limitations
+
+**Bad descriptions:**
+- Vague ("Gets data")
+- Too technical without context
+- Missing use case information
+- Unclear about inputs/outputs
+
+**Examples:**
+
+❌ **Bad:**
+```python
+"description": "Search function"
+```
+
+✅ **Good:**
+```python
+"description": "Search the product database by name, category, or description. Returns up to 10 matching products with prices and availability. Use this when users ask about products, want to find items, or need product information."
+```
+
+### Parameter Schema Best Practices
+
+JSON Schema for parameters should be:
+- **Precise**: Use correct types (string, integer, boolean, object, array)
+- **Validated**: Include constraints (min, max, enum, pattern)
+- **Documented**: Provide descriptions for all parameters
+- **Required fields**: Mark required parameters explicitly
+
+```python
+{
+    "type": "object",
+    "properties": {
+        "email": {
+            "type": "string",
+            "description": "Valid email address",
+            "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+        },
+        "quantity": {
+            "type": "integer",
+            "description": "Number of items. Must be between 1 and 100.",
+            "minimum": 1,
+            "maximum": 100
+        },
+        "priority": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "urgent"],
+            "description": "Priority level for the task"
+        },
+        "tags": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Array of tag strings. Maximum 10 tags.",
+            "maxItems": 10
+        }
+    },
+    "required": ["email", "quantity"]
+}
+```
+
+## Tool Execution
+
+Tool execution happens outside the LLM. You implement the actual functions and handle their execution.
+
+### Basic Tool Execution Pattern
+
+```python
+def get_weather(location: str, unit: str = "fahrenheit") -> str:
+    """Actual implementation of weather function."""
+    # In production, call your weather API
+    # This is a mock implementation
+    import random
+    temp = random.randint(60, 80)
+    
+    if unit == "celsius":
+        temp_c = (temp - 32) * 5/9
+        return f"Weather in {location}: {temp_c:.1f}°C, Sunny"
+    else:
+        return f"Weather in {location}: {temp}°F, Sunny"
+
+def search_knowledge_base(query: str, max_results: int = 5) -> str:
+    """Search the knowledge base."""
+    # In production, query your vector database or search engine
+    return f"Found {max_results} results for '{query}': [Result 1, Result 2, ...]"
+
+# Tool registry mapping
+tool_functions = {
+    "get_weather": get_weather,
+    "search_knowledge_base": search_knowledge_base,
+    # Add more tools here
+}
+
+def execute_tool(tool_name: str, arguments: dict) -> str:
+    """Execute a tool by name with error handling."""
+    if tool_name not in tool_functions:
+        return f"Error: Unknown tool '{tool_name}'"
+    
+    try:
+        func = tool_functions[tool_name]
+        result = func(**arguments)
+        return str(result)
+    except TypeError as e:
+        return f"Error: Invalid arguments for {tool_name}: {str(e)}"
+    except Exception as e:
+        return f"Error executing {tool_name}: {str(e)}"
+```
+
+### Complete Tool Calling Example
+
+```python
+from openai import OpenAI
+import json
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Define tools
 tools = [
     {
         "type": "function",
@@ -59,49 +293,38 @@ tools = [
         }
     }
 ]
-```
 
-### Tool Execution
-
-```python
+# Tool implementation
 def get_weather(location: str, unit: str = "fahrenheit") -> str:
-    """Actual implementation of weather function."""
-    # Your weather API call
-    return f"Weather in {location}: 72°{unit[0].upper()}"
+    """Get weather for location (mock implementation)."""
+    return f"Weather in {location}: 72°{unit[0].upper()}, Sunny"
 
-def execute_tool(tool_name: str, arguments: dict) -> str:
-    """Execute a tool by name."""
-    tool_functions = {
-        "get_weather": get_weather,
-        # Add more tools
-    }
-    
-    if tool_name not in tool_functions:
-        return f"Unknown tool: {tool_name}"
-    
-    try:
-        result = tool_functions[tool_name](**arguments)
-        return str(result)
-    except Exception as e:
-        return f"Error executing {tool_name}: {e}"
+# Initialize conversation
+messages = [
+    {"role": "user", "content": "What's the weather in San Francisco?"}
+]
 
-# Use tool calling
+# First LLM call with tools available
 response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "What's the weather in San Francisco?"}],
+    model="gpt-4o",  # Latest model (2024-2025)
+    messages=messages,
     tools=tools,
-    tool_choice="auto"
+    tool_choice="auto"  # Let LLM decide when to use tools
 )
 
+# Get the assistant's message
+assistant_message = response.choices[0].message
+messages.append(assistant_message)
+
 # Check if tool was called
-message = response.choices[0].message
-if message.tool_calls:
-    for tool_call in message.tool_calls:
+if assistant_message.tool_calls:
+    # Process each tool call (can be multiple in parallel)
+    for tool_call in assistant_message.tool_calls:
         function_name = tool_call.function.name
         function_args = json.loads(tool_call.function.arguments)
         
-        # Execute tool
-        tool_result = execute_tool(function_name, function_args)
+        # Execute the tool
+        tool_result = get_weather(**function_args)
         
         # Add tool result to conversation
         messages.append({
@@ -110,29 +333,78 @@ if message.tool_calls:
             "content": tool_result
         })
     
-    # Get final response
+    # Get final response from LLM using tool results
     final_response = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o",
         messages=messages
     )
+    
+    print(final_response.choices[0].message.content)
+else:
+    # No tool call needed, direct response
+    print(assistant_message.content)
 ```
 
 ## Code Examples
 
-Complete tool calling system:
+### Production-Ready Tool Registry
+
+A complete tool registry system with validation, error handling, and logging:
 
 ```python
-from typing import Callable, Dict, Any
+from typing import Dict, Callable, Any, Optional, List
 import json
+import logging
+from functools import wraps
+import time
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class ToolRegistry:
+    """Production-ready tool registry with validation and error handling."""
+    
     def __init__(self):
         self.tools: Dict[str, Callable] = {}
-        self.tool_definitions = []
+        self.tool_definitions: List[Dict] = []
+        self.tool_metadata: Dict[str, Dict] = {}
+        self.stats = {
+            "total_calls": 0,
+            "successful_calls": 0,
+            "failed_calls": 0,
+            "total_execution_time": 0
+        }
     
-    def register(self, name: str, func: Callable, description: str, schema: dict):
-        """Register a tool."""
+    def register(
+        self,
+        name: str,
+        func: Callable,
+        description: str,
+        schema: dict,
+        timeout: Optional[float] = None
+    ):
+        """
+        Register a tool with full metadata.
+        
+        Args:
+            name: Unique tool name
+            func: Callable function to execute
+            description: Tool description for LLM
+            schema: JSON Schema for parameters
+            timeout: Optional timeout in seconds
+        """
+        # Validate schema
+        if not self._validate_schema(schema):
+            raise ValueError(f"Invalid schema for tool {name}")
+        
         self.tools[name] = func
+        self.tool_metadata[name] = {
+            "timeout": timeout,
+            "schema": schema,
+            "description": description
+        }
+        
+        # Create OpenAI-compatible tool definition
         self.tool_definitions.append({
             "type": "function",
             "function": {
@@ -141,54 +413,835 @@ class ToolRegistry:
                 "parameters": schema
             }
         })
+        
+        logger.info(f"Registered tool: {name}")
     
-    def execute(self, name: str, arguments: dict) -> Any:
-        """Execute a registered tool."""
+    def _validate_schema(self, schema: dict) -> bool:
+        """Validate JSON Schema structure."""
+        if not isinstance(schema, dict):
+            return False
+        if schema.get("type") != "object":
+            return False
+        if "properties" not in schema:
+            return False
+        return True
+    
+    def execute(self, name: str, arguments: dict) -> Dict[str, Any]:
+        """
+        Execute a tool with full error handling and monitoring.
+        
+        Returns:
+            Dict with 'success', 'result', and 'error' keys
+        """
+        self.stats["total_calls"] += 1
+        start_time = time.time()
+        
         if name not in self.tools:
-            raise ValueError(f"Tool {name} not found")
-        return self.tools[name](**arguments)
+            error_msg = f"Tool '{name}' not found"
+            logger.error(error_msg)
+            self.stats["failed_calls"] += 1
+            return {
+                "success": False,
+                "result": None,
+                "error": error_msg
+            }
+        
+        # Validate arguments against schema
+        validation_error = self._validate_arguments(name, arguments)
+        if validation_error:
+            logger.error(f"Invalid arguments for {name}: {validation_error}")
+            self.stats["failed_calls"] += 1
+            return {
+                "success": False,
+                "result": None,
+                "error": f"Validation error: {validation_error}"
+            }
+        
+        # Execute tool
+        try:
+            func = self.tools[name]
+            metadata = self.tool_metadata[name]
+            
+            # Apply timeout if specified
+            if metadata.get("timeout"):
+                # In production, use threading/concurrent.futures for timeout
+                result = func(**arguments)
+            else:
+                result = func(**arguments)
+            
+            execution_time = time.time() - start_time
+            self.stats["successful_calls"] += 1
+            self.stats["total_execution_time"] += execution_time
+            
+            logger.info(f"Tool {name} executed successfully in {execution_time:.3f}s")
+            
+            return {
+                "success": True,
+                "result": result,
+                "error": None,
+                "execution_time": execution_time
+            }
+        
+        except TypeError as e:
+            error_msg = f"Invalid arguments: {str(e)}"
+            logger.error(f"Tool {name} failed: {error_msg}")
+            self.stats["failed_calls"] += 1
+            return {
+                "success": False,
+                "result": None,
+                "error": error_msg
+            }
+        
+        except Exception as e:
+            error_msg = f"Execution error: {str(e)}"
+            logger.error(f"Tool {name} failed: {error_msg}")
+            self.stats["failed_calls"] += 1
+            return {
+                "success": False,
+                "result": None,
+                "error": error_msg
+            }
+    
+    def _validate_arguments(self, name: str, arguments: dict) -> Optional[str]:
+        """Validate arguments against tool schema."""
+        if name not in self.tool_metadata:
+            return "Tool not found"
+        
+        schema = self.tool_metadata[name]["schema"]
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+        
+        # Check required fields
+        for field in required:
+            if field not in arguments:
+                return f"Missing required field: {field}"
+        
+        # Validate types (simplified - in production use jsonschema library)
+        for field, value in arguments.items():
+            if field in properties:
+                prop_schema = properties[field]
+                expected_type = prop_schema.get("type")
+                
+                if expected_type == "integer" and not isinstance(value, int):
+                    return f"Field '{field}' must be integer"
+                elif expected_type == "string" and not isinstance(value, str):
+                    return f"Field '{field}' must be string"
+                elif expected_type == "boolean" and not isinstance(value, bool):
+                    return f"Field '{field}' must be boolean"
+                
+                # Check enum
+                if "enum" in prop_schema and value not in prop_schema["enum"]:
+                    return f"Field '{field}' must be one of {prop_schema['enum']}"
+                
+                # Check min/max for numbers
+                if expected_type == "integer":
+                    if "minimum" in prop_schema and value < prop_schema["minimum"]:
+                        return f"Field '{field}' must be >= {prop_schema['minimum']}"
+                    if "maximum" in prop_schema and value > prop_schema["maximum"]:
+                        return f"Field '{field}' must be <= {prop_schema['maximum']}"
+        
+        return None
+    
+    def get_tool_definitions(self) -> List[Dict]:
+        """Get OpenAI-compatible tool definitions."""
+        return self.tool_definitions.copy()
+    
+    def get_stats(self) -> Dict:
+        """Get tool execution statistics."""
+        avg_time = (
+            self.stats["total_execution_time"] / self.stats["total_calls"]
+            if self.stats["total_calls"] > 0
+            else 0
+        )
+        return {
+            **self.stats,
+            "average_execution_time": avg_time,
+            "success_rate": (
+                self.stats["successful_calls"] / self.stats["total_calls"]
+                if self.stats["total_calls"] > 0
+                else 0
+            )
+        }
 
-# Usage
+# Usage example
 registry = ToolRegistry()
 
-@registry.register(
+# Register tools
+def search_database(query: str, max_results: int = 5) -> str:
+    """Search database implementation."""
+    return f"Found {max_results} results for: {query}"
+
+registry.register(
     name="search_database",
-    func=lambda query: f"Results for: {query}",
-    description="Search the knowledge database",
+    func=search_database,
+    description="Search the internal knowledge database. Use this for questions about company policies, procedures, or documentation.",
     schema={
         "type": "object",
         "properties": {
-            "query": {"type": "string", "description": "Search query"}
+            "query": {
+                "type": "string",
+                "description": "Search query string"
+            },
+            "max_results": {
+                "type": "integer",
+                "description": "Maximum results to return",
+                "minimum": 1,
+                "maximum": 20,
+                "default": 5
+            }
         },
         "required": ["query"]
-    }
+    },
+    timeout=5.0
 )
-def search_db(query: str):
-    # Implementation
-    pass
+
+# Use with OpenAI
+from openai import OpenAI
+client = OpenAI()
+
+messages = [{"role": "user", "content": "Search for information about refund policy"}]
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=messages,
+    tools=registry.get_tool_definitions()
+)
+
+# Process tool calls
+assistant_message = response.choices[0].message
+if assistant_message.tool_calls:
+    for tool_call in assistant_message.tool_calls:
+        function_name = tool_call.function.name
+        function_args = json.loads(tool_call.function.arguments)
+        
+        # Execute with registry
+        result = registry.execute(function_name, function_args)
+        
+        if result["success"]:
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": str(result["result"])
+            })
+        else:
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": f"Error: {result['error']}"
+            })
+    
+    # Get final response
+    final_response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages
+    )
+```
+
+### Safe Tool Executor
+
+A tool executor with security and safety features:
+
+```python
+class SafeToolExecutor:
+    """Tool executor with security restrictions."""
+    
+    def __init__(self, registry: ToolRegistry):
+        self.registry = registry
+        self.allowed_tools: set = set()
+        self.blocked_tools: set = set()
+        self.max_execution_time = 30.0
+        self.rate_limits: Dict[str, int] = {}  # tool_name -> max_calls_per_minute
+    
+    def allow_tool(self, tool_name: str):
+        """Allow a specific tool to be executed."""
+        self.allowed_tools.add(tool_name)
+    
+    def block_tool(self, tool_name: str):
+        """Block a tool from being executed."""
+        self.blocked_tools.add(tool_name)
+    
+    def execute(self, name: str, arguments: dict) -> Dict[str, Any]:
+        """Execute tool with security checks."""
+        # Check if tool is blocked
+        if name in self.blocked_tools:
+            return {
+                "success": False,
+                "error": f"Tool '{name}' is blocked for security reasons"
+            }
+        
+        # Check if tool is explicitly allowed
+        if self.allowed_tools and name not in self.allowed_tools:
+            return {
+                "success": False,
+                "error": f"Tool '{name}' is not in the allowed list"
+            }
+        
+        # Check rate limits (simplified - in production use Redis or similar)
+        if name in self.rate_limits:
+            # Implement rate limiting logic here
+            pass
+        
+        # Execute through registry
+        return self.registry.execute(name, arguments)
+```
+
+### Handling Parallel Tool Calls
+
+Modern LLMs can call multiple tools in parallel. Handle this correctly:
+
+```python
+import asyncio
+from typing import List, Dict, Any
+
+async def execute_tools_parallel(
+    registry: ToolRegistry,
+    tool_calls: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Execute multiple tool calls in parallel."""
+    
+    async def execute_single(tool_call: Dict) -> Dict:
+        name = tool_call["function"]["name"]
+        args = json.loads(tool_call["function"]["arguments"])
+        result = registry.execute(name, args)
+        return {
+            "tool_call_id": tool_call["id"],
+            "result": result
+        }
+    
+    # Execute all tools in parallel
+    tasks = [execute_single(tc) for tc in tool_calls]
+    results = await asyncio.gather(*tasks)
+    
+    return results
+
+# Usage in async context
+async def handle_tool_calls_async(assistant_message, registry):
+    """Handle tool calls asynchronously."""
+    if not assistant_message.tool_calls:
+        return []
+    
+    results = await execute_tools_parallel(
+        registry,
+        assistant_message.tool_calls
+    )
+    
+    # Format results for OpenAI API
+    tool_messages = []
+    for result in results:
+        if result["result"]["success"]:
+            tool_messages.append({
+                "role": "tool",
+                "tool_call_id": result["tool_call_id"],
+                "content": str(result["result"]["result"])
+            })
+        else:
+            tool_messages.append({
+                "role": "tool",
+                "tool_call_id": result["tool_call_id"],
+                "content": f"Error: {result['result']['error']}"
+            })
+    
+    return tool_messages
 ```
 
 ## Common Mistakes
 
-1. **Poor tool descriptions**: LLM can't choose correct tools
-2. **No error handling**: Tool failures crash the system
-3. **Incorrect schemas**: JSON schema errors prevent tool calls
-4. **Too many tools**: Overwhelms the LLM
-5. **No validation**: Invalid arguments cause errors
-6. **Not handling parallel calls**: Multiple tools called simultaneously
+### 1. Poor tool descriptions
+
+Tool descriptions are how LLMs understand when to use tools. Vague or unclear descriptions lead to incorrect tool selection.
+
+**Problems:**
+- Description doesn't explain when to use the tool
+- Description is too technical or abstract
+- Missing examples or use cases
+- Description doesn't match the actual tool behavior
+
+**Solutions:**
+- Be specific about when to use each tool
+- Include examples in descriptions
+- Explain edge cases or limitations
+- Test descriptions: if LLM picks wrong tool, improve description
+
+**Example:**
+
+❌ **Bad:**
+```python
+"description": "Database search"
+```
+
+✅ **Good:**
+```python
+"description": "Search the company knowledge base for information about policies, procedures, products, or support documentation. Use this when users ask questions that might be answered by internal documentation. Returns up to 10 relevant results with excerpts. Do NOT use this for current weather, real-time data, or information requiring external APIs."
+```
+
+### 2. No error handling
+
+Tool failures can crash your entire agent system. Without error handling, one tool error stops everything.
+
+**Problems:**
+- Tool execution errors not caught
+- Invalid arguments cause crashes
+- Network/API failures not handled
+- Errors not communicated back to LLM
+
+**Solutions:**
+- Wrap all tool executions in try/except
+- Validate arguments before execution
+- Return meaningful error messages to LLM
+- Log errors for debugging
+- Implement retries for transient errors
+
+**Always return errors to LLM:**
+
+```python
+try:
+    result = tool_function(**arguments)
+    return str(result)
+except Exception as e:
+    # Return error to LLM so it can adapt
+    return f"Error: {str(e)}"
+```
+
+### 3. Incorrect or incomplete JSON schemas
+
+Invalid schemas prevent tool calls or cause parsing errors. Schemas must be valid JSON Schema.
+
+**Problems:**
+- Missing required fields
+- Wrong data types
+- Missing constraints (min, max, enum)
+- Invalid schema structure
+
+**Solutions:**
+- Use proper JSON Schema format
+- Validate schemas before registering tools
+- Include all constraints
+- Test schemas with actual LLM calls
+- Use schema validation libraries
+
+**Validate schemas:**
+
+```python
+import jsonschema
+
+def validate_schema(schema: dict) -> bool:
+    try:
+        jsonschema.Draft7Validator.check_schema(schema)
+        return True
+    except jsonschema.SchemaError:
+        return False
+```
+
+### 4. Too many tools
+
+Providing too many tools (typically more than 15-20) overwhelms the LLM and leads to poor tool selection.
+
+**Problems:**
+- LLM gets confused with too many choices
+- Tool descriptions consume many tokens
+- Slower decision-making
+- Higher costs (tool descriptions in context)
+
+**Solutions:**
+- Limit tools to what's necessary for the task
+- Group related tools
+- Use tool hierarchies or routing
+- Create specialized agents with different tool sets
+- Consider tool selection strategies
+
+**Rule of thumb:** Start with 5-10 tools. If you need more, consider splitting into multiple agents.
+
+### 5. No input validation
+
+LLMs may provide invalid arguments. Without validation, tools fail or behave unexpectedly.
+
+**Problems:**
+- Invalid argument types
+- Out-of-range values
+- Missing required fields
+- Malformed data
+
+**Solutions:**
+- Validate all arguments against schema before execution
+- Check types, ranges, enums
+- Provide clear validation errors
+- Use JSON Schema validation libraries
+- Set sensible defaults where appropriate
+
+**Validate before execution:**
+
+```python
+def validate_arguments(schema: dict, arguments: dict) -> Optional[str]:
+    """Validate arguments return error message if invalid."""
+    required = schema.get("required", [])
+    properties = schema.get("properties", {})
+    
+    # Check required fields
+    for field in required:
+        if field not in arguments:
+            return f"Missing required field: {field}"
+    
+    # Check types and constraints
+    for field, value in arguments.items():
+        if field in properties:
+            prop = properties[field]
+            # Type checking, enum checking, min/max, etc.
+            ...
+    
+    return None
+```
+
+### 6. Not handling parallel tool calls
+
+Modern LLMs (GPT-4o, Claude 3.5) can call multiple tools simultaneously. Sequential execution wastes time.
+
+**Problems:**
+- Tools executed one at a time when they could be parallel
+- Slower overall execution
+- Poor user experience
+
+**Solutions:**
+- Detect multiple tool calls
+- Execute independent tools in parallel
+- Use async/await or threading
+- Maintain tool_call_id mapping for responses
+
+**Always handle parallel calls:**
+
+```python
+# Bad: Sequential execution
+for tool_call in tool_calls:
+    result = execute_tool(tool_call)
+    # ...
+
+# Good: Parallel execution
+results = await asyncio.gather(*[
+    execute_tool_async(tc) for tc in tool_calls
+])
+```
+
+### 7. Ignoring tool_call_id
+
+Each tool call has a unique `tool_call_id` that must be included in the tool response. Missing or incorrect IDs break the conversation flow.
+
+**Problems:**
+- LLM can't match tool results to calls
+- Conversation context breaks
+- Tool results ignored or misinterpreted
+
+**Solutions:**
+- Always include `tool_call_id` in tool responses
+- Store tool_call_id when executing tools
+- Match responses to correct tool calls
+- Verify IDs before sending to LLM
+
+**Correct tool response format:**
+
+```python
+{
+    "role": "tool",
+    "tool_call_id": tool_call.id,  # Must match!
+    "content": tool_result
+}
+```
+
+### 8. Not limiting tool execution time
+
+Tools can hang or take too long, blocking the agent and degrading user experience.
+
+**Problems:**
+- Tools block for minutes
+- No timeout mechanism
+- User waits indefinitely
+- Resource waste
+
+**Solutions:**
+- Set timeouts for all tool executions
+- Use async execution with timeouts
+- Cancel long-running operations
+- Return timeout errors to LLM
+
+**Implement timeouts:**
+
+```python
+import asyncio
+
+async def execute_with_timeout(tool_func, args, timeout=5.0):
+    try:
+        result = await asyncio.wait_for(
+            tool_func(**args),
+            timeout=timeout
+        )
+        return result
+    except asyncio.TimeoutError:
+        return "Error: Tool execution timed out"
+```
+
+### 9. Tool results too verbose
+
+Long tool results consume many tokens and can confuse the LLM.
+
+**Problems:**
+- Tool returns massive data dumps
+- Important information lost in noise
+- High token costs
+- LLM struggles to extract relevant info
+
+**Solutions:**
+- Summarize or truncate tool results
+- Extract only relevant information
+- Format results clearly
+- Limit result length
+- Use structured formats when possible
+
+**Summarize results:**
+
+```python
+def format_tool_result(result: Any, max_length: int = 500) -> str:
+    """Format tool result for LLM."""
+    result_str = str(result)
+    if len(result_str) > max_length:
+        return result_str[:max_length] + "... (truncated)"
+    return result_str
+```
+
+### 10. Not monitoring tool usage
+
+Without monitoring, you don't know which tools are used, how often, or if they're failing.
+
+**Problems:**
+- No visibility into tool performance
+- Can't identify unused tools
+- Can't debug tool selection issues
+- Can't optimize costs
+
+**Solutions:**
+- Track tool call frequency
+- Monitor success/failure rates
+- Log execution times
+- Track token usage
+- Alert on failures
+
+**Monitor everything:**
+
+```python
+class MonitoredToolRegistry(ToolRegistry):
+    def execute(self, name: str, arguments: dict):
+        # Track usage
+        self.metrics.log_tool_call(name)
+        
+        result = super().execute(name, arguments)
+        
+        # Track result
+        if result["success"]:
+            self.metrics.log_success(name)
+        else:
+            self.metrics.log_failure(name, result["error"])
+        
+        return result
+```
 
 ## Exercise
 
-1. Define 3-5 tools for an agent
-2. Implement tool execution logic
-3. Test tool calling with various queries
-4. Add error handling and validation
-5. Handle multiple tool calls
-6. Measure tool call success rate
+Complete these exercises to master tool calling.
+
+### 1. Build a basic tool calling system
+
+Create a minimal tool calling system:
+
+```python
+def build_basic_tool_system_exercise():
+    """TODO: Build basic tool calling system"""
+    # TODO: Define 3-5 tools (search, calculator, weather, etc.)
+    # TODO: Implement tool execution functions
+    # TODO: Set up OpenAI client with tools
+    # TODO: Handle tool calls from LLM
+    # TODO: Execute tools and return results
+    # TODO: Get final LLM response
+    pass
+```
+
+### 2. Create comprehensive tool definitions
+
+Write excellent tool descriptions and schemas:
+
+```python
+def create_tool_definitions_exercise():
+    """TODO: Create comprehensive tool definitions"""
+    # TODO: Write clear, specific tool descriptions
+    # TODO: Define complete JSON schemas with validation
+    # TODO: Include examples in descriptions
+    # TODO: Specify when to use each tool
+    # TODO: Test descriptions - do LLMs choose correctly?
+    pass
+```
+
+### 3. Implement error handling
+
+Add robust error handling:
+
+```python
+def implement_error_handling_exercise(tool_system):
+    """TODO: Implement error handling"""
+    # TODO: Catch tool execution errors
+    # TODO: Validate arguments before execution
+    # TODO: Handle network/API failures
+    # TODO: Return meaningful errors to LLM
+    # TODO: Log errors for debugging
+    # TODO: Test with invalid inputs
+    pass
+```
+
+### 4. Handle parallel tool calls
+
+Implement parallel execution:
+
+```python
+async def handle_parallel_calls_exercise(tool_system):
+    """TODO: Handle parallel tool calls"""
+    # TODO: Detect multiple tool calls
+    # TODO: Execute tools in parallel (async)
+    # TODO: Match results to tool_call_ids
+    # TODO: Handle partial failures
+    # TODO: Test with multiple simultaneous tool calls
+    pass
+```
+
+### 5. Build a tool registry
+
+Create a production-ready tool registry:
+
+```python
+class ToolRegistryExercise:
+    """TODO: Build production tool registry"""
+    
+    def __init__(self):
+        """TODO: Initialize registry"""
+        # TODO: Tool storage
+        # TODO: Tool definitions
+        # TODO: Validation logic
+        # TODO: Statistics tracking
+        pass
+    
+    def register(self, name, func, description, schema):
+        """TODO: Register tool with validation"""
+        pass
+    
+    def execute(self, name, arguments):
+        """TODO: Execute tool with error handling"""
+        pass
+    
+    def get_tool_definitions(self):
+        """TODO: Return OpenAI-compatible definitions"""
+        pass
+```
+
+### 6. Add input validation
+
+Implement schema validation:
+
+```python
+def add_validation_exercise(registry):
+    """TODO: Add input validation"""
+    # TODO: Validate argument types
+    # TODO: Check required fields
+    # TODO: Validate ranges and constraints
+    # TODO: Check enum values
+    # TODO: Return clear validation errors
+    # TODO: Test with various invalid inputs
+    pass
+```
+
+### 7. Implement tool timeouts
+
+Add execution timeouts:
+
+```python
+async def implement_timeouts_exercise(registry):
+    """TODO: Implement tool timeouts"""
+    # TODO: Add timeout parameter to tools
+    # TODO: Use asyncio.wait_for for timeouts
+    # TODO: Cancel long-running operations
+    # TODO: Return timeout errors gracefully
+    # TODO: Test with slow tools
+    pass
+```
+
+### 8. Monitor tool usage
+
+Add monitoring and metrics:
+
+```python
+class MonitoredRegistryExercise:
+    """TODO: Add monitoring to tool registry"""
+    
+    def track_usage(self):
+        """TODO: Track tool call frequency"""
+        pass
+    
+    def track_performance(self):
+        """TODO: Track execution times"""
+        pass
+    
+    def track_errors(self):
+        """TODO: Track failures and errors"""
+        pass
+    
+    def get_metrics(self):
+        """TODO: Return usage statistics"""
+        pass
+```
+
+### 9. Test tool selection
+
+Evaluate tool descriptions:
+
+```python
+def test_tool_selection_exercise(registry):
+    """TODO: Test tool selection quality"""
+    # TODO: Create test queries
+    # TODO: Check if LLM chooses correct tools
+    # TODO: Identify incorrect tool selections
+    # TODO: Improve tool descriptions based on results
+    # TODO: Measure selection accuracy
+    pass
+```
+
+### 10. Reflection questions
+
+After completing exercises, answer:
+
+1. What makes a good tool description?
+2. How do you handle tool failures gracefully?
+3. When should tools be executed in parallel?
+4. How do you prevent LLMs from choosing wrong tools?
+5. What validation is essential for tool arguments?
+6. How do you balance tool count vs capability?
+7. What monitoring is critical for production tools?
+8. How do you optimize tool result formatting?
+9. What security considerations apply to tool calling?
+10. How do you debug tool calling issues?
 
 ## Tools & Resources
 
-- [OpenAI Function Calling](https://platform.openai.com/docs/guides/function-calling)
-- [Anthropic Tool Use](https://docs.anthropic.com/claude/docs/tool-use)
-- [LangChain Tools](https://python.langchain.com/docs/modules/tools/)
+### Official Documentation
 
+- **[OpenAI Tools (Function Calling)](https://platform.openai.com/docs/guides/function-calling)**: Complete guide to OpenAI tool calling
+- **[Anthropic Tool Use](https://docs.anthropic.com/claude/docs/tool-use)**: Claude tool use documentation
+- **[Google Gemini Function Calling](https://ai.google.dev/docs/function_calling)**: Gemini function calling guide
+
+### Libraries and Frameworks
+
+- **[LangChain Tools](https://python.langchain.com/docs/modules/tools/)**: Tool abstractions and integrations
+- **[LlamaIndex Tools](https://docs.llamaindex.ai/en/stable/module_guides/deploying/function_calling/)**: Tool system for LlamaIndex
+- **[JSON Schema Validator](https://python-jsonschema.readthedocs.io/)**: Python JSON Schema validation
+
+### Best Practices
+
+- **[OpenAI Function Calling Best Practices](https://platform.openai.com/docs/guides/function-calling)**: Official best practices
+- **[Function Calling Patterns](https://www.patterns.dev/patterns/function-calling/)**: Common patterns and anti-patterns
+
+### Examples and Tutorials
+
+- **[OpenAI Function Calling Examples](https://github.com/openai/openai-cookbook/tree/main/examples/How_to_call_functions)**: Real-world examples
+- **[LangChain Tool Examples](https://github.com/langchain-ai/langchain/tree/master/templates)**: Production examples
