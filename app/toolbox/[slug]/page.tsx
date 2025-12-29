@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { CodeBlock } from "@/components/ui/CodeBlock";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -39,12 +40,28 @@ const mdxComponents = {
   blockquote: (props: any) => (
     <blockquote className="bg-blue-50 dark:bg-blue-950/30 border-l-4 border-blue-500 dark:border-blue-400 pl-4 pr-4 py-3 my-6 italic text-gray-800 dark:text-gray-200 rounded-r" {...props} />
   ),
-  code: (props: any) => (
-    <code className="bg-gray-100 dark:bg-muted text-gray-900 dark:text-foreground px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
-  ),
-  pre: (props: any) => (
-    <pre className="bg-gray-100 dark:bg-muted text-gray-900 dark:text-foreground rounded-lg p-4 overflow-x-auto mb-4" {...props} />
-  ),
+  code: (props: any) => {
+    // If code is inside a pre tag, it will be handled by the pre component
+    // Otherwise, render as inline code
+    if (props.className) {
+      // This is a code block, return as-is to be handled by pre
+      return <code {...props} />;
+    }
+    return (
+      <code className="bg-gray-100 dark:bg-muted text-gray-900 dark:text-foreground px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+    );
+  },
+  pre: (props: any) => {
+    // Check if pre contains a code element with className (code block)
+    const codeElement = props.children;
+    if (codeElement && typeof codeElement === "object" && codeElement.props?.className) {
+      return <CodeBlock>{codeElement}</CodeBlock>;
+    }
+    // Fallback for plain pre tags
+    return (
+      <pre className="bg-gray-100 dark:bg-muted text-gray-900 dark:text-foreground rounded-lg p-4 overflow-x-auto mb-4" {...props} />
+    );
+  },
   a: (props: any) => (
     <a className="text-primary underline hover:text-primary/80" {...props} />
   ),
