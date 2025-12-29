@@ -15,61 +15,121 @@ alternatives: ["LlamaIndex", "Haystack", "Semantic Kernel"]
 
 # LangChain
 
-LangChain is a framework for developing applications powered by language models. It provides tools and abstractions for building agent-based applications, chains, and integrating various data sources.
+LangChain is a comprehensive framework for developing applications powered by language models. As of December 2025, it's one of the most popular frameworks for building LLM-powered applications, providing robust abstractions for agents, chains, retrieval, and tool integration.
 
 ## Overview
 
 LangChain simplifies the process of building complex LLM applications by providing:
-- **Agents**: Autonomous systems that can use tools
+- **Agents**: Autonomous systems that can use tools and make decisions
 - **Chains**: Composable sequences of operations
-- **Memory**: State management for conversations
-- **Tools**: Integration with external systems
+- **Memory**: State management for conversations and context
+- **Tools**: Seamless integration with external systems and APIs
+- **RAG**: Built-in support for retrieval-augmented generation
+- **LangGraph**: State machine-based agent orchestration (recommended for complex agents)
 
 ## When to Use
 
-- Building agent-based applications
+- Building agent-based applications that need to interact with external tools
 - Creating complex chains of LLM operations
-- Integrating multiple data sources
-- Rapid prototyping
+- Integrating multiple data sources and APIs
+- Rapid prototyping of AI applications
+- Building RAG (Retrieval-Augmented Generation) systems
+- Implementing multi-agent systems with LangGraph
 
-## Key Features
+## Key Features (As of December 2025)
 
-- **Agent Framework**: Build autonomous agents that can use tools
-- **Memory Management**: Maintain conversation state
-- **Vector Store Integration**: Built-in support for vector databases
+- **Agent Framework**: Build autonomous agents with tool-calling capabilities
+- **LangGraph**: State machine-based agent orchestration for complex workflows
+- **Memory Management**: Multiple memory types (conversation, entity, summary)
+- **Vector Store Integration**: Support for 50+ vector databases
 - **Tool Integration**: Easy integration with external APIs and tools
+- **Streaming Support**: Built-in streaming for real-time responses
+- **Observability**: Integration with LangSmith for tracing and monitoring
+- **Production Ready**: Battle-tested in production environments
 
 ## Basic Example
 
 ```python
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_openai_tools_agent, AgentExecutor
-from langchain_core.tools import Tool
+from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate
 
-llm = ChatOpenAI(model="gpt-4", temperature=0)
-tools = [
-    Tool(
-        name="Search",
-        func=search_function,
-        description="Search for information"
-    )
-]
+# Use latest GPT-4o model (as of December 2025)
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+@tool
+def search_function(query: str) -> str:
+    """Search for information. Use this tool when you need to find current information."""
+    # Your search implementation
+    return f"Search results for: {query}"
+
+tools = [search_function]
 
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful assistant"),
+    ("system", "You are a helpful assistant. Use tools when needed."),
     ("human", "{input}"),
     ("placeholder", "{agent_scratchpad}")
 ])
 
 agent = create_openai_tools_agent(llm, tools, prompt)
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
 result = agent_executor.invoke({"input": "Search for information about RAG"})
+print(result["output"])
 ```
+
+## LangGraph Example (Recommended for Complex Agents)
+
+```python
+from langchain_openai import ChatOpenAI
+from langgraph.graph import StateGraph, END
+from langchain_core.tools import tool
+
+llm = ChatOpenAI(model="gpt-4o")
+
+@tool
+def search_tool(query: str) -> str:
+    """Search for information"""
+    return f"Results: {query}"
+
+# Define state
+from typing import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+
+class AgentState(TypedDict):
+    messages: Annotated[list, add_messages]
+
+# Create graph
+graph = StateGraph(AgentState)
+
+def agent_node(state):
+    messages = state["messages"]
+    response = llm.invoke(messages)
+    return {"messages": [response]}
+
+graph.add_node("agent", agent_node)
+graph.set_entry_point("agent")
+graph.add_edge("agent", END)
+
+app = graph.compile()
+result = app.invoke({"messages": [("human", "Hello!")]})
+```
+
+## Production Best Practices
+
+1. **Use LangSmith**: Enable tracing and monitoring for production deployments
+2. **Error Handling**: Wrap agent calls in try-except blocks
+3. **Rate Limiting**: Implement rate limiting for LLM API calls
+4. **Caching**: Use LangChain's caching for expensive operations
+5. **Streaming**: Use streaming for better user experience
+6. **Tool Validation**: Validate tool inputs and outputs
+7. **Model Selection**: Use GPT-4o or GPT-5.2 for best results (as of December 2025)
 
 ## Resources
 
 - [LangChain Documentation](https://python.langchain.com/)
 - [LangChain GitHub](https://github.com/langchain-ai/langchain)
 - [LangChain Cookbook](https://github.com/langchain-ai/langchain-cookbook)
-
+- [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
+- [LangSmith](https://smith.langchain.com/) - Observability platform

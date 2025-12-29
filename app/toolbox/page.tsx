@@ -70,8 +70,8 @@ export default function ToolboxPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {category.items.map((item) => (
-                    <Link key={item.id} href={`/toolbox/${item.id}`}>
-                      <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+                    <Card key={item.id} className="h-full hover:shadow-lg transition-shadow">
+                      <Link href={`/toolbox/${item.id}`} className="block">
                         <CardHeader>
                           <CardTitle className="text-lg">{item.title}</CardTitle>
                           <CardDescription>{item.description}</CardDescription>
@@ -84,15 +84,17 @@ export default function ToolboxPage() {
                               </Badge>
                             ))}
                           </div>
-                          <ExternalLink
-                            href={item.officialUrl}
-                            className="text-sm text-primary hover:underline"
-                          >
-                            Official Site →
-                          </ExternalLink>
                         </CardContent>
-                      </Card>
-                    </Link>
+                      </Link>
+                      <CardContent className="pt-0">
+                        <ExternalLink
+                          href={item.officialUrl}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          Official Site →
+                        </ExternalLink>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               </div>

@@ -1,63 +1,264 @@
 ---
 title: "Weaviate"
 category: "vector-db"
-description: "Open-source vector database with GraphQL API and hybrid search"
+description: "Open-source vector database with GraphQL API, hybrid search, and advanced features"
 officialUrl: "https://weaviate.io/"
-tags: ["vector-database", "open-source", "graphql", "hybrid-search"]
+tags: ["vector-db", "open-source", "graphql", "hybrid-search"]
 whenToUse: [
-  "Self-hosted vector database",
-  "Need GraphQL API",
-  "Hybrid search requirements",
-  "Complex filtering needs"
+  "Production RAG applications",
+  "Need hybrid search (vector + keyword)",
+  "GraphQL API requirements",
+  "Open-source vector database"
 ]
-alternatives: ["Pinecone", "Qdrant", "Chroma", "Milvus"]
+alternatives: ["Pinecone", "Qdrant", "Milvus", "Chroma", "PGVector"]
 ---
 
 # Weaviate
 
-Weaviate is an open-source vector database with a GraphQL API. It supports vector search, hybrid search, and complex filtering capabilities.
+Weaviate is an open-source vector database with a GraphQL API and advanced features including hybrid search. As of December 2025, it's a powerful choice for production applications that need sophisticated search capabilities and prefer open-source solutions.
 
 ## Overview
 
-Weaviate provides:
-- **GraphQL API**: Query using GraphQL
+Weaviate provides a comprehensive vector database solution:
+- **Open Source**: Fully open-source and self-hostable
+- **GraphQL API**: Native GraphQL API for flexible queries
 - **Hybrid Search**: Combine vector and keyword search
-- **Self-Hosted**: Run on your own infrastructure
-- **Cloud Option**: Managed Weaviate Cloud available
+- **Schema-First**: Schema-first design for type safety
+- **Multi-Modal**: Support for text, images, and other data types
+- **Advanced Features**: Classification, references, and more
 
 ## When to Use
 
-- Self-hosted vector database
-- Need GraphQL interface
-- Complex hybrid search requirements
-- Advanced filtering capabilities
+- Production RAG applications requiring hybrid search
+- Need GraphQL API for flexible queries
+- Prefer open-source, self-hostable solutions
+- Multi-modal applications (text, images, etc.)
+- Applications requiring schema validation
+- Need advanced features like classification or references
 
-## Key Features
+## Key Features (As of December 2025)
 
-- **GraphQL API**: Type-safe queries
-- **Hybrid Search**: Vector + keyword search
-- **Self-Hosted**: Full control over infrastructure
-- **Schema-Based**: Define data schemas
+- **Hybrid Search**: Combine vector similarity and BM25 keyword search
+- **GraphQL API**: Native GraphQL API for flexible querying
+- **Schema-First**: Define schemas for type safety and validation
+- **Open Source**: Fully open-source with cloud and self-hosted options
+- **Multi-Modal**: Support for text, images, and other data types
+- **References**: Create references between objects for graph-like queries
+- **Classification**: Built-in classification capabilities
+- **LangChain Integration**: Native integration with LangChain
+- **LlamaIndex Integration**: Native integration with LlamaIndex
 
 ## Basic Example
 
 ```python
 import weaviate
+from weaviate.classes.config import Configure, Property, DataType
 
-client = weaviate.Client(url="http://localhost:8080")
+# Connect to Weaviate (local or cloud)
+client = weaviate.connect_to_local()  # or connect_to_wcs() for cloud
 
-# Query
-result = (
-    client.query
-    .get("Document", ["text", "metadata"])
-    .with_near_text({"concepts": ["RAG"]})
-    .with_limit(5)
-    .do()
+# Create collection (schema)
+client.collections.create(
+    name="Document",
+    vectorizer_config=Configure.Vectorizer.text2vec_openai(
+        model="text-embedding-3-small"
+    ),
+    properties=[
+        Property(name="content", data_type=DataType.TEXT),
+        Property(name="source", data_type=DataType.TEXT),
+    ]
+)
+
+# Get collection
+documents = client.collections.get("Document")
+
+# Insert data
+documents.data.insert({
+    "content": "RAG stands for Retrieval-Augmented Generation",
+    "source": "glossary"
+})
+
+# Query with vector search
+response = documents.query.near_text(
+    query="What is RAG?",
+    limit=5
+)
+
+for obj in response.objects:
+    print(obj.properties["content"])
+```
+
+## Hybrid Search Example
+
+```python
+import weaviate
+
+client = weaviate.connect_to_local()
+documents = client.collections.get("Document")
+
+# Hybrid search (combines vector + keyword search)
+response = documents.query.hybrid(
+    query="What is RAG?",
+    alpha=0.7,  # 0.0 = pure keyword, 1.0 = pure vector, 0.7 = balanced
+    limit=5
+)
+
+for obj in response.objects:
+    print(obj.properties["content"])
+    print(f"Score: {obj.metadata.score}")
+```
+
+## With Custom Embeddings Example
+
+```python
+import weaviate
+from weaviate.classes.config import Configure, Property, DataType
+from openai import OpenAI
+
+# Create collection without vectorizer (we'll provide embeddings)
+client = weaviate.connect_to_local()
+client.collections.create(
+    name="Document",
+    vectorizer_config=None,  # No automatic vectorization
+    properties=[
+        Property(name="content", data_type=DataType.TEXT),
+    ]
+)
+
+# Generate embeddings
+openai_client = OpenAI()
+embedding = openai_client.embeddings.create(
+    model="text-embedding-3-small",
+    input="RAG stands for Retrieval-Augmented Generation"
+).data[0].embedding
+
+# Insert with custom embedding
+documents = client.collections.get("Document")
+documents.data.insert(
+    properties={
+        "content": "RAG stands for Retrieval-Augmented Generation"
+    },
+    vector=embedding
+)
+
+# Query with custom embedding
+query_embedding = openai_client.embeddings.create(
+    model="text-embedding-3-small",
+    input="What is RAG?"
+).data[0].embedding
+
+response = documents.query.near_vector(
+    near_vector=query_embedding,
+    limit=5
 )
 ```
+
+## LangChain Integration Example
+
+```python
+from langchain_community.vectorstores import Weaviate
+from langchain_openai import OpenAIEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
+
+# Initialize embeddings
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Create Weaviate vector store
+vectorstore = Weaviate.from_documents(
+    documents=documents,
+    embedding=embeddings,
+    weaviate_url="http://localhost:8080"
+)
+
+# Query
+results = vectorstore.similarity_search("What is RAG?", k=5)
+
+# Hybrid search
+results = vectorstore.similarity_search(
+    "What is RAG?",
+    k=5,
+    hybrid=True,  # Enable hybrid search
+    alpha=0.7
+)
+```
+
+## LlamaIndex Integration Example
+
+```python
+from llama_index.core import VectorStoreIndex, StorageContext
+from llama_index.vector_stores.weaviate import WeaviateVectorStore
+from llama_index.embeddings.openai import OpenAIEmbedding
+import weaviate
+
+# Connect to Weaviate
+client = weaviate.connect_to_local()
+
+# Create vector store
+vector_store = WeaviateVectorStore(weaviate_client=client, index_name="Document")
+storage_context = StorageContext.from_defaults(vector_store=vector_store)
+
+# Create index
+embed_model = OpenAIEmbedding(model="text-embedding-3-small")
+index = VectorStoreIndex.from_documents(
+    documents,
+    storage_context=storage_context,
+    embed_model=embed_model
+)
+
+# Query
+query_engine = index.as_query_engine()
+response = query_engine.query("What is RAG?")
+```
+
+## Filtering Example
+
+```python
+import weaviate
+from weaviate.classes.query import Filter
+
+client = weaviate.connect_to_local()
+documents = client.collections.get("Document")
+
+# Query with filters
+response = documents.query.near_text(
+    query="What is RAG?",
+    limit=5,
+    filters=Filter.by_property("source").equal("faq")  # Metadata filter
+)
+
+# Complex filters
+response = documents.query.near_text(
+    query="What is RAG?",
+    limit=5,
+    filters=Filter.any_of([
+        Filter.by_property("source").equal("faq"),
+        Filter.by_property("source").equal("glossary")
+    ])
+)
+```
+
+## Production Best Practices
+
+1. **Schema Design**: Design schemas carefully for your use case
+2. **Hybrid Search**: Use hybrid search (alpha tuning) for better relevance
+3. **Indexing**: Configure appropriate indexing strategies
+4. **Backup**: Implement backup strategies for critical data
+5. **Monitoring**: Monitor query performance and resource usage
+6. **Deployment**: Use Weaviate Cloud for managed deployments or self-host for control
+7. **Vectorization**: Choose appropriate vectorizer or provide custom embeddings
+8. **Filtering**: Use filters for efficient queries and multi-tenancy
+
+## Deployment Options
+
+- **Self-Hosted**: Deploy on your own infrastructure (Docker, Kubernetes)
+- **Weaviate Cloud**: Managed cloud service
+- **Embedded**: Embedded mode for development
 
 ## Resources
 
 - [Weaviate Documentation](https://weaviate.io/developers/weaviate)
-- [Weaviate Python Client](https://weaviate.io/developers/weaviate/client-libraries/python)
-
+- [Weaviate GitHub](https://github.com/weaviate/weaviate)
+- [Getting Started](https://weaviate.io/developers/weaviate/quickstart)
+- [GraphQL API](https://weaviate.io/developers/weaviate/api/graphql)
+- [LangChain Integration](https://python.langchain.com/docs/integrations/vectorstores/weaviate)
+- [LlamaIndex Integration](https://docs.llamaindex.ai/en/stable/examples/vector_stores/WeaviateIndexDemo/)

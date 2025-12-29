@@ -1,68 +1,236 @@
 ---
 title: "Chroma"
 category: "vector-db"
-description: "Lightweight, Python-first vector database for embeddings"
+description: "Open-source embedding database for building AI applications with embeddings"
 officialUrl: "https://www.trychroma.com/"
-tags: ["vector-database", "python", "lightweight", "local"]
+tags: ["vector-db", "embeddings", "open-source", "python"]
 whenToUse: [
-  "Development and prototyping",
-  "Small to medium-scale applications",
-  "Local-first development",
-  "Python-focused projects"
+  "Building RAG applications",
+  "Storing and querying embeddings",
+  "Simple, Python-first vector database",
+  "Development and prototyping"
 ]
-alternatives: ["Pinecone", "Weaviate", "Qdrant"]
+alternatives: ["Pinecone", "Weaviate", "Qdrant", "Milvus", "PGVector"]
 ---
 
 # Chroma
 
-Chroma is a lightweight, Python-first vector database designed for simplicity and ease of use. It's great for development and smaller applications.
+Chroma is an open-source embedding database designed for building AI applications. As of December 2025, it's a popular choice for developers who want a simple, Python-first vector database that's easy to get started with and doesn't require complex infrastructure.
 
 ## Overview
 
-Chroma provides:
-- **Python-First**: Designed for Python developers
-- **Simple API**: Easy to get started
-- **Local-First**: Runs locally by default
-- **Lightweight**: Minimal dependencies
+Chroma provides a simple and efficient way to store and query embeddings:
+- **Simple API**: Python-first API that's intuitive and easy to use
+- **Embedding Storage**: Store embeddings with associated metadata
+- **Similarity Search**: Fast similarity search over embeddings
+- **Open Source**: Fully open-source and self-hostable
+- **Lightweight**: Minimal dependencies and easy deployment
+- **Python Integration**: Native Python integration for seamless development
 
 ## When to Use
 
-- Development and prototyping
+- Building RAG applications with embeddings
+- Need a simple, Python-first vector database
+- Development and prototyping (quick to set up)
 - Small to medium-scale applications
-- Local-first development workflows
-- Python-focused projects
+- When you want an open-source, self-hostable solution
+- When simplicity is more important than advanced features
+- Integration with LangChain or LlamaIndex
 
-## Key Features
+## Key Features (As of December 2025)
 
-- **Simple API**: Easy to use Python interface
-- **Local-First**: Works out of the box locally
-- **Embedded Mode**: Can run as embedded database
-- **Client-Server**: Also supports client-server mode
+- **Simple API**: Clean, Python-first API for storing and querying embeddings
+- **Open Source**: Fully open-source and self-hostable
+- **Metadata Filtering**: Filter results by metadata attributes
+- **Collections**: Organize embeddings into collections
+- **Persistent Storage**: Support for both in-memory and persistent storage
+- **LangChain Integration**: Native integration with LangChain
+- **LlamaIndex Integration**: Native integration with LlamaIndex
+- **Lightweight**: Minimal dependencies, easy to deploy
 
 ## Basic Example
 
 ```python
 import chromadb
+from chromadb.config import Settings
 
-client = chromadb.Client()
-collection = client.get_or_create_collection(name="documents")
+# Initialize Chroma client
+client = chromadb.Client(Settings(
+    chroma_db_impl="duckdb+parquet",
+    persist_directory="./chroma_db"
+))
 
-# Add documents
+# Create a collection
+collection = client.create_collection(
+    name="documents",
+    metadata={"description": "Document embeddings"}
+)
+
+# Add documents and embeddings
 collection.add(
-    embeddings=embeddings_list,
-    documents=texts,
-    ids=[f"doc-{i}" for i in range(len(texts))]
+    documents=["What is RAG?", "RAG stands for Retrieval-Augmented Generation"],
+    ids=["doc1", "doc2"],
+    metadatas=[{"source": "faq"}, {"source": "glossary"}]
 )
 
 # Query
 results = collection.query(
+    query_texts=["What does RAG mean?"],
+    n_results=2
+)
+print(results)
+```
+
+## With Embeddings Example
+
+```python
+import chromadb
+from openai import OpenAI
+
+client = chromadb.Client()
+openai_client = OpenAI()
+
+# Create collection
+collection = client.create_collection(name="embeddings")
+
+# Generate embeddings
+texts = ["What is RAG?", "How do vector databases work?"]
+embeddings = [
+    openai_client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text
+    ).data[0].embedding
+    for text in texts
+]
+
+# Add to Chroma
+collection.add(
+    embeddings=embeddings,
+    documents=texts,
+    ids=["doc1", "doc2"]
+)
+
+# Query with embedding
+query_embedding = openai_client.embeddings.create(
+    model="text-embedding-3-small",
+    input="Tell me about RAG"
+).data[0].embedding
+
+results = collection.query(
     query_embeddings=[query_embedding],
-    n_results=5
+    n_results=1
 )
 ```
+
+## LangChain Integration Example
+
+```python
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.document_loaders import TextLoader
+
+# Load documents
+loader = TextLoader("./documents.txt")
+documents = loader.load()
+
+# Split documents
+text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+docs = text_splitter.split_documents(documents)
+
+# Create embeddings and vector store
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+vectorstore = Chroma.from_documents(
+    documents=docs,
+    embedding=embeddings,
+    persist_directory="./chroma_db"
+)
+
+# Query
+results = vectorstore.similarity_search("What is RAG?", k=2)
+```
+
+## LlamaIndex Integration Example
+
+```python
+from llama_index.core import VectorStoreIndex, StorageContext
+from llama_index.vector_stores.chroma import ChromaVectorStore
+from llama_index.embeddings.openai import OpenAIEmbedding
+
+# Initialize Chroma
+import chromadb
+chroma_client = chromadb.Client()
+chroma_collection = chroma_client.create_collection("documents")
+
+# Create vector store
+vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+storage_context = StorageContext.from_defaults(vector_store=vector_store)
+
+# Create index
+embed_model = OpenAIEmbedding(model="text-embedding-3-small")
+index = VectorStoreIndex.from_documents(
+    documents,
+    storage_context=storage_context,
+    embed_model=embed_model
+)
+
+# Query
+query_engine = index.as_query_engine()
+response = query_engine.query("What is RAG?")
+```
+
+## Metadata Filtering Example
+
+```python
+import chromadb
+
+client = chromadb.Client()
+collection = client.create_collection(name="documents")
+
+# Add documents with metadata
+collection.add(
+    documents=["Document 1", "Document 2", "Document 3"],
+    ids=["doc1", "doc2", "doc3"],
+    metadatas=[
+        {"category": "technical", "year": 2024},
+        {"category": "general", "year": 2024},
+        {"category": "technical", "year": 2025}
+    ]
+)
+
+# Query with metadata filtering
+results = collection.query(
+    query_texts=["AI engineering"],
+    n_results=2,
+    where={"category": "technical"},  # Filter by metadata
+    where_document={"$contains": "RAG"}  # Filter document content
+)
+```
+
+## Production Considerations
+
+Chroma is excellent for development and small to medium-scale applications. For production at scale, consider:
+
+- **Persistence**: Use persistent storage for production deployments
+- **Performance**: Chroma is optimized for simplicity; for very large scale, consider managed solutions
+- **Deployment**: Can be deployed as a service or embedded in applications
+- **Backup**: Implement backup strategies for persistent storage
+- **Monitoring**: Monitor query performance and storage usage
+
+## Production Best Practices
+
+1. **Use Persistent Storage**: Always use persistent storage in production
+2. **Backup Strategy**: Implement regular backups of the database
+3. **Metadata Design**: Design metadata schemas carefully for efficient filtering
+4. **Collection Management**: Organize embeddings into logical collections
+5. **Performance Testing**: Test query performance with your expected load
+6. **Monitoring**: Monitor storage usage and query latency
+7. **Migration Path**: Consider migration path if you need to scale beyond Chroma's capabilities
 
 ## Resources
 
 - [Chroma Documentation](https://docs.trychroma.com/)
 - [Chroma GitHub](https://github.com/chroma-core/chroma)
-
+- [Getting Started Guide](https://docs.trychroma.com/getting-started)
+- [LangChain Integration](https://docs.trychroma.com/integrations/langchain)
+- [LlamaIndex Integration](https://docs.llamaindex.ai/en/stable/examples/vector_stores/ChromaIndexDemo/)

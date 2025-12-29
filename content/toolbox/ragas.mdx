@@ -1,64 +1,234 @@
 ---
 title: "RAGAS"
 category: "evals"
-description: "Framework for evaluating RAG (Retrieval-Augmented Generation) pipelines"
+description: "Framework for evaluating RAG (Retrieval-Augmented Generation) applications with comprehensive metrics"
 officialUrl: "https://docs.ragas.io/"
-tags: ["evaluation", "rag", "metrics", "testing"]
+tags: ["evaluation", "rag", "metrics", "python"]
 whenToUse: [
-  "Evaluating RAG systems",
-  "Measuring retrieval quality",
-  "Testing RAG improvements",
-  "Comparing RAG configurations"
+  "Evaluating RAG system quality",
+  "Measuring retrieval and generation performance",
+  "Comparing different RAG configurations",
+  "Continuous evaluation in production"
 ]
-alternatives: ["LangSmith", "Custom evaluation", "Phoenix"]
+alternatives: ["LangSmith", "Phoenix", "TruLens", "Custom Evaluation Frameworks"]
 ---
 
 # RAGAS
 
-RAGAS is a framework for evaluating RAG (Retrieval-Augmented Generation) pipelines. It provides metrics to measure the quality of retrieval and generation components.
+RAGAS (Retrieval-Augmented Generation Assessment) is a framework for evaluating RAG applications. As of December 2025, it's one of the most comprehensive tools for measuring the quality and performance of RAG systems with both reference-based and reference-free metrics.
 
 ## Overview
 
-RAGAS helps evaluate:
-- **Retrieval Quality**: How well documents are retrieved
-- **Generation Quality**: Quality of generated answers
-- **Faithfulness**: Whether answers are grounded in context
-- **Answer Relevance**: How relevant answers are to questions
+RAGAS provides comprehensive evaluation metrics for RAG systems:
+- **Retrieval Metrics**: Measure how well the retrieval component finds relevant context
+- **Generation Metrics**: Assess the quality of generated responses
+- **Answer Quality**: Evaluate correctness, faithfulness, and relevance
+- **Context Relevance**: Measure how well retrieved context relates to the query
+- **Reference-Free Evaluation**: Evaluate without ground truth answers
+- **Reference-Based Evaluation**: Compare against expected answers
 
 ## When to Use
 
-- Evaluating RAG system quality
-- Measuring retrieval performance
-- Testing RAG improvements
-- Comparing different RAG configurations
+- Evaluating RAG system quality before production deployment
+- Measuring retrieval and generation performance separately
+- Comparing different RAG configurations (chunk sizes, retrieval strategies)
+- Continuous evaluation in production environments
+- Debugging RAG pipeline issues (identifying retrieval vs generation problems)
+- A/B testing different RAG implementations
 
-## Key Features
+## Key Features (As of December 2025)
 
-- **RAG-Specific Metrics**: Metrics designed for RAG systems
-- **Automated Evaluation**: Uses LLMs to evaluate quality
-- **Multiple Metrics**: Faithfulness, relevance, context precision, etc.
-- **Easy Integration**: Works with LangChain and other frameworks
+- **Comprehensive Metrics**: 10+ metrics covering all aspects of RAG
+- **Reference-Free Evaluation**: Evaluate without ground truth (uses LLM-as-judge)
+- **Reference-Based Evaluation**: Compare against expected answers
+- **LangChain Integration**: Native integration with LangChain
+- **LlamaIndex Integration**: Native integration with LlamaIndex
+- **Async Support**: Async evaluation for faster processing
+- **Custom Metrics**: Define and use custom evaluation metrics
+- **Production Ready**: Designed for continuous evaluation workflows
+
+## Evaluation Metrics
+
+### Retrieval Metrics
+
+- **Context Precision**: Measures the precision of retrieved context
+- **Context Recall**: Measures how much relevant context was retrieved
+- **Context Relevancy**: Measures relevance of retrieved context to the query
+
+### Generation Metrics
+
+- **Faithfulness**: Measures if the generated answer is grounded in the context
+- **Answer Relevancy**: Measures how relevant the answer is to the query
+- **Answer Correctness**: Measures factual correctness (requires ground truth)
+- **Answer Similarity**: Measures semantic similarity to expected answer
+
+### Combined Metrics
+
+- **RAG Score**: Overall score combining multiple metrics
+- **Aspect Critiques**: Aspect-specific evaluation (harmfulness, helpfulness, etc.)
 
 ## Basic Example
 
 ```python
 from ragas import evaluate
+from ragas.metrics import (
+    faithfulness,
+    answer_relevancy,
+    context_precision,
+    context_recall,
+)
 from datasets import Dataset
 
-# Prepare dataset
-dataset = Dataset.from_dict({
+# Prepare your data
+data = {
     "question": ["What is RAG?"],
-    "answer": ["RAG is Retrieval-Augmented Generation..."],
-    "contexts": [["RAG combines retrieval and generation..."]],
-    "ground_truth": ["RAG is a technique that..."]
-})
+    "answer": ["RAG stands for Retrieval-Augmented Generation..."],
+    "contexts": [["RAG combines retrieval and generation...", "RAG is a technique..."]],
+    "ground_truth": ["RAG is a technique that enhances LLM outputs..."]
+}
+
+dataset = Dataset.from_dict(data)
+
+# Evaluate with multiple metrics
+result = evaluate(
+    dataset=dataset,
+    metrics=[
+        faithfulness,
+        answer_relevancy,
+        context_precision,
+        context_recall,
+    ]
+)
+
+print(result)
+```
+
+## Reference-Free Evaluation Example
+
+```python
+from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy, context_relevancy
+
+# Reference-free evaluation (no ground truth needed)
+data = {
+    "question": ["What are the benefits of vector databases?"],
+    "answer": ["Vector databases enable semantic search..."],
+    "contexts": [["Vector databases store high-dimensional vectors..."]]
+}
+
+dataset = Dataset.from_dict(data)
+
+# Evaluate without ground truth
+result = evaluate(
+    dataset=dataset,
+    metrics=[faithfulness, answer_relevancy, context_relevancy]
+)
+
+print(f"Faithfulness: {result['faithfulness']}")
+print(f"Answer Relevancy: {result['answer_relevancy']}")
+print(f"Context Relevancy: {result['context_relevancy']}")
+```
+
+## LangChain Integration Example
+
+```python
+from langchain_openai import ChatOpenAI
+from langchain.retrievers import VectorStoreRetriever
+from langchain.evaluation import EvaluatorType
+from ragas.langchain import RagasEvaluatorChain
+
+llm = ChatOpenAI(model="gpt-4o")
+retriever = VectorStoreRetriever(...)
+
+# Create RAG chain
+from langchain.chains import RetrievalQA
+qa_chain = RetrievalQA.from_chain_type(
+    llm=llm,
+    retriever=retriever
+)
+
+# Evaluate with RAGAS
+evaluator = RagasEvaluatorChain.from_metrics([
+    faithfulness,
+    answer_relevancy,
+    context_precision
+])
+
+result = evaluator.evaluate(
+    question="What is RAG?",
+    answer=qa_chain.run("What is RAG?"),
+    contexts=retriever.get_relevant_documents("What is RAG?")
+)
+```
+
+## LlamaIndex Integration Example
+
+```python
+from llama_index.core import VectorStoreIndex, ServiceContext
+from llama_index.llms.openai import OpenAI
+from ragas.llama_index import evaluate
+
+# Create query engine
+llm = OpenAI(model="gpt-4o")
+index = VectorStoreIndex.from_documents(documents)
+query_engine = index.as_query_engine(llm=llm)
+
+# Prepare evaluation dataset
+questions = ["What is RAG?", "How do vector databases work?"]
+ground_truths = ["RAG is...", "Vector databases..."]
 
 # Evaluate
-results = evaluate(dataset)
+results = evaluate(
+    query_engine=query_engine,
+    questions=questions,
+    ground_truths=ground_truths,
+    metrics=[faithfulness, answer_relevancy, context_precision]
+)
+
+print(results)
 ```
+
+## Async Evaluation Example
+
+```python
+import asyncio
+from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy
+
+async def evaluate_async():
+    dataset = Dataset.from_dict({
+        "question": ["What is RAG?"],
+        "answer": ["RAG stands for..."],
+        "contexts": [["RAG combines..."]]
+    })
+    
+    result = await evaluate(
+        dataset=dataset,
+        metrics=[faithfulness, answer_relevancy],
+        is_async=True  # Enable async evaluation
+    )
+    
+    return result
+
+# Run async evaluation
+result = asyncio.run(evaluate_async())
+```
+
+## Production Best Practices
+
+1. **Use Reference-Free Metrics**: For production, use metrics that don't require ground truth
+2. **Combine Multiple Metrics**: Don't rely on a single metric; use multiple perspectives
+3. **Set Thresholds**: Define quality thresholds for each metric (e.g., faithfulness > 0.8)
+4. **Continuous Evaluation**: Run evaluations continuously, not just during development
+5. **Sample Evaluation**: For large datasets, evaluate on a representative sample
+6. **Monitor Trends**: Track metrics over time to detect quality degradation
+7. **Debug with Metrics**: Use specific metrics to debug issues (low faithfulness = hallucination)
+8. **Cost Management**: Async evaluation and batching can reduce LLM API costs
 
 ## Resources
 
 - [RAGAS Documentation](https://docs.ragas.io/)
 - [RAGAS GitHub](https://github.com/explodinggradients/ragas)
-
+- [RAGAS Metrics Guide](https://docs.ragas.io/concepts/metrics/)
+- [LangChain Integration](https://docs.ragas.io/integrations/langchain/)
+- [LlamaIndex Integration](https://docs.ragas.io/integrations/llamaindex/)

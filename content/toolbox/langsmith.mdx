@@ -1,63 +1,239 @@
 ---
 title: "LangSmith"
 category: "observability"
-description: "Platform for debugging, testing, and monitoring LLM applications"
-officialUrl: "https://www.langchain.com/langsmith"
-tags: ["observability", "debugging", "evaluation", "monitoring"]
+description: "Platform for debugging, testing, evaluating, and monitoring LLM applications"
+officialUrl: "https://smith.langchain.com/"
+tags: ["observability", "monitoring", "evaluation", "tracing", "debugging"]
 whenToUse: [
-  "Debugging LLM applications",
-  "Evaluating prompt performance",
-  "Monitoring production LLM systems",
-  "Tracing agent execution"
+  "Debugging LLM applications in production",
+  "Evaluating and testing LLM chains",
+  "Monitoring LLM application performance",
+  "Tracing LLM calls and costs"
 ]
-alternatives: ["Phoenix", "Weights & Biases", "Custom logging"]
+alternatives: ["Phoenix", "OpenTelemetry", "Custom Observability", "Weights & Biases"]
 ---
 
 # LangSmith
 
-LangSmith is a platform for debugging, testing, and monitoring LLM applications. It provides tracing, evaluation, and monitoring capabilities for production AI systems.
+LangSmith is a unified platform for debugging, testing, evaluating, and monitoring LLM applications. As of December 2025, it's the most comprehensive observability platform specifically designed for LLM applications built with LangChain or other frameworks.
 
 ## Overview
 
-LangSmith helps you:
-- **Debug** LLM applications with detailed traces
-- **Evaluate** prompt performance and quality
-- **Monitor** production systems in real-time
-- **Optimize** prompts and chains
+LangSmith provides end-to-end observability for LLM applications:
+- **Tracing**: Track every LLM call, chain execution, and token usage
+- **Debugging**: Step through LLM applications with detailed traces
+- **Evaluation**: Test and evaluate LLM applications with datasets
+- **Monitoring**: Monitor production applications in real-time
+- **Feedback**: Collect and analyze user feedback
+- **Cost Tracking**: Monitor token usage and costs across the application
 
 ## When to Use
 
-- Debugging complex LLM chains and agents
-- Evaluating prompt variations
+- Debugging LLM applications during development
+- Testing and evaluating LLM chains before deployment
 - Monitoring production LLM applications
-- Tracing agent execution paths
+- Tracing LLM calls to understand execution flow
+- Tracking costs and token usage
+- Collecting and analyzing user feedback
+- Comparing different prompts, models, or configurations
+- Detecting regressions and quality issues
 
-## Key Features
+## Key Features (As of December 2025)
 
-- **Tracing**: Detailed traces of LLM calls
-- **Evaluation**: Test and compare prompts
-- **Monitoring**: Real-time production monitoring
-- **Datasets**: Manage test datasets
+- **Automatic Tracing**: Automatic tracing for LangChain applications
+- **Manual Tracing**: Add traces to any LLM application
+- **Dataset Management**: Create and manage test datasets
+- **Evaluation Suite**: Built-in evaluation metrics and LLM-as-judge
+- **Feedback Collection**: Collect and analyze user feedback
+- **Real-time Monitoring**: Monitor production applications in real-time
+- **Cost Analytics**: Track costs by model, project, or user
+- **Collaboration**: Share traces and evaluations with teams
+- **CI/CD Integration**: Integrate evaluations into CI/CD pipelines
 
-## Basic Example
+## Basic Tracing Example
+
+```python
+from langchain_openai import ChatOpenAI
+from langsmith import traceable
+from langsmith.wrappers import wrap_openai
+
+# Enable tracing (set LANGSMITH_API_KEY environment variable)
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# Automatically traced when using LangChain
+response = llm.invoke("What is RAG?")
+
+# Or wrap OpenAI client directly
+client = wrap_openai(OpenAI())
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "What is RAG?"}]
+)
+```
+
+## Manual Tracing Example
 
 ```python
 from langsmith import traceable
 from openai import OpenAI
 
-client = OpenAI()
-
 @traceable
-def my_llm_function(prompt: str):
+def my_rag_function(query: str, context: str) -> str:
+    """This function will be traced in LangSmith"""
+    client = OpenAI()
+    
     response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}]
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": f"Context: {context}"},
+            {"role": "user", "content": query}
+        ]
     )
+    
     return response.choices[0].message.content
+
+result = my_rag_function(
+    query="What is RAG?",
+    context="RAG stands for Retrieval-Augmented Generation..."
+)
 ```
+
+## Evaluation Example
+
+```python
+from langsmith import Client
+from langchain_openai import ChatOpenAI
+from langchain.chains import LLMChain
+from langchain.prompts import ChatPromptTemplate
+
+client = Client()
+
+# Create a dataset
+dataset_name = "rag-evaluation"
+client.create_dataset(
+    dataset_name=dataset_name,
+    description="Test dataset for RAG evaluation"
+)
+
+# Add examples
+client.create_example(
+    inputs={"query": "What is RAG?"},
+    outputs={"expected": "RAG is Retrieval-Augmented Generation..."},
+    dataset_name=dataset_name
+)
+
+# Define your chain
+llm = ChatOpenAI(model="gpt-4o")
+prompt = ChatPromptTemplate.from_template("Answer: {query}")
+chain = LLMChain(llm=llm, prompt=prompt)
+
+# Run evaluation
+results = client.run_on_dataset(
+    dataset_name=dataset_name,
+    llm_or_chain_factory=chain,
+    evaluation=client.evaluate,
+    verbose=True
+)
+```
+
+## LangChain Integration Example
+
+```python
+from langchain_openai import ChatOpenAI
+from langchain.agents import create_openai_tools_agent, AgentExecutor
+from langchain_core.tools import tool
+
+# Set environment variables for tracing
+# export LANGCHAIN_TRACING_V2=true
+# export LANGCHAIN_API_KEY=your-api-key
+# export LANGCHAIN_PROJECT=my-project
+
+llm = ChatOpenAI(model="gpt-4o")
+
+@tool
+def search_tool(query: str) -> str:
+    """Search for information"""
+    return f"Results: {query}"
+
+# This will be automatically traced
+agent = create_openai_tools_agent(llm, [search_tool])
+agent_executor = AgentExecutor(agent=agent, tools=[search_tool])
+result = agent_executor.invoke({"input": "What is RAG?"})
+```
+
+## Feedback and Monitoring Example
+
+```python
+from langsmith import Client
+
+client = Client()
+
+# Create a feedback
+run_id = "..."  # From trace
+client.create_feedback(
+    run_id=run_id,
+    key="user_rating",
+    score=0.9,  # 0.0 to 1.0
+    comment="Great answer!"
+)
+
+# Query runs with filters
+runs = client.list_runs(
+    project_name="my-project",
+    filter='eq(feedback_key, "user_rating") and gt(feedback_score, 0.8)',
+    limit=10
+)
+```
+
+## Production Monitoring Example
+
+```python
+from langsmith import Client
+from langsmith.wrappers import wrap_openai
+
+client = Client()
+
+# Wrap your LLM calls for monitoring
+client = wrap_openai(OpenAI())
+
+# All calls are automatically traced
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "What is RAG?"}]
+)
+
+# Monitor in LangSmith dashboard:
+# - Track latency
+# - Monitor errors
+# - Track costs
+# - View token usage
+# - Analyze quality trends
+```
+
+## Production Best Practices
+
+1. **Enable Tracing**: Always enable tracing in production for debugging and monitoring
+2. **Use Projects**: Organize traces by project (development, staging, production)
+3. **Set Up Alerts**: Configure alerts for errors, high latency, or cost spikes
+4. **Collect Feedback**: Implement feedback collection to measure quality
+5. **Regular Evaluations**: Run evaluations regularly to catch regressions
+6. **Monitor Costs**: Track costs by model, project, and user to optimize spending
+7. **Use Datasets**: Create datasets for common user queries and edge cases
+8. **CI/CD Integration**: Integrate evaluations into CI/CD to prevent regressions
+
+## Pricing and Plans (As of December 2025)
+
+- **Free Tier**: Limited tracing and evaluation runs (suitable for development)
+- **Team Plans**: Enhanced features, higher limits, team collaboration
+- **Enterprise**: Custom pricing with advanced features, SLAs, and support
+
+Check current pricing at [LangSmith Pricing](https://smith.langchain.com/pricing)
 
 ## Resources
 
 - [LangSmith Documentation](https://docs.smith.langchain.com/)
-- [LangSmith GitHub](https://github.com/langchain-ai/langsmith-sdk)
-
+- [LangSmith Platform](https://smith.langchain.com/)
+- [LangSmith GitHub](https://github.com/langchain-ai/langsmith)
+- [Getting Started Guide](https://docs.smith.langchain.com/get_started)
+- [Evaluation Guide](https://docs.smith.langchain.com/evaluation)
+- [Monitoring Guide](https://docs.smith.langchain.com/monitoring)

@@ -1,62 +1,247 @@
 ---
 title: "Phoenix"
 category: "observability"
-description: "Open-source observability platform for LLM applications"
-officialUrl: "https://www.arize.com/phoenix"
-tags: ["observability", "open-source", "tracing", "debugging"]
+description: "Open-source observability platform for LLM applications with tracing, evaluation, and monitoring"
+officialUrl: "https://www.arize.com/phoenix/"
+tags: ["observability", "tracing", "monitoring", "evaluation", "open-source"]
 whenToUse: [
-  "Open-source observability",
-  "Debugging LLM applications",
-  "Tracing and monitoring",
-  "On-premises deployment"
+  "Tracing LLM applications",
+  "Evaluating RAG systems",
+  "Monitoring production LLM applications",
+  "Debugging LLM chains and agents"
 ]
-alternatives: ["LangSmith", "Weights & Biases", "Custom logging"]
+alternatives: ["LangSmith", "OpenTelemetry", "Custom Observability", "Weights & Biases"]
 ---
 
 # Phoenix
 
-Phoenix is an open-source observability platform for LLM applications. It provides tracing, monitoring, and debugging capabilities for production AI systems.
+Phoenix is an open-source observability platform for LLM applications. As of December 2025, it's a powerful alternative to proprietary solutions, providing tracing, evaluation, and monitoring capabilities for LLM applications built with any framework.
 
 ## Overview
 
-Phoenix helps you:
-- **Trace** LLM calls and chains
-- **Monitor** production performance
-- **Debug** issues with detailed traces
-- **Evaluate** model performance
+Phoenix provides comprehensive observability for LLM applications:
+- **Tracing**: Trace LLM calls, chains, and token usage
+- **Evaluation**: Evaluate RAG systems and LLM applications
+- **Monitoring**: Monitor production applications in real-time
+- **Embeddings Analysis**: Analyze and debug embeddings
+- **Spans**: Detailed spans for every operation
+- **Open Source**: Fully open-source and self-hostable
 
 ## When to Use
 
-- Open-source observability solution
-- On-premises deployment requirements
-- Debugging LLM applications
-- Monitoring production systems
+- Tracing LLM applications (works with any framework)
+- Evaluating RAG systems with comprehensive metrics
+- Monitoring production LLM applications
+- Analyzing embeddings and vector stores
+- Debugging LLM chains and agents
+- When you need open-source, self-hosted observability
+- When you want to avoid vendor lock-in
 
-## Key Features
+## Key Features (As of December 2025)
 
-- **Open Source**: Free and open-source
-- **Tracing**: Detailed traces of LLM operations
-- **Evaluation**: Built-in evaluation tools
-- **Visualizations**: Interactive dashboards
+- **Open Source**: Fully open-source and self-hostable
+- **Framework Agnostic**: Works with LangChain, LlamaIndex, or any LLM application
+- **Tracing**: Automatic and manual tracing support
+- **Evaluation**: Built-in evaluation metrics for RAG and LLM applications
+- **Embeddings Analysis**: Analyze embeddings quality and clusters
+- **Real-time Monitoring**: Monitor production applications in real-time
+- **Spans**: Detailed spans for debugging and analysis
+- **Cost Tracking**: Track token usage and costs
+- **No Vendor Lock-in**: Self-hosted, your data stays with you
 
-## Basic Example
+## Basic Setup and Tracing Example
 
 ```python
+import phoenix as px
 from openai import OpenAI
 from phoenix.trace import openai
+
+# Start Phoenix (typically run in a separate terminal or process)
+# phoenix serve
 
 # Wrap OpenAI client for automatic tracing
 client = openai.OpenAI()
 
-# Traced client automatically captures traces
+# All calls are automatically traced
 response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "Hello"}]
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "What is RAG?"}]
 )
 ```
+
+## LangChain Integration Example
+
+```python
+import phoenix as px
+from langchain_openai import ChatOpenAI
+from langchain.chains import LLMChain
+from langchain.prompts import ChatPromptTemplate
+
+# Start Phoenix session
+session = px.launch_app()
+
+# Phoenix automatically traces LangChain calls
+llm = ChatOpenAI(model="gpt-4o")
+prompt = ChatPromptTemplate.from_template("Answer: {query}")
+chain = LLMChain(llm=llm, prompt=prompt)
+
+result = chain.run("What is RAG?")
+
+# View traces in Phoenix UI (usually at http://localhost:6006)
+```
+
+## LlamaIndex Integration Example
+
+```python
+import phoenix as px
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.llms.openai import OpenAI
+
+# Start Phoenix
+session = px.launch_app()
+
+# Load and index documents
+documents = SimpleDirectoryReader("./data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+
+# Create query engine (automatically traced)
+query_engine = index.as_query_engine(llm=OpenAI(model="gpt-4o"))
+response = query_engine.query("What is RAG?")
+```
+
+## Manual Tracing Example
+
+```python
+import phoenix as px
+from phoenix.trace import trace
+from openai import OpenAI
+
+session = px.launch_app()
+
+@trace
+def my_rag_function(query: str, context: str) -> str:
+    """This function will be traced in Phoenix"""
+    client = OpenAI()
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": f"Context: {context}"},
+            {"role": "user", "content": query}
+        ]
+    )
+    
+    return response.choices[0].message.content
+
+result = my_rag_function(
+    query="What is RAG?",
+    context="RAG stands for Retrieval-Augmented Generation..."
+)
+```
+
+## RAG Evaluation Example
+
+```python
+import phoenix as px
+from phoenix.evals import (
+    QAEvalChain,
+    HallucinationEvaluator,
+    RelevanceEvaluator,
+)
+
+session = px.launch_app()
+
+# Evaluate a RAG system
+qa_eval = QAEvalChain()
+hallucination_eval = HallucinationEvaluator()
+relevance_eval = RelevanceEvaluator()
+
+# Run evaluations
+results = qa_eval.evaluate(
+    dataframe=your_dataframe,  # Contains question, answer, context, ground_truth
+    evaluators=[hallucination_eval, relevance_eval]
+)
+
+# View results in Phoenix UI
+session.view_evaluation(results)
+```
+
+## Embeddings Analysis Example
+
+```python
+import phoenix as px
+from phoenix.embeddings import EmbeddingsAnalyzer
+
+session = px.launch_app()
+
+# Analyze embeddings
+analyzer = EmbeddingsAnalyzer(
+    corpus_embeddings=corpus_embeddings,  # Your embeddings
+    corpus_texts=corpus_texts,  # Original texts
+    query_embeddings=query_embeddings,  # Query embeddings
+    query_texts=query_texts  # Query texts
+)
+
+# Visualize in Phoenix UI
+session.view(analyzer.umap_plot())
+```
+
+## Production Monitoring Example
+
+```python
+import phoenix as px
+from phoenix.trace import openai
+
+# In production, connect to a remote Phoenix instance
+px.launch_app(host="phoenix.yourcompany.com", port=443)
+
+# Wrap your LLM calls
+client = openai.OpenAI()
+
+# All calls are automatically traced and monitored
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "What is RAG?"}]
+)
+
+# Monitor in Phoenix:
+# - View traces in real-time
+# - Track latency and errors
+# - Monitor token usage and costs
+# - Analyze quality trends
+```
+
+## Production Best Practices
+
+1. **Deploy Phoenix**: Deploy Phoenix as a service for production monitoring
+2. **Use Spans**: Leverage spans for detailed debugging and analysis
+3. **Run Evaluations**: Regularly evaluate your RAG systems with Phoenix
+4. **Analyze Embeddings**: Use embeddings analysis to improve retrieval
+5. **Monitor Costs**: Track token usage and costs across applications
+6. **Set Up Alerts**: Configure alerts for errors, latency, or quality issues
+7. **Export Data**: Export trace data for custom analysis or long-term storage
+8. **Self-Host**: Self-host Phoenix for data privacy and control
+
+## Installation and Deployment
+
+```bash
+# Install Phoenix
+pip install arize-phoenix
+
+# Run Phoenix locally (development)
+phoenix serve
+
+# Or use Python API
+import phoenix as px
+px.launch_app()
+```
+
+For production deployment, Phoenix can be deployed as a Docker container or on cloud platforms.
 
 ## Resources
 
 - [Phoenix Documentation](https://docs.arize.com/phoenix)
 - [Phoenix GitHub](https://github.com/Arize-ai/phoenix)
-
+- [Getting Started Guide](https://docs.arize.com/phoenix/get-started)
+- [Evaluation Guide](https://docs.arize.com/phoenix/evaluation)
+- [Tracing Guide](https://docs.arize.com/phoenix/tracing)

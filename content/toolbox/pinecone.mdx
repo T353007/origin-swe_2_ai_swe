@@ -1,68 +1,237 @@
 ---
 title: "Pinecone"
 category: "vector-db"
-description: "Managed vector database for semantic search and RAG applications"
+description: "Managed vector database for production AI applications with serverless and dedicated options"
 officialUrl: "https://www.pinecone.io/"
-tags: ["vector-database", "rag", "semantic-search", "managed"]
+tags: ["vector-db", "managed", "serverless", "production"]
 whenToUse: [
   "Production RAG applications",
-  "Semantic search at scale",
-  "When you need managed infrastructure",
-  "High-performance vector search"
+  "Large-scale vector search",
+  "Managed vector database solution",
+  "Serverless or dedicated infrastructure"
 ]
-alternatives: ["Weaviate", "Qdrant", "Chroma", "Milvus"]
+alternatives: ["Weaviate", "Qdrant", "Milvus", "Chroma", "PGVector"]
 ---
 
 # Pinecone
 
-Pinecone is a managed vector database that makes it easy to add semantic search to applications. It's designed for production use with high performance and reliability.
+Pinecone is a managed vector database designed for production AI applications. As of December 2025, it offers both serverless and dedicated options, making it a popular choice for companies that need a scalable, managed solution for vector search without managing infrastructure.
 
 ## Overview
 
-Pinecone provides:
-- **Managed Infrastructure**: No need to manage servers
-- **High Performance**: Optimized for fast vector search
-- **Scalability**: Automatically scales with your needs
-- **Metadata Filtering**: Filter by metadata alongside vector search
+Pinecone provides a fully managed vector database service:
+- **Managed Service**: Fully managed infrastructure, no DevOps required
+- **Serverless Option**: Serverless deployment for automatic scaling
+- **Dedicated Option**: Dedicated clusters for high-performance applications
+- **Global Distribution**: Deploy indexes across multiple regions
+- **High Performance**: Optimized for fast similarity search at scale
+- **Simple API**: Clean, RESTful API with official Python, Node.js, and Go clients
 
 ## When to Use
 
-- Production RAG applications requiring reliability
-- Applications needing high-performance vector search
-- When you want managed infrastructure (no DevOps)
-- Large-scale semantic search
+- Production RAG applications requiring high availability
+- Large-scale applications with millions of vectors
+- Need managed infrastructure without DevOps overhead
+- Serverless architecture requirements
+- Global applications needing multi-region deployment
+- When you need fast, reliable vector search without infrastructure management
 
-## Key Features
+## Key Features (As of December 2025)
 
-- **Fully Managed**: No infrastructure to manage
-- **Fast Search**: Optimized for low latency
-- **Metadata Filtering**: Combine vector and metadata queries
-- **Automatic Scaling**: Handles traffic spikes automatically
+- **Serverless and Dedicated**: Choose between serverless (pay-per-use) or dedicated (high-performance) options
+- **Managed Infrastructure**: Fully managed, no infrastructure to maintain
+- **Global Deployment**: Deploy indexes across multiple regions
+- **High Performance**: Optimized for fast similarity search
+- **Metadata Filtering**: Filter results by metadata attributes
+- **Namespaces**: Organize vectors into namespaces for multi-tenancy
+- **Python/Node.js SDKs**: Official SDKs for popular languages
+- **LangChain Integration**: Native integration with LangChain
+- **LlamaIndex Integration**: Native integration with LlamaIndex
 
 ## Basic Example
 
 ```python
-from pinecone import Pinecone
+from pinecone import Pinecone, ServerlessSpec
 from openai import OpenAI
 
+# Initialize Pinecone client
 pc = Pinecone(api_key="your-api-key")
-index = pc.Index("my-index")
 
-# Insert vectors
-index.upsert(vectors=[
-    ("id1", embedding1, {"metadata": "value"})
-])
+# Create index (serverless)
+pc.create_index(
+    name="documents",
+    dimension=1536,  # Dimension of your embeddings (e.g., text-embedding-3-small)
+    metric="cosine",
+    spec=ServerlessSpec(
+        cloud="aws",
+        region="us-east-1"
+    )
+)
+
+# Get index
+index = pc.Index("documents")
+
+# Generate embeddings
+openai_client = OpenAI()
+embedding = openai_client.embeddings.create(
+    model="text-embedding-3-small",
+    input="What is RAG?"
+).data[0].embedding
+
+# Upsert vectors
+index.upsert(
+    vectors=[
+        {
+            "id": "doc1",
+            "values": embedding,
+            "metadata": {"text": "What is RAG?", "source": "faq"}
+        }
+    ]
+)
 
 # Query
 results = index.query(
-    vector=query_embedding,
+    vector=embedding,
     top_k=5,
     include_metadata=True
 )
 ```
 
+## LangChain Integration Example
+
+```python
+from langchain_community.vectorstores import Pinecone
+from langchain_openai import OpenAIEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.document_loaders import TextLoader
+
+# Initialize embeddings
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Create Pinecone vector store
+vectorstore = Pinecone.from_documents(
+    documents=documents,
+    embedding=embeddings,
+    index_name="documents"
+)
+
+# Query
+results = vectorstore.similarity_search("What is RAG?", k=5)
+
+# Query with metadata filtering
+results = vectorstore.similarity_search(
+    "What is RAG?",
+    k=5,
+    filter={"source": "faq"}  # Metadata filter
+)
+```
+
+## LlamaIndex Integration Example
+
+```python
+from llama_index.core import VectorStoreIndex, StorageContext
+from llama_index.vector_stores.pinecone import PineconeVectorStore
+from llama_index.embeddings.openai import OpenAIEmbedding
+from pinecone import Pinecone
+
+# Initialize Pinecone
+pc = Pinecone(api_key="your-api-key")
+pinecone_index = pc.Index("documents")
+
+# Create vector store
+vector_store = PineconeVectorStore(pinecone_index=pinecone_index)
+storage_context = StorageContext.from_defaults(vector_store=vector_store)
+
+# Create index
+embed_model = OpenAIEmbedding(model="text-embedding-3-small")
+index = VectorStoreIndex.from_documents(
+    documents,
+    storage_context=storage_context,
+    embed_model=embed_model
+)
+
+# Query
+query_engine = index.as_query_engine()
+response = query_engine.query("What is RAG?")
+```
+
+## Metadata Filtering Example
+
+```python
+from pinecone import Pinecone
+
+pc = Pinecone(api_key="your-api-key")
+index = pc.Index("documents")
+
+# Query with metadata filtering
+results = index.query(
+    vector=query_vector,
+    top_k=10,
+    filter={
+        "category": {"$eq": "technical"},
+        "year": {"$gte": 2024}
+    },
+    include_metadata=True
+)
+
+# Complex filters
+results = index.query(
+    vector=query_vector,
+    top_k=10,
+    filter={
+        "$and": [
+            {"category": {"$eq": "technical"}},
+            {"year": {"$gte": 2024}}
+        ]
+    }
+)
+```
+
+## Namespaces Example
+
+```python
+from pinecone import Pinecone
+
+pc = Pinecone(api_key="your-api-key")
+index = pc.Index("documents")
+
+# Upsert to specific namespace
+index.upsert(
+    vectors=[...],
+    namespace="user-123"  # Multi-tenant isolation
+)
+
+# Query from specific namespace
+results = index.query(
+    vector=query_vector,
+    top_k=5,
+    namespace="user-123"
+)
+```
+
+## Production Best Practices
+
+1. **Choose Right Option**: Use serverless for variable traffic, dedicated for consistent high performance
+2. **Index Dimensions**: Ensure dimension matches your embedding model (e.g., 1536 for text-embedding-3-small)
+3. **Metadata Design**: Design metadata schemas for efficient filtering
+4. **Namespaces**: Use namespaces for multi-tenancy and data isolation
+5. **Monitoring**: Monitor index size, query latency, and costs
+6. **Error Handling**: Implement retry logic and error handling
+7. **Cost Optimization**: Monitor usage and optimize for cost (serverless vs dedicated)
+8. **Backup Strategy**: Implement backup strategies for critical data
+
+## Pricing (As of December 2025)
+
+- **Serverless**: Pay-per-use pricing based on operations
+- **Dedicated**: Fixed pricing based on pod size and region
+- **Free Tier**: Limited free tier available for development
+
+Check current pricing at [Pinecone Pricing](https://www.pinecone.io/pricing/)
+
 ## Resources
 
 - [Pinecone Documentation](https://docs.pinecone.io/)
-- [Pinecone Python Client](https://github.com/pinecone-io/pinecone-python-client)
-
+- [Pinecone Platform](https://www.pinecone.io/)
+- [Python Client](https://docs.pinecone.io/reference/python-client-v3)
+- [LangChain Integration](https://python.langchain.com/docs/integrations/vectorstores/pinecone)
+- [LlamaIndex Integration](https://docs.llamaindex.ai/en/stable/examples/vector_stores/PineconeIndexDemo/)
